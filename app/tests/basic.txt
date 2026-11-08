@@ -1,5 +1,5 @@
-# The template in the host simulator: tools/build.py template --host, then
-#   template/build/host/template_host template/tests/basic.txt template/build/host
+# Dubwise FM in the host simulator: tests/run_tests.sh, or ./build.sh --host, then
+#   app/build/host/dubwise_host app/tests/basic.txt app/build/host
 wait 600
 shot boot.png
 key 7 down
@@ -42,7 +42,7 @@ expect peak_db_min -30
 midi 80 3C 00
 listen
 wait 100
-said TEMPLATE. OCTAVE +1. WAVE TRIANGLE
+said DUBWISE. OCTAVE +1. WAVE TRIANGLE
 tap ARP
 wait 30
 said BUTTON ARP

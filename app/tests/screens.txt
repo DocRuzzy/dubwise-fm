@@ -1,5 +1,5 @@
-# The manual's screenshots (template/docs/img): tools/build.py template --host, then
-#   template/build/host/template_host template/tests/screens.txt template/docs/img
+# The manual's screenshots (app/docs/img): ./build.sh --host, then
+#   app/build/host/dubwise_host app/tests/screens.txt app/docs/img
 wait 900
 shot screen-ready.png
 key 7 down 90 50

@@ -18,4 +18,4 @@ description = "A reggae/dub groovebox where the mixing desk is the instrument: q
 tags = ["groovebox", "synth"]    # from the list in docs/FIRMWARE-JSON.md; the build refuses another
 install = "https://docruzzy.github.io/dubwise-fm/install/"   # the page that installs it
 site = "https://docruzzy.github.io/dubwise-fm/"
-screenshot = "docs/img/screen-playing.png"   # for the hubs' cards: a square PNG, at least 240 x 240, in your repository
+screenshot = "app/docs/img/screen-playing.png"   # for the hubs' cards: a square PNG, at least 240 x 240, in your repository
