@@ -116,6 +116,10 @@ enum {
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..10 = HPF_HZ */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */
     P_HPF_END,
+    P_WET = 0x0E4,            /* 1: drop to wet (black 5, held): the dry desk out, the returns on (spec 4.1) */
+    P_DNB,                    /* 1: drum and bass (black 11, held): skank, organ, lead and vox out, sends too */
+    P_SPIN,                   /* 0 -> 1: the spin-back (P3.5): the last 1.6 s backwards, then from the top */
+    P_DESK_END,
     P_XS_E2S = 0x0E8,         /* cross-sends (P1.3): the echo's return into the spring, 0..127 */
     P_XS_S2E,                 /* the spring's return into the echo, 0..127 (the two together capped: a loop) */
     P_XS_END,

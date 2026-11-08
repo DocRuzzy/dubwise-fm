@@ -374,7 +374,11 @@ static void button_press(uint32_t k)
         fx_next(dub.page == PAGE_FX);
         dub.page = PAGE_FX;
     }
-    else if (k == B_PLAY)
+    else if (k == B_PLAY && (dub.btn >> B_HOME & 1u)) {   /* HOME + PLAY: the spin-back (P3.5) */
+        dub.home_used = dub.play_used = 1;
+        ctl_set(P_SPIN, 1);
+        app_say("REWIND", ctl_get(P_PLAY) ? "COME AGAIN" : "");
+    } else if (k == B_PLAY)
         dub.play_used = 0;               /* start / stop on release, unless used as a modifier */
     else if (k == B_HOME)
         dub.home_used = 0;
@@ -399,6 +403,8 @@ static void button_press(uint32_t k)
 
 static void button_release(uint32_t k)
 {
+    if (k == B_PLAY && ctl_get(P_SPIN))
+        ctl_set(P_SPIN, 0);
     if (k == B_PLAY && !dub.play_used) {
         int on = !ctl_get(P_PLAY);
         ctl_set(P_PLAY, on);
@@ -646,7 +652,7 @@ void dub_input(void)
                 throw_release(k - NCH, now);
         }
     }
-    for (k = 0; k < 11u; k++) {          /* black keys: 2 echo freeze, 3 dub push (while held); the rest to come */
+    for (k = 0; k < 11u; k++) {          /* black keys (spec 4.1): crash, hold, push, dive, wet, sirens, shots, D&B */
         uint32_t bit = 1u << BK[k];
         if ((keys & bit) && !(dub.keys & bit)) {
             dub.vel[BK[k]] = (uint8_t)touch_vel(BK[k]);
@@ -661,6 +667,10 @@ void dub_input(void)
             }
             if (k == 5u || k == 6u)      /* the sirens A, B, while held (P2.1) */
                 ctl_note(CH_VOX, k == 5u ? SIREN_A : SIREN_B, touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
+            if (k == 4u || k == 10u) {   /* drop to wet, drum and bass: while held (spec 4.1) */
+                ctl_set(k == 4u ? P_WET : P_DNB, 1);
+                dub.dirty_centre = 1;
+            }
             if (k == 3u) {               /* the tape dive, while held */
                 ctl_set(P_ECHO_DIVE, 1);
                 dub.dirty_foot = 1;
@@ -683,6 +693,9 @@ void dub_input(void)
             app_say(BLACK_NAME[k], "");
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 5u || k == 6u)) {
             ctl_note(CH_VOX, k == 5u ? SIREN_A : SIREN_B, 0);
+        } else if (!(keys & bit) && (dub.keys & bit) && (k == 4u || k == 10u)) {
+            ctl_set(k == 4u ? P_WET : P_DNB, 0);
+            dub.dirty_centre = 1;
         } else if (!(keys & bit) && (dub.keys & bit) && k == 3u) {
             ctl_set(P_ECHO_DIVE, 0);
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 1u || k == 2u)) {

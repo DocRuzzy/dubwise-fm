@@ -16,7 +16,10 @@ static uint32_t next;                            /* the next move to play in it 
 static uint16_t touched[NTOUCH];                 /* hands on these in this bar: their motion not played */
 static uint32_t ntouched;
 
-int mot_recordable(uint32_t id) { return id >= P_CH_BASE && id < P_NIDS && param_desc(id) != 0; }
+int mot_recordable(uint32_t id)                  /* (not the spin-back: a song that rewinds itself never ends) */
+{
+    return id >= P_CH_BASE && id < P_NIDS && id != P_SPIN && param_desc(id) != 0;
+}
 
 int mot_momentary(uint32_t id)
 {
@@ -25,13 +28,13 @@ int mot_momentary(uint32_t id)
         if (id == P_CH(ch, CHF_THROW))
             return (int)ch;
     return id == P_ECHO_FREEZE ? (int)NCH : id == P_ECHO_PUSH ? (int)NCH + 1 : id == P_ECHO_DIVE ? (int)NCH + 2
-           : id == P_SPRING_KICK ? (int)NCH + 3 : -1;
+           : id == P_SPRING_KICK ? (int)NCH + 3 : id == P_WET ? (int)NCH + 4 : id == P_DNB ? (int)NCH + 5 : -1;
 }
 
 uint32_t mot_mom_id(uint32_t k)
 {
-    static const uint16_t X[4] = {P_ECHO_FREEZE, P_ECHO_PUSH, P_ECHO_DIVE, P_SPRING_KICK};
-    return k < NCH ? P_CH(k, CHF_THROW) : X[(k - NCH) & 3u];
+    static const uint16_t X[6] = {P_ECHO_FREEZE, P_ECHO_PUSH, P_ECHO_DIVE, P_SPRING_KICK, P_WET, P_DNB};
+    return k < NCH ? P_CH(k, CHF_THROW) : X[(k - NCH) % 6u];
 }
 
 static int keeps_all(uint32_t id)                /* every press and release kept (no thinning) */

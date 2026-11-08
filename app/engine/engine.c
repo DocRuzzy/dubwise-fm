@@ -242,6 +242,10 @@ static void set_by_hand(uint32_t id, int32_t v)
     mot_user(id, ev[id], bar_tick(), ev[P_SONG_REC] != 0);
 }
 
+static int spin_on, spin_last;                   /* the spin-back (P3.5): 1 spinning, 2 the gap after */
+static void spin_start(void);
+static void transport_stop(void);
+
 static void mot_release(void)                    /* the stop: what motion held down, let go */
 {
     uint32_t k;
@@ -374,13 +378,14 @@ static void strips_update(void)                  /* the targets from the applied
     for (ch = 0; ch < NCH; ch++) {
         strip_t *s = &strip[ch];
         /* solo is additive; a soloed channel that is muted stays muted. Solo-muted = muted, sends too */
-        int audible = !ev[P_CH(ch, CHF_MUTE)] && (!any_solo || ev[P_CH(ch, CHF_SOLO)]);
+        int dnb_out = ev[P_DNB] && ch >= CH_SKANK;   /* drum and bass: the rest out (sends too) */
+        int audible = !ev[P_CH(ch, CHF_MUTE)] && (!any_solo || ev[P_CH(ch, CHF_SOLO)]) && !dnb_out;
         float g = audible ? fader(ev[P_CH(ch, CHF_LEVEL)]) : 0.0f;
         /* a throw (P0.2): the channel to its destination in full, pre-fader and pre-mute, on top of its sends */
         int thr = ev[P_CH(ch, CHF_THROW)] != 0, dest = ev[P_CH(ch, CHF_THROW_DEST)];
         float a = (float)ev[P_CH(ch, CHF_THROW_AMT)] * (1.0f / 127.0f);   /* (P2.9: as hard as it was hit) */
         float te = thr && dest != DEST_SPRING ? a : 0.0f, ts = thr && dest != DEST_ECHO ? a : 0.0f;
-        ramp_to(&s->dry, g);
+        ramp_to(&s->dry, ev[P_WET] ? 0.0f : g); /* drop to wet: the dry out, its sends kept */
         ramp_to(&s->echo, g * send(ev[P_CH(ch, CHF_ECHO_SEND)]) + te);
         ramp_to(&s->spring, g * send(ev[P_CH(ch, CHF_SPRING_SEND)]) + ts);
     }
@@ -552,20 +557,15 @@ static void drain(void)                          /* every queued command, at the
         }
         cmds++;
     }
-    if (ev[P_PLAY] && !t_playing) {              /* start: bar 1, beat 1, at this block's first sample */
+    if (ev[P_SPIN] && !spin_last && !spin_on)    /* the spin-back (P3.5) */
+        spin_start();
+    spin_last = ev[P_SPIN];
+    if (ev[P_PLAY] && !t_playing && !spin_on) {  /* start: bar 1, beat 1, at this block's first sample */
         t_playing = 1;
         t_beat = t_phase = t_samples = 0;
         last_tick = -1;
     } else if (!ev[P_PLAY] && t_playing) {       /* stop: what was cued happens now; the bass let go */
-        t_playing = 0;
-        fire_due(1);
-        mot_release();
-        if (seq_bass >= 0)
-            voice_release(CH_BASS, seq_bass);
-        seq_bass = -1;
-        if (seq_lead >= 0)
-            voice_release(CH_LEAD, seq_lead);
-        seq_lead = -1;
+        transport_stop();
     }
 }
 
@@ -718,6 +718,93 @@ static uint32_t until_cue(void)                  /* samples to the first cue's m
     }
     return best;
 }
+
+/* ------------------------------------------------------------- spin-back --- */
+/* P3.5: the output's last 1.6 s kept (11,025 Hz, mono, int16: 35 KB in the pool); HOME + PLAY plays it backwards,
+ * the "record" dragged back faster and faster (1x .. 2.6x) and fading over 0.8 s, then a beat of silence with the
+ * effects wiped, then the tune again from bar 1 ("pull up, come again"), if it was playing */
+#define SPIN_N 17664u
+#define SPIN_SECS 0.8f
+static PLAT_POOL int16_t spin_ring[SPIN_N];
+static uint32_t spin_w, spin_acc_n, spin_gap, spin_again;
+static int32_t spin_acc;
+static float spin_pos, spin_t;
+
+static void transport_stop(void)                 /* what a stop does: the cues now, motion's holds and the notes let go */
+{
+    t_playing = 0;
+    fire_due(1);
+    mot_release();
+    if (seq_bass >= 0)
+        voice_release(CH_BASS, seq_bass);
+    seq_bass = -1;
+    if (seq_lead >= 0)
+        voice_release(CH_LEAD, seq_lead);
+    seq_lead = -1;
+}
+
+static void spin_start(void)
+{
+    spin_again = t_playing;
+    if (t_playing)
+        transport_stop();
+    spin_on = 1;
+    spin_t = 0.0f;
+    spin_pos = (float)(spin_w ? spin_w - 1u : SPIN_N - 1u);
+}
+
+static void spin_block(int32_t *lr, uint32_t n)  /* after the render: the ring fed, or the spin played over it */
+{
+    uint32_t i;
+    if (!spin_on) {
+        for (i = 0; i < n; i++) {                /* 4 samples averaged to one (a rewind is muffled anyway) */
+            spin_acc += (lr[2u * i] >> 9) + (lr[2u * i + 1u] >> 9);
+            if (++spin_acc_n == 4u) {
+                int32_t v = spin_acc / 4;
+                spin_ring[spin_w] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+                spin_w = spin_w + 1u == SPIN_N ? 0u : spin_w + 1u;
+                spin_acc = 0;
+                spin_acc_n = 0;
+            }
+        }
+        return;
+    }
+    for (i = 0; i < n; i++) {
+        float out = 0.0f;
+        if (spin_on == 1) {
+            float sp = 1.0f + 2.0f * spin_t, amp, fr, a, b;
+            uint32_t k0, k1;
+            spin_pos -= sp * 0.25f;
+            if (spin_pos < 0.0f)
+                spin_pos += (float)SPIN_N;
+            k0 = (uint32_t)spin_pos;
+            k1 = k0 + 1u == SPIN_N ? 0u : k0 + 1u;
+            fr = spin_pos - (float)k0;
+            a = (float)spin_ring[k0];
+            b = (float)spin_ring[k1];
+            amp = spin_t < SPIN_SECS - 0.25f ? 1.0f : (SPIN_SECS - spin_t) * 4.0f;
+            out = (a + (b - a) * fr) * (amp > 0.0f ? amp : 0.0f) * 256.0f;   /* (stored as (L + R) / 512) */
+            spin_t += 1.0f / 44100.0f;
+            if (spin_t >= SPIN_SECS) {           /* stopped: the tails wiped, a beat's silence */
+                spin_on = 2;
+                spin_gap = BEAT_UNITS / (uint32_t)ev[P_TEMPO];
+                voices_panic();
+                echo_init();
+                spring_init();
+                phaser_reset();
+            }
+        } else if (spin_gap) {
+            spin_gap--;
+        } else {
+            spin_on = 0;                         /* (drain starts it again from bar 1 if PLAY is still on) */
+            if (!spin_again)
+                ev[P_PLAY] = 0;
+        }
+        lr[2u * i] = lr[2u * i + 1u] = (int32_t)out;
+    }
+}
+
+int eng_spinning(void) { return spin_on != 0; }
 
 /* ---------------------------------------------------------------- sources --- */
 static const int32_t *live_lr;                   /* the live input this block (P2.8), its frames, its scale */
@@ -953,6 +1040,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             t_step(d);
         pos += d;
     }
+    spin_block(lr, n);
     prof_block();
 }
 

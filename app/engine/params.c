@@ -146,6 +146,11 @@ static const pdesc_t HPF[P_HPF_END - P_HPF_STEP] = {
     {"hpf", 0, HPF_STEPS, 0},
     {"hpf.on", 0, HPF_ON_N - 1, HPF_ON_MIX},
 };
+static const pdesc_t DESK[P_DESK_END - P_WET] = {
+    {"wet", 0, 1, 0},
+    {"dnb", 0, 1, 0},
+    {"spin", 0, 1, 0},
+};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
 const char *tier_name(int32_t t)
@@ -209,6 +214,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &SPRING[id - P_SPRING_RET];
     if (id >= P_HPF_STEP && id < P_HPF_END)
         return &HPF[id - P_HPF_STEP];
+    if (id >= P_WET && id < P_DESK_END)
+        return &DESK[id - P_WET];
     if (id >= P_XS_E2S && id < P_XS_END)
         return &XS[id - P_XS_E2S];
     if (id >= P_PH_ON && id < P_PH_END)
