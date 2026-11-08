@@ -5,7 +5,7 @@
 
 const char *template_name(int32_t t)
 {
-    static const char *const N[TPL_N] = {"ONE DROP", "ROCKERS", "STEPPERS", "FLYERS", "DUB TECHNO"};
+    static const char *const N[TPL_N] = {"ONE DROP", "ROCKERS", "STEPPERS", "FLYERS", "UK STEPPERS"};
     return t >= 0 && t < TPL_N ? N[t] : "";
 }
 
@@ -43,11 +43,11 @@ static const tpl_t TPL[TPL_N] = {
     /* flyers: the flying cymbal: open on the "and", choked by a closed hit on the beat; one drop underneath */
     {"........X.......", "........X.......", "x.o.x.o.x.o.x.o.",
      {0, 0, 33, 33, 0, 0, 36, 0, 0, 0, 40, 38, 0, 0, 36, 0}, 0, 0},
-    /* dub techno (P3.4; the mastery guide's Basic Channel lineage): the kick on every beat, a ghost rim on 2 and 4,
-     * open hats on the off-beats, the chord stab on the off-beats too (into a long echo: the stab is the dub), a sub
-     * bass on 1 and the "and" of 3; no bubble */
-    {"X...X...X...X...", "....g.......g...", "..o...o...o...o.",
-     {33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0}, "..x...x...x...x.", "................"},
+    /* UK steppers (P3.4; the mastery guide's sound-system branch, Shaka onwards): the kick on every beat, the snare
+     * on 3 only (half time over it), hats on the off-beats with sixteenth ghosts, a rolling sub line, the skank
+     * chopping every off-beat; no bubble */
+    {"X...X...X...X...", "........X.......", "g.x.g.x.g.x.g.x.",
+     {33, 0, 0, 33, 0, 0, 33, 0, 36, 0, 0, 36, 0, 0, 40, 38}, "..x...x...x...x.", "................"},
 };
 
 static uint8_t lvl_of(char c)

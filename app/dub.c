@@ -61,7 +61,7 @@ static void song_undo_last(void);
 static void song_sync(void);
 static int song_section(uint32_t *from, uint32_t *to);
 static void demo_load(void);
-static void techno_load(void);
+static void steppers_load(void);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
 
 static struct {

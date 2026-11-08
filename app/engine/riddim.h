@@ -15,7 +15,7 @@ typedef struct {
     int8_t note;
 } step_t;
 
-enum { TPL_ONE_DROP, TPL_ROCKERS, TPL_STEPPERS, TPL_FLYERS, TPL_DUBTECHNO, TPL_N };   /* (append only: saved) */
+enum { TPL_ONE_DROP, TPL_ROCKERS, TPL_STEPPERS, TPL_FLYERS, TPL_UKSTEP, TPL_N };   /* (append only: saved) */
 const char *template_name(int32_t t);
 void template_fill(int32_t t, uint32_t ch, step_t *dst);   /* NSTEPS steps of channel ch (empty if it has none) */
 int8_t default_note(uint32_t ch);                /* the note a new step gets on ch */
