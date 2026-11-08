@@ -14,7 +14,7 @@
   "hardware": {
     "models": ["FM-1"],
     "flash": ["856014", "B36014"],
-    "features": ["usb-audio-in", "usb-audio-out", "velocity", "pressure", "screen-reader"]
+    "features": ["usb-audio-in", "usb-audio-out", "velocity", "pressure", "screen-reader", "backup"]
   },
   "credits": "Built on fm1-base (Charles Vestal) and felucca-bsp (Leo Kuroshita, Hügelton Instruments)."
 }

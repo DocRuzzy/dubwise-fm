@@ -88,26 +88,46 @@ void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
     }
 }
 
+/* The skank and the organ at half rate (22,050 Hz, the memory plan's rate for tonal voices; 2026-11 review): a sample
+ * of theirs every other output sample, the one between the two's mean (a sample's fixed delay). Their constants for
+ * the half rate: decays squared, steps doubled, the one-poles' coefficients as two steps of theirs. (The skank's band
+ * tops out at 4.8 kHz, the organ's click at 12 x its fundamental: both well under 11 kHz) */
+static float sk_last, og_last;
+static int sk_odd, og_odd;
+
 static int render_skank(float *o, uint32_t n)
 {
     uint32_t i, k;
-    if (!sk.on)
+    float inv2 = 2.0f * INV_SR, ik2 = sk.ik * sk.ik, ak2 = sk.ak * sk.ak, hp2 = sk.hp_a * sk.hp_a;
+    float lp2 = 1.0f - (1.0f - sk.lp_a) * (1.0f - sk.lp_a);
+    if (!sk.on) {
+        sk_last = 0.0f;
+        sk_odd = 0;
         return 0;
+    }
     for (i = 0; i < n; i++) {
         float s = 0.0f, y;
+        if (!sk_odd) {
+            o[i] = sk_last;
+            sk_odd = 1;
+            continue;
+        }
+        sk_odd = 0;
         for (k = 0; k < nv_skank; k++) {
             cv_t *v = &sk.v[k];
-            v->pm = wrap(v->pm + v->f * sk.ratio * INV_SR);
-            v->pc = wrap(v->pc + v->f * INV_SR);
+            v->pm = wrap(v->pm + v->f * sk.ratio * inv2);
+            v->pc = wrap(v->pc + v->f * inv2);
             s += fm_sin_turns(v->pc + sk.index * v->ienv * 0.15915494f * fm_sin_turns(v->pm)) * v->amp;
-            v->ienv *= sk.ik;
-            v->amp *= sk.ak;
+            v->ienv *= ik2;
+            v->amp *= ak2;
         }
-        y = sk.hp_a * (sk.hy + s - sk.hx);       /* the band: a high-pass, then a low-pass */
+        y = hp2 * (sk.hy + s - sk.hx);           /* the band: a high-pass, then a low-pass */
         sk.hx = s;
         sk.hy = undenorm(y);
-        sk.ly = undenorm(sk.ly + sk.lp_a * (y - sk.ly));
-        o[i] = sk.ly * sk.vel * 0.22f;
+        sk.ly = undenorm(sk.ly + lp2 * (y - sk.ly));
+        y = sk.ly * sk.vel * 0.22f;
+        o[i] = 0.5f * (sk_last + y);
+        sk_last = y;
     }
     for (k = 0; k < NV; k++)
         sk.v[k].ienv = undenorm(sk.v[k].ienv);
@@ -119,12 +139,22 @@ static int render_skank(float *o, uint32_t n)
 static int render_organ(float *o, uint32_t n)
 {
     uint32_t i, k;
-    if (!og.on)
+    float ak2 = og.ak * og.ak, ck2 = og.ck * og.ck;
+    if (!og.on) {
+        og_last = 0.0f;
+        og_odd = 0;
         return 0;
+    }
     for (i = 0; i < n; i++) {
-        float s = 0.0f;
+        float s = 0.0f, y;
+        if (!og_odd) {
+            o[i] = og_last;
+            og_odd = 1;
+            continue;
+        }
+        og_odd = 0;
         for (k = 0; k < NV; k++) {
-            float f = og.v[k].f * INV_SR;
+            float f = og.v[k].f * (2.0f * INV_SR);
             og.v[k].pc = wrap(og.v[k].pc + f);
             og.p2[k] = wrap(og.p2[k] + 2.0f * f);
             og.p3[k] = wrap(og.p3[k] + 3.0f * f);
@@ -135,10 +165,12 @@ static int render_organ(float *o, uint32_t n)
                       + og.w4 * fm_sin_turns(og.p4[k]) + og.click * og.cenv * fm_sin_turns(og.pk[k])) * og.v[k].amp;
             else                                 /* (Seven-inch: the fundamental and the second, no click) */
                 s += (fm_sin_turns(og.v[k].pc) + og.w2 * fm_sin_turns(og.p2[k])) * og.v[k].amp;
-            og.v[k].amp *= og.ak;
+            og.v[k].amp *= ak2;
         }
-        og.cenv = undenorm(og.cenv * og.ck);
-        o[i] = s * og.vel * 0.12f;
+        og.cenv = undenorm(og.cenv * ck2);
+        y = s * og.vel * 0.12f;
+        o[i] = 0.5f * (og_last + y);
+        og_last = y;
     }
     if (og.v[0].amp < 1e-4f)
         og.on = 0;
