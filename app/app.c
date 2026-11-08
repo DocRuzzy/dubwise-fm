@@ -463,6 +463,10 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
                tot / 16.0 * 80.0 * 100.0 / ENG_BLOCK_TICKS);
         return 1;
     }
+    if (!strcmp(cmd, "splash")) {        /* the boot splash, drawn as the device draws it (the host shows none) */
+        app_splash();
+        return 1;
+    }
     if (!strcmp(cmd, "livein")) {        /* livein HZ DB: the live input's stand-in, a sine (HZ 0: none) */
         host_live_hz = (float)atof(a);
         host_live_amp = fm_exp2f((float)atof(b) * (1.0f / 6.0206f));

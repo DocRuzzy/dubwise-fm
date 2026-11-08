@@ -68,6 +68,7 @@ enum {
     P_SONG_REC,               /* 1: capturing (each bar's desk written at its line while playing) */
     P_TIER_LOCK,              /* the guard tier (P1.9): 0 automatic, else locked to TIER_* + 1 */
     P_THROW_VEL,              /* 1: a throw as hard as the key was hit (P2.9; CHF_THROW_AMT), 0: always in full */
+    P_SAVER,                  /* the screen saver: SAVER_OFF, SAVER_1 .. SAVER_15 (minutes untouched, stopped) */
     P_NGLOBAL,
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */
@@ -81,7 +82,8 @@ enum { SCALE_AEOLIAN, SCALE_DORIAN, SCALE_MIN_PENT, SCALE_MIN_BLUES, SCALE_IONIA
        SCALE_MAJ_PENT, SCALE_HARM_MIN, SCALE_PHRYGIAN, SCALE_N };
 enum { CHORD_MIN, CHORD_MAJ, CHORD_7, CHORD_M7, CHORD_MAJ7, CHORD_SUS4, CHORD_DIM, CHORD_N };
 enum { LOCK_OFF, LOCK_SCALE, LOCK_CHORD, LOCK_N };
-enum { TIER_STUDIO, TIER_FOUR, TIER_SEVEN, TIER_N };   /* the guard tiers (design principles 5) */
+enum { TIER_STUDIO, TIER_FOUR, TIER_SEVEN, TIER_N };
+enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };   /* the guard tiers (design principles 5) */
 const char *tier_name(int32_t t);                    /* "STUDIO", "FOUR-TRACK", "SEVEN-INCH" */
 const char *scale_name(int32_t s);                   /* "NATURAL MINOR" */
 const char *chord_name(int32_t q);                   /* "MINOR" */

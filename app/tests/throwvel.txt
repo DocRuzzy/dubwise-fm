@@ -36,7 +36,7 @@ wait 100
 # THROW VELOCITY off (SETUP): soft is in full too
 tap GLO
 wait 30
-turn K1 9
+turn K1 10
 wait 30
 said THROW VELOCITY
 turn K2 -1

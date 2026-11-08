@@ -97,6 +97,7 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_SONG_REC] = {"song.rec", 0, 1, 0},
     [P_TIER_LOCK] = {"tier.lock", 0, TIER_N, 0},
     [P_THROW_VEL] = {"throw.vel", 0, 1, 1},
+    [P_SAVER] = {"saver", 0, SAVER_N - 1, SAVER_5},
 };
 static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {

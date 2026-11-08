@@ -1,0 +1,47 @@
+# The boot splash and the screen saver (saver.c): echo rings in the label's orange, the DUBWISE word, SPILLT BEATS.
+# The saver comes on while stopped after SETUP's SCREEN SAVER minutes untouched (5 by default), never while
+# playing; a touch wakes it and does nothing else (a mute key that wakes it does not mute).
+wait 600
+listen
+splash
+shot splash.png
+# 1 minute (SETUP), then left alone
+tap GLO
+wait 30
+turn K1 6
+wait 30
+said SCREEN SAVER 5 MIN
+turn K2 -1
+wait 30
+said SCREEN SAVER 1 MIN
+tap HOME
+wait 30
+expect page 0
+wait 59000
+expect saver 0
+wait 2000
+expect saver 1
+wait 3000
+shot saver.png
+# a mute key wakes it, and does not mute
+key w0 down
+wait 30
+expect saver 0
+said SCREEN SAVER OFF
+key w0 up
+wait 300
+expect eng.ch1.mute 0
+expect ui.ch1.mute 0
+shot saver-woken.png
+# the next press works as usual
+tapkey w0
+wait 30
+expect ui.ch1.mute 1
+tapkey w0
+wait 30
+# playing: never on
+tap PLAY
+wait 65000
+expect saver 0
+tap PLAY
+wait 30

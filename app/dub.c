@@ -62,6 +62,7 @@ static void song_sync(void);
 static int song_section(uint32_t *from, uint32_t *to);
 static void demo_load(void);
 static void steppers_load(void);
+void dub_init(void);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
 
 static struct {
@@ -506,6 +507,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "arrange.c"                     /* the ARRANGE page (GPL-3.0-only) */
 #include "demo.c"                        /* the demo song (GPL-3.0-only) */
 #include "perf.c"                        /* the PERF page (GPL-3.0-only) */
+#include "saver.c"                       /* the boot splash and the screen saver (GPL-3.0-only) */
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
@@ -612,6 +614,8 @@ void dub_input(void)
     int32_t e;
     touch_poll();                        /* the sensed keys' presses and velocities */
     keys = touch_keys();
+    if (saver_input(&keys, &btn, now))   /* the screen saver up: a touch only wakes it */
+        return;
     for (k = 0; k < NB; k++) {           /* buttons first: a modifier pressed with a key counts */
         uint32_t bit = 1u << k;
         if ((btn & bit) && !(dub.btn & bit)) {
@@ -711,8 +715,10 @@ void dub_input(void)
     }
 encoders:
     for (k = 0; k < NE; k++)
-        if ((e = plat_enc((int)k)) != 0)
+        if ((e = plat_enc((int)k)) != 0) {
+            saver_touch(now);
             encoder(k, e);
+        }
     if (keys != dub.keys)
         dub.dirty_strips = 1;
     dub.keys = keys;
@@ -1104,6 +1110,10 @@ void dub_draw(void)
     uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
     int drew = 0;
     song_sync();
+    if (saver_draw(now)) {               /* the screen saver: the whole screen its own */
+        lights();
+        return;
+    }
     if (eng_tier() != dub.tier_seen) {   /* the guard changed the tier: a badge and a word (design principles 5) */
         dub.tier_seen = eng_tier();
         dub.dirty_hdr = 1;
@@ -1299,7 +1309,7 @@ static int dub_expect(const char *what, int *got)
         *got = (int)dub.pulses;
     else if (!strcmp(what, "key_flashes"))
         *got = (int)dub.key_flashes;
-    else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got))
+    else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got))
         return 1;
     else
         return setup_expect(what, got);
