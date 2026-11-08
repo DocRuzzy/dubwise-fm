@@ -4,7 +4,8 @@ DUBWISE (Dubwise FM, a SpIllt Beats release by DocRuzzy) is a reggae/dub grooveb
 instrument. This early build has the desk's first move: the DUB page, where the white keys mute and solo the eight
 channels, and every change can wait for the next beat or bar line so it lands on time.
 
-The first four channels have voices: an FM kick, rim, hats and bass, played by a step sequencer. It starts with a
+Six channels have voices: an FM kick, rim, hats and bass, and a skank and an organ bubble that play the chords of
+the chord lane (KEY & CHORDS page). A step sequencer plays them all. It starts with a
 ONE DROP riddim, so press PLAY and you're dubbing. Press SEQ to edit the patterns or pick another riddim. You can also
 play the voices over MIDI. Press GLO to put a test tone on every channel. There's no Bluetooth: the RAM it would take goes to the dub bus.
 
@@ -130,8 +131,12 @@ channel you're editing, bigger, with its notes.
 | KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS or FLYERS. It lands on the next bar line, and then it's just steps you can change. |
 | REC (on the bass) | The keyboard: all 27 keys play the bass, from F in the octave set on the KEY page. While playing, each note you play is recorded at the nearest step. While stopped, notes go in one step after another. Press REC again for the steps. |
 
+On the skank and organ, a step doesn't hold a note: it holds a voicing, LO, MD or HI (KNOB 2), and the notes are
+the chord lane's chord for that bar. Change the chords and the parts follow.
+
 The riddims: ONE DROP has the kick and rim on beat 3 only. ROCKERS puts the kick on 1 and 3 and doubles the rim.
-STEPPERS has the kick on every beat. FLYERS opens the hat on every off-beat and closes it on the beat.
+STEPPERS has the kick on every beat. FLYERS opens the hat on every off-beat and closes it on the beat. All four bring a skank on 2 and 4 and an organ
+bubble: low on the off-beat eighths, high on the sixteenth after.
 
 ## 3d. KEY & CHORDS (ARP): the lock
 
@@ -174,6 +179,8 @@ The voices:
 | Rim | TUNE, DECAY, NOISE, INDEX (how metallic) |
 | Hats | TONE, CLOSED and OPEN (their lengths), NOISE |
 | Bass | INDEX (the pluck's brightness), IDECAY (how fast the pluck fades to a pure tone), DECAY, CUTOFF, RATIO (1:1 or 2:1, hollow), SUB (an octave below), SUSTAIN |
+| Skank | INDEX (the chop's bite), DECAY, TONE (where its band sits), RATIO (1:1 or 1:3, nasal). It sends to the spring by default. |
+| Organ | DRAWBAR (how much of the upper partials), DECAY (the bubble's length), CLICK (the key click) |
 
 The keys sense how hard you play them, with no change to the FM-1. The 20 lowest keys
 (F3 to C5) give velocity and pressure. The top seven give velocity only.

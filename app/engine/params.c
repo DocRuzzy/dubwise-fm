@@ -46,8 +46,19 @@ static const pdesc_t BASS_F[VB_N] = {
     [VB_SUB] = {"sub", 0, 127, 0},
     [VB_SUSTAIN] = {"sustain", 0, 127, 25},
 };
-static const pdesc_t *const VOICE_T[NCH] = {KICK_F, RIM_F, HAT_F, BASS_F, 0, 0, 0, 0};
-static const uint8_t VOICE_N[NCH] = {VK_N, VR_N, VH_N, VB_N, 0, 0, 0, 0};
+static const pdesc_t SKANK_F[VS_N] = {
+    [VS_INDEX] = {"index", 0, 127, 70},             /* the attack's brightness */
+    [VS_DECAY] = {"decay", 0, 127, 40},             /* 60 .. 200 ms */
+    [VS_TONE] = {"tone", 0, 127, 60},               /* the band-pass's centre */
+    [VS_RATIO] = {"ratio", 0, 1, 1},                /* 1:1, 1:3 (nasal) */
+};
+static const pdesc_t ORGAN_F[VO_N] = {
+    [VO_DRAWBAR] = {"drawbar", 0, 127, 60},         /* how much of the upper partials */
+    [VO_DECAY] = {"decay", 0, 127, 30},             /* the gate: 40 .. 300 ms */
+    [VO_CLICK] = {"click", 0, 127, 50},             /* the key click */
+};
+static const pdesc_t *const VOICE_T[NCH] = {KICK_F, RIM_F, HAT_F, BASS_F, SKANK_F, ORGAN_F, 0, 0};
+static const uint8_t VOICE_N[NCH] = {VK_N, VR_N, VH_N, VB_N, VS_N, VO_N, 0, 0};
 static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_TEMPO] = {"tempo", 400, 1800, 750},          /* 40.0 .. 180.0 BPM */
     [P_PLAY] = {"play", 0, 1, 0},
@@ -169,6 +180,8 @@ int32_t param_def(uint32_t id)
         return 0;
     if (id >= P_CH_BASE && id < P_BUS_BASE && (id - P_CH_BASE) % CH_STRIDE == CHF_THROW_DEST)
         return DEST[(id - P_CH_BASE) / CH_STRIDE];
+    if (id == P_CH(CH_SKANK, CHF_SPRING_SEND))   /* the skank to the spring by default (D3) */
+        return 40;
     if (id >= P_CHORD0 && id < P_CHORD_END) {     /* the lane: Am Dm Am Em, then Am */
         static const uint8_t L[4] = {9 * 8 + CHORD_MIN, 2 * 8 + CHORD_MIN, 9 * 8 + CHORD_MIN, 4 * 8 + CHORD_MIN};
         return (id - P_CHORD0) < 4u ? L[id - P_CHORD0] : 9 * 8 + CHORD_MIN;
@@ -303,4 +316,20 @@ uint32_t lock_mask(const int16_t *vals, uint32_t bar)
         return chord_mask(vals[P_CHORD0 + bar % len]);
     }
     return 0xFFFu;
+}
+
+void chord_notes(int32_t code, int32_t voicing, int32_t base, int32_t *notes3)
+{
+    uint32_t m = chord_mask(code), k = 0, i;
+    int32_t root = code / 8, start = base + 12 * (voicing - VOICING_MID);
+    int32_t r = start + ((root - start) % 12 + 12) % 12;   /* the root at or above the voicing's base */
+    for (i = 0; i < 12u && k < 3u; i++) {       /* the chord's first three tones from the root up */
+        int32_t pc = (root + (int32_t)i) % 12;
+        if (m >> pc & 1u)
+            notes3[k++] = r + (int32_t)i;
+    }
+    while (k < 3u) {
+        notes3[k] = notes3[k - 1] + 12;
+        k++;
+    }
 }

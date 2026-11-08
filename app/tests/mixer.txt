@@ -3,8 +3,9 @@
 # channel; chN_db is the channel's post-fader peak, echo_db / spring_db the send buses'. Run by tests/run_tests.sh.
 wait 600
 expect q_pending 0
-# every channel at unity
+# every channel at unity (the skank's spring send, on by default, off for these checks)
 param dev.tones 1
+param ch5.spring 0
 wait 30
 expect eng.dev.tones 1
 expect ch1_db >-22

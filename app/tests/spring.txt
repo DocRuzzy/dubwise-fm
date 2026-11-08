@@ -26,6 +26,7 @@ wait 3000
 wavstop
 # black 1 with a throw held: the kick (its destination the echo) goes to the spring as well, and back after
 param dev.tones 1
+param ch5.spring 0
 key w8 down
 wait 50
 expect spring_db -120

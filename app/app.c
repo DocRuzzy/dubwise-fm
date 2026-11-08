@@ -382,6 +382,8 @@ int app_expect(const char *what, int *got)
         *got = (int)eng_seq_hit_at((uint32_t)(what[3] - '1'));   /* hitN: channel N's last hit, samples since PLAY */
     else if (!strcmp(what, "ticks"))         /* the runway's audible ticks */
         *got = (int)eng_ticks();
+    else if (!strncmp(what, "chord_ch", 8))  /* chord_chN: the chord channel N last played */
+        *got = (int)eng_chord_last((uint32_t)(atoi(what + 8) - 1) % NCH);
     else if (!strcmp(what, "seq_hits"))
         *got = (int)eng_seq_hits();
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */

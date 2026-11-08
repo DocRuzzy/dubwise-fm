@@ -11,7 +11,7 @@ const char *template_name(int32_t t)
 
 int8_t default_note(uint32_t ch)
 {
-    static const int8_t N[NCH] = {36, 37, 42, 33, 60, 60, 60, 60};
+    static const int8_t N[NCH] = {36, 37, 42, 33, VOICING_MID, VOICING_MID, 60, 60};   /* chord channels: a voicing */
     return ch < NCH ? N[ch] : 60;
 }
 
@@ -42,6 +42,9 @@ static const tpl_t TPL[TPL_N] = {
      {0, 0, 33, 33, 0, 0, 36, 0, 0, 0, 40, 38, 0, 0, 36, 0}},
 };
 
+static const char SKANK[] = "....x.......x...";
+static const char BUBBLE[] = "..lh..lh..lh..lh";
+
 static uint8_t lvl_of(char c)
 {
     return c == 'X' || c == 'O' ? LVL_ACCENT : c == 'x' || c == 'o' ? LVL_NORMAL : c == 'g' ? LVL_GHOST : LVL_OFF;
@@ -65,6 +68,11 @@ void template_fill(int32_t t, uint32_t ch, step_t *dst)
         } else if (ch == CH_BASS && p->bass[k]) {
             dst[i].lvl = LVL_NORMAL;
             dst[i].note = p->bass[k];
+        } else if (ch == CH_SKANK) {             /* the skank on 2 and 4 (D2), a chop */
+            dst[i].lvl = lvl_of(SKANK[k]);
+        } else if (ch == CH_ORGAN) {             /* the bubble: low on the off-beat eighths, high on the sixteenth after */
+            dst[i].lvl = BUBBLE[k] == '.' ? LVL_OFF : BUBBLE[k] == 'h' ? LVL_GHOST : LVL_NORMAL;
+            dst[i].note = BUBBLE[k] == 'h' ? VOICING_HI : VOICING_LO;
         }
     }
 }

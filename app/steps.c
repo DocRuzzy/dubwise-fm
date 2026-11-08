@@ -43,6 +43,10 @@ static void note_text(int32_t ch, int32_t n, char *t)   /* "A1"; hats "CL" / "OP
         text_cat(t, n == 46 ? "OP" : "CL");
         return;
     }
+    if (ch == CH_SKANK || ch == CH_ORGAN) {      /* a voicing of the lane's chord */
+        text_cat(t, n == VOICING_LO ? "LO" : n == VOICING_HI ? "HI" : "MD");
+        return;
+    }
     if (ch == CH_KICK || ch == CH_SNARE)
         return;
     text_cat(t, N[n % 12]);
@@ -190,6 +194,8 @@ static void steps_knob(uint32_t i, int32_t e)
         s = ctl_get_step((uint32_t)st.ch, (uint32_t)k);
         if (st.ch == CH_HATS)
             s.note = (int8_t)(s.note == 46 ? 42 : 46);
+        else if (st.ch == CH_SKANK || st.ch == CH_ORGAN)
+            s.note = (int8_t)((s.note + e % VOICING_N + VOICING_N) % VOICING_N);
         else if (st.ch == CH_KICK || st.ch == CH_SNARE) {
             app_say("NOTE", "DRUM");
             return;
@@ -210,7 +216,8 @@ static void steps_knob(uint32_t i, int32_t e)
         app_say("NOTE", t);
     } else if (i == 3u) {                /* a template: the drums and the bass, on the next bar line */
         st.tpl = (st.tpl + e % TPL_N + TPL_N) % TPL_N;
-        ctl_template(st.tpl, (1u << CH_KICK) | (1u << CH_SNARE) | (1u << CH_HATS) | (1u << CH_BASS), 4u);
+        ctl_template(st.tpl, (1u << CH_KICK) | (1u << CH_SNARE) | (1u << CH_HATS) | (1u << CH_BASS)
+                                 | (1u << CH_SKANK) | (1u << CH_ORGAN), 4u);
         set_dirty = 1;
         app_say("RIDDIM", template_name(st.tpl));
     } else {
@@ -307,7 +314,7 @@ static void steps_draw_centre(void)      /* the channel's page, bigger, with its
         cv_rect(x, 54 - h, 12, h, s.lvl ? (idx == st.last ? C_WHITE : C_HI) : C_LINE);
         if (idx == at)
             cv_rect(x, 57, 12, 2, C_WHITE);
-        if (s.lvl && (st.ch == CH_BASS || st.ch == CH_HATS)) {
+        if (s.lvl && (st.ch == CH_BASS || st.ch == CH_HATS || st.ch == CH_SKANK || st.ch == CH_ORGAN)) {
             note_text(st.ch, s.note, t);
             cv_text(x, 60, &FONT_T, t, C_GRAY);
         }

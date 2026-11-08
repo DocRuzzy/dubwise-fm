@@ -44,6 +44,7 @@ uint32_t eng_cues(void);                     /* cues waiting */
 uint32_t eng_cue_overflows(void);
 uint32_t eng_seq_hits(void);
 uint32_t eng_ticks(void);
+int32_t eng_chord_last(uint32_t ch);         /* the chord a chord channel last played (root x 8 + quality) */
 float eng_spring_ret_peak(void);            /* the spring's return, after its level */
 uint32_t eng_crashes(void);                  /* the tank struck, times since boot */
 float eng_out_peak(void);                   /* the mix's peak over the last block, before MASTER */

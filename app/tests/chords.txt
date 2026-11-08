@@ -1,0 +1,54 @@
+# The skank and organ bubble (P1.6; D2, D3) follow the chord lane (default Am Dm Am Em, a bar each). ONE DROP
+# carries them: the skank on 2 and 4 (steps 5 and 13: at 75 BPM, samples 35280 ..), the bubble low on the off-beat
+# eighths (step 3, 7 ..) and high on the sixteenth after (step 4: the last by 850 ms, 26460; a sixteenth is 200 ms). Chords as root x 8 + quality: Am 72, Dm 16.
+wait 600
+tap PLAY
+wait 850
+expect hit6 26460
+expect hit5 35280
+expect chord_ch5 72
+expect chord_ch6 72
+# bar 2: Dm (the skank's first hit in it, step 5, at 4 s)
+wait 3200
+expect chord_ch5 16
+expect chord_ch6 16
+tap PLAY
+wait 100
+# the skank alone: a short, mid-band chop; the organ alone: the bubble
+param ch5.solo 1
+param ch5.spring 0
+wav skank.wav
+tap PLAY
+wait 1700
+tap PLAY
+wavstop
+param ch5.solo 0
+param ch6.solo 1
+wait 100
+wav organ.wav
+tap PLAY
+wait 1700
+tap PLAY
+wavstop
+param ch6.solo 0
+# STEPS: the organ's first step is LO; KNOB 2 changes its voicing
+tap SEQ
+tapkey b5
+wait 30
+expect steps_ch 6
+expect note6_3 0
+key w2 down
+wait 50
+turn K2 1
+wait 30
+key w2 up
+expect note6_3 1
+# a new chord in the lane: the skank follows it
+param chord1 1
+tap HOME
+tap PLAY
+wait 900
+expect chord_ch5 1
+tap PLAY
+#wav skank.wav peak<-1 dc<-50 hf<-10 click<-20
+#wav organ.wav peak<-1 dc<-50 side_lo<-150

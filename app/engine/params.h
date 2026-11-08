@@ -23,6 +23,12 @@ enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_N };                 
 enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_N };                                   /* rim / snare */
 enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_N };                                   /* hats */
 enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_N };   /* bass */
+enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_N };                                   /* skank (P1.6) */
+enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_N };                                          /* organ bubble */
+/* the chord channels' steps hold a voicing, not a note: the notes are the chord lane's (P_CHORD0..) */
+enum { VOICING_LO, VOICING_MID, VOICING_HI, VOICING_N };
+/* a chord code (root x 8 + quality) voiced: three notes from base up (MIDI), the root's octave by the voicing */
+void chord_notes(int32_t code, int32_t voicing, int32_t base, int32_t *notes3);
 
 #define P_GLOBAL_BASE 0x000u
 #define P_CH_BASE 0x040u

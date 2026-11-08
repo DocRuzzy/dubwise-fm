@@ -9,6 +9,7 @@
 #include "riddim.h"
 #include "bigknob.h"
 #include "spring.h"
+#include "chordv.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -100,6 +101,7 @@ static int32_t last_tick = -1;                   /* the sixteenth last played si
 static int32_t seq_bass = -1;                    /* the bass note the sequencer holds */
 static volatile uint32_t seq_hits;               /* steps played since boot (tests) */
 static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */
+static volatile int32_t chord_last[NCH];         /* the chord a chord channel last played (tests) */
 
 /* the runway's audible tick (P_TICK, P0.6): a short sine blip on each of its beats, higher on a bar's first */
 static float tick_ph, tick_inc, tick_amp;
@@ -320,6 +322,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev);
+    chordv_config(ev);
     {                                            /* the spring: its decay as loop feedback (~40 ms a pass), damping */
         spring_cfg_t sc;
         float t60 = 0.5f + 5.5f * (float)ev[P_SPRING_DECAY] * (1.0f / 127.0f);
@@ -405,6 +408,7 @@ void eng_init(void)
     strips_update();
     echo_init();
     voices_init();
+    chordv_init();
     bigknob_init(&bk);
     bigknob_init(&bkr);
     bk_step = -1;
@@ -442,7 +446,13 @@ static void seq_play(uint32_t tick)              /* sixteenth `tick` since the s
         step_t st = pat[ch][tick % (len ? len : 16u)];
         if (!st.lvl)
             continue;
-        voice_trig(ch, st.note, lvl_vel(st.lvl));
+        if (ch == CH_SKANK || ch == CH_ORGAN) {   /* the chord lane's chord at this bar, in the step's voicing */
+            int32_t lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
+            int32_t chord = ev[P_CHORD0 + (int32_t)((tick / 16u) % (uint32_t)lane)];
+            chordv_trig(ch, chord, st.note, lvl_vel(st.lvl));
+            chord_last[ch] = chord;
+        } else
+            voice_trig(ch, st.note, lvl_vel(st.lvl));
         seq_hits++;
         seq_hit_at[ch] = t_samples;
         if (ch == CH_BASS)
@@ -485,7 +495,7 @@ static int source(uint32_t ch, float *o, uint32_t n)   /* the channel's sound, m
 {
     uint32_t i;
     int any = 0;
-    any = voice_render(ch, o, n);
+    any = ch == CH_SKANK || ch == CH_ORGAN ? chordv_render(ch, o, n) : voice_render(ch, o, n);
     if (ev[P_DEV_TONES]) {                       /* a sine per channel: 110 Hz x (channel + 1), -20 dBFS */
         strip_t *s = &strip[ch];
         float inc = 110.0f * (float)(ch + 1u) / 44100.0f;
@@ -661,6 +671,7 @@ float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
 uint32_t eng_seq_hits(void) { return seq_hits; }
 uint32_t eng_ticks(void) { return ticks; }
+int32_t eng_chord_last(uint32_t ch) { return ch < NCH ? chord_last[ch] : 0; }
 float eng_spring_ret_peak(void) { return spring_ret_peak; }
 uint32_t eng_crashes(void) { return crashes; }
 float eng_out_peak(void) { return out_peak; }
