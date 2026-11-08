@@ -93,7 +93,7 @@ One colour per channel, always paired with its number and a shape cue (filled = 
   - **Desk + Patterns** = also each channel's pattern. Shown with a P badge.
 - **Black keys:** section markers at the current bar.
 - **KNOB 1–4:** song position · section length · loop · scene scope.
-- **REC + PLAY:** capture into the per-bar song. **HOME + REC:** undo.
+- **REC + PLAY:** capture into the per-bar song, with the motion inside each bar (throws, mutes, knob moves: P2.7). **HOME + REC:** undo (the bars, not the motion). **SAVE + REC:** clear the motion.
 
 ### 4.3 STEPS page
 - **White 1–16:** steps; OCT± page through 17–64.

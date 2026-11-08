@@ -14,6 +14,8 @@ int ctl_set(uint32_t id, int32_t v);       /* clamped; 1 queued, 0 pending (queu
 int ctl_cue(uint32_t id, int32_t v, uint32_t beats);   /* the same, quantised: at the next multiple of beats (0: now) */
 int32_t ctl_get(uint32_t id);              /* the desired value */
 void ctl_flush(void);                      /* resend what is pending, in ID order, until the queue is full */
+void ctl_follow(void);                     /* every frame: the values the song's motion played back (P2.7) */
+void ctl_motion_clear(void);               /* the song's motion, all of it, cleared (in the queue's order) */
 
 /* the patterns (riddim.h): the UI's mirror, each change sent as CMD_STEP (pending and resent like parameters) */
 void ctl_step(uint32_t ch, uint32_t i, step_t st);

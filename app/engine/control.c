@@ -4,6 +4,7 @@
 #include "control.h"
 #include "engine.h"
 #include "scenes.h"
+#include "motion.h"
 
 static int16_t ctl_val[P_NIDS];             /* every range fits in 16 bits (pdesc_t) */
 static uint8_t ctl_beats[P_NIDS];            /* a pending parameter's quantum: 0 now, else CMD_CUE's beats */
@@ -16,6 +17,41 @@ static uint32_t ctl_step_pend[NCH * NSTEPS / 32u];
 static uint32_t ctl_steps_pending;
 static int32_t ctl_tpl_t = -1;                   /* a template the full queue refused */
 static uint32_t ctl_tpl_mask, ctl_tpl_beats;
+static uint8_t ctl_stamp[P_NIDS];                /* the frame a parameter was last set by hand (ctl_follow) */
+static uint8_t ctl_frame;
+static uint8_t ctl_mot_clear;                    /* a motion clear the full queue refused */
+
+static int mot_push(void)
+{
+    cmd_t c;
+    c.op = CMD_MOTION;
+    c.beats = 0;
+    c.id = 0;
+    c.v = 0;
+    if (!cmdq_push(&eng_q, c)) {
+        ctl_stats.refused++;
+        return 0;
+    }
+    ctl_stats.sent++;
+    ctl_mot_clear = 0;
+    return 1;
+}
+
+void ctl_motion_clear(void)
+{
+    ctl_mot_clear = 1;
+    if (!ctl_stats.pending)
+        mot_push();
+}
+
+void ctl_follow(void)                            /* the moves motion played: the desired values follow them */
+{
+    uint32_t id;
+    int32_t v;
+    while (mot_fb_pop(&id, &v))
+        if (id < P_NIDS && !(ctl_pend[id >> 5] >> (id & 31u) & 1u) && (uint8_t)(ctl_frame - ctl_stamp[id]) > 8u)
+            ctl_val[id] = (int16_t)v;            /* (a hand on it in the last 8 frames: the hand's value stays) */
+}
 
 void ctl_init(void)
 {
@@ -133,6 +169,7 @@ int ctl_cue(uint32_t id, int32_t v, uint32_t beats)
     if (id >= P_NIDS || !param_desc(id))
         return -1;
     ctl_val[id] = (int16_t)param_clamp(id, v);
+    ctl_stamp[id] = ctl_frame;
     ctl_beats[id] = (uint8_t)(beats > 128u ? 128u : beats);
     if (ctl_stats.pending) {                 /* something is waiting: keep the order fair, this joins it */
         ctl_mark(id);
@@ -150,6 +187,9 @@ int32_t ctl_get(uint32_t id) { return id < P_NIDS ? ctl_val[id] : 0; }
 void ctl_flush(void)
 {
     uint32_t w;
+    ctl_frame++;
+    if (ctl_mot_clear && !mot_push())
+        return;
     if (ctl_tpl_t >= 0 && !tpl_push())
         return;
     if (ctl_scn >= 0 && !scene_push())

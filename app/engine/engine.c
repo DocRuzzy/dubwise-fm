@@ -11,6 +11,7 @@
 #include "spring.h"
 #include "chordv.h"
 #include "scenes.h"
+#include "motion.h"
 #include "song.h"
 #include "fxv.h"
 #include "phaser.h"
@@ -224,6 +225,62 @@ static void set_param(uint32_t id, int32_t v)
     ev[id] = (int16_t)param_clamp(id, v);
 }
 
+/* motion (P2.7): the tick in the bar (480 a beat); a move by hand recorded (while capturing) */
+#define MOT_UNITS (BEAT_UNITS / MOT_TPB)        /* 55,125 (exact) */
+static uint32_t mot_hold;                        /* momentaries motion holds down (let go at the stop) */
+static uint32_t bar_tick(void) { return (t_beat & 3u) * MOT_TPB + t_phase / MOT_UNITS; }
+
+static void set_by_hand(uint32_t id, int32_t v)
+{
+    int k;
+    set_param(id, v);
+    if (!t_playing || id >= P_NIDS)
+        return;
+    k = mot_momentary(id);
+    if (k >= 0)
+        mot_hold &= ~(1u << (uint32_t)k);
+    mot_user(id, ev[id], bar_tick(), ev[P_SONG_REC] != 0);
+}
+
+static void mot_release(void)                    /* the stop: what motion held down, let go */
+{
+    uint32_t k;
+    for (k = 0; k < MOT_NMOM; k++)
+        if (mot_hold >> k & 1u) {
+            uint32_t id = mot_mom_id(k);
+            ev[id] = 0;
+            mot_fb_push(id, 0);
+        }
+    mot_hold = 0;
+    mot_line(-1, 0, ev);
+}
+
+static int mot_play(void)                        /* the moves due now (1: any) */
+{
+    mot_ev_t e;
+    int any = 0;
+    while (mot_due(bar_tick(), &e)) {
+        int k = mot_momentary(e.id);
+        set_param(e.id, e.v);
+        if (k >= 0)
+            mot_hold = ev[e.id] ? mot_hold | 1u << (uint32_t)k : mot_hold & ~(1u << (uint32_t)k);
+        mot_fb_push(e.id, ev[e.id]);
+        any = 1;
+    }
+    return any;
+}
+
+static uint32_t until_motion(void)               /* samples to the next move (0xFFFFFFFF: none in this bar) */
+{
+    int32_t t = mot_next_tick();
+    uint32_t at, now, tempo = (uint32_t)ev[P_TEMPO];
+    if (t < 0)
+        return 0xFFFFFFFFu;
+    at = (uint32_t)t * MOT_UNITS;
+    now = (t_beat & 3u) * BEAT_UNITS + t_phase;
+    return at > now ? (at - now + tempo - 1u) / tempo : 1u;
+}
+
 static void load_template(int32_t t, uint32_t mask)
 {
     uint32_t ch;
@@ -243,7 +300,7 @@ static void fire_due(int all)                    /* the cues now due (all: every
                 scene_apply(cues[i].id, ev, pat);
                 scene_fired = cues[i].id;
             } else
-                set_param(cues[i].id, cues[i].v);
+                set_by_hand(cues[i].id, cues[i].v);
             t_fire_at = t_samples;
             t_fires++;
         } else {
@@ -459,7 +516,9 @@ static void drain(void)                          /* every queued command, at the
     cmd_t c;
     while (cmdq_pop(&eng_q, &c)) {
         if (c.op == CMD_SET)
-            set_param(c.id, c.v);
+            set_by_hand(c.id, c.v);
+        else if (c.op == CMD_MOTION)
+            mot_clear();
         else if (c.op == CMD_CUE)
             cue_add(CMD_SET, c.id, c.v, c.beats);
         else if (c.op == CMD_STEP && c.id < NCH * NSTEPS)
@@ -493,6 +552,7 @@ static void drain(void)                          /* every queued command, at the
     } else if (!ev[P_PLAY] && t_playing) {       /* stop: what was cued happens now; the bass let go */
         t_playing = 0;
         fire_due(1);
+        mot_release();
         if (seq_bass >= 0)
             voice_release(CH_BASS, seq_bass);
         seq_bass = -1;
@@ -522,6 +582,8 @@ void eng_init(void)
     voices_init();
     chordv_init();
     fxv_init();
+    mot_init();
+    mot_hold = 0;
     bigknob_init(&bk);
     bigknob_init(&bkr);
     phaser_reset();
@@ -556,6 +618,7 @@ static void song_line(uint32_t bar)             /* a bar's line: the song captur
                 ev[P_SONG_LEN] = (int16_t)(bar + 1u);
             song_bar_now = bar;
         }
+        mot_line(bar < SONG_BARS ? (int32_t)bar : -1, 1, ev);
     } else if (ev[P_SONG_MODE] != SONG_OFF) {   /* playback */
         int sc;
         if (bar >= len) {
@@ -563,17 +626,20 @@ static void song_line(uint32_t bar)             /* a bar's line: the song captur
                 t_playing = 0;
                 ev[P_PLAY] = 0;
                 fire_due(1);
+                mot_release();
                 return;
             }
             b = bar % len;
         }
         song_bar_now = b;
+        mot_line((int32_t)b, 0, ev);
         sc = song_apply(b, ev);                  /* the bar's mutes, solos, Big Knob */
         if (sc >= 0 && sc < NSCENES) {           /* its scene first, then the bar's own desk over it */
             scene_apply((uint32_t)sc, ev, pat);
             song_apply(b, ev);
         }
-    }
+    } else
+        mot_line(-1, 0, ev);
     scene_fired = -1;
     strips_update();
     bus_update();
@@ -823,7 +889,14 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             }
             if (!t_playing)                      /* (a song played once has ended: the rest rings out) */
                 goto render;
+            if (mot_play()) {                    /* the bar's motion: the moves due at this sample */
+                strips_update();
+                bus_update();
+            }
             u = until_16th();
+            if (u < d)
+                d = u;
+            u = until_motion();
             if (u < d)
                 d = u;
             if (ncues) {

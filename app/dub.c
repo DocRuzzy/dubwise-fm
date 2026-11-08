@@ -345,6 +345,13 @@ static void button_press(uint32_t k)
         app_say("KEY", ks.bank ? "CHORD LANE" : "AND LOCK");
     } else if (k == B_REC && dub.page == PAGE_STEPS) {
         steps_rec();
+    } else if (k == B_REC && (dub.btn >> B_SAVE & 1u)
+               && (dub.page == PAGE_DUB || dub.page == PAGE_ARRANGE)) {   /* SAVE + REC: the motion cleared (P2.7) */
+        dub.save_used = 1;
+        ctl_motion_clear();
+        set_dirty = 1;
+        arr_mark();
+        app_say("MOTION", "CLEARED");
     } else if (k == B_REC && (dub.btn >> B_HOME & 1u)) {   /* HOME + REC: undo the last song capture */
         dub.home_used = 1;
         song_undo_last();

@@ -11,6 +11,7 @@
 #include "engine/scenes.h"
 #include "engine/song.h"
 #include "engine/fxv.h"
+#include "engine/motion.h"
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
@@ -261,7 +262,8 @@ static void settings_save(void)
         }
     }
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
-        && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0 && scenes_save() && song_save()) {
+        && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0 && scenes_save() && song_save()
+        && ((eng_playing() && ctl_get(P_SONG_REC)) || mot_save())) {   /* (motion: not while it is captured) */
         set_dirty = 0;
         app_say("SAVED", "");
     } else {
@@ -275,6 +277,7 @@ void app_init(void)
     ctl_init();
     scenes_load();
     song_load();
+    mot_load();                          /* the song's motion (P2.7): the flash's data area, not a store object */
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC
         || set.tempo != param_clamp(P_TEMPO, set.tempo) || set.quant >= QUANT_N)
         settings_defaults();
@@ -384,6 +387,7 @@ void app_frame(void)
 {
     dub_input();
     ctl_flush();                         /* parameters the full queue refused: their latest values */
+    ctl_follow();                        /* (and the song's motion played back) */
     dub_speak();
     ann_tick(plat_ms());
     dub_draw();

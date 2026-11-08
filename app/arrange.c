@@ -9,6 +9,8 @@
  *                          the last capture
  *   Black 1-11          a section marker at the bar playing (stopped: the cursor's); again: removed
  *   KNOB 1              the cursor (a bar); KNOB 2 the song's length; KNOB 3 OFF / ONCE / LOOP (playback)
+ * Motion (P2.7, engine/motion.h): what the hands do inside each bar, captured with REC too; SAVE + REC clears it.
+ * A bar with motion has a white mark under it.
  * In song mode the runway counts to the next section. Part of the unity build: dub.c includes it. */
 
 static struct {
@@ -222,7 +224,7 @@ static uint32_t arr_sigf(void)
 {
     uint32_t h = (uint32_t)(arr.cur + 1) * 7u + arr.scope * 131u + (cued_mask() ? 1031u * (1u + blink_on()) : 0u)
                  + song_bar_ui() * 65537u + (uint32_t)ctl_get(P_SONG_LEN) * 257u + (uint32_t)ctl_get(P_SONG_MODE) * 3u
-                 + (uint32_t)ctl_get(P_SONG_REC) * 5u, k;
+                 + (uint32_t)ctl_get(P_SONG_REC) * 5u + mot_total() * 40503u, k;
     for (k = 0; k < NSCENES; k++)
         h = h * 3u + scenes[k].used + scenes[k].scope * 2u;
     return h;
@@ -278,6 +280,8 @@ static void arr_draw(int all)
             cv_rect(x, y, 6, 14, c);
             if (song[b].flags & BAR_SECTION)
                 cv_rect(x, y - 4, 2, 22, C_WHITE);
+            if (mot_n[b] && b < len)        /* motion inside the bar */
+                cv_rect(x + 1, y + 6, 4, 2, C_WHITE);
             if (b == here)
                 cv_rect(x, y + 16, 6, 3, C_WHITE);
         }
@@ -321,6 +325,12 @@ static int arr_expect(const char *what, int *got)
         *got = song[(atoi(what + 9) - 1) % SONG_BARS].flags & BAR_SECTION ? song[(atoi(what + 9) - 1) % SONG_BARS].section + 1 : 0;
     else if (!strcmp(what, "song_bar"))
         *got = (int)eng_song_bar() + 1;
+    else if (!strcmp(what, "mot_total"))       /* the motion's moves, all bars */
+        *got = (int)mot_total();
+    else if (!strncmp(what, "mot_bar", 7))     /* mot_barN: bar N's moves */
+        *got = mot_n[(atoi(what + 7) - 1) % SONG_BARS];
+    else if (!strcmp(what, "mot_drops"))
+        *got = (int)mot_drops;
     else
         return 0;
     return 1;

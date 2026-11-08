@@ -175,7 +175,19 @@ it.
 | KNOB 3 · SONG | OFF (the desk is yours), ONCE or LOOP. |
 | Black keys 1–11 | Put a section marker on the bar playing (stopped: the cursor's bar): INTRO, VERSE, CHORUS, DUB, DROP, BREAK, BRIDGE, BUILD, VOCAL, OUTRO, END. The same key again takes it off. In song mode the runway counts down to the next marker, not the cycle. |
 
-Throws and knob sweeps inside a bar aren't captured yet (motion recording comes later).
+**Motion.** While REC is on, everything your hands do inside a bar is captured too, at the moment you did it: throws,
+mutes, freeze, push, tape dive, the crash, and every knob (echo, spring, FX, sounds). When the song plays, they play
+back. Bars that hold motion have a white mark on the ARRANGE page.
+
+- **Fix one move, keep the rest.** Record another pass and touch only what you want to redo. A control you touch
+  replaces its own motion from that moment to the end of the bar; everything else keeps playing. A throw still held
+  over a bar line goes on replacing in the next bar.
+- **Take over by hand.** While the song plays, touching a control overrides its motion until the end of the bar.
+- **Stop** lets go of any throw, freeze, push or dive that motion was holding.
+- **SAVE + REC** (hold SAVE, press REC) clears all motion. HOME + REC (undo) takes back the bars' mutes and scenes,
+  not the motion.
+- A knob keeps one value per sixteenth (the latest), and a bar holds up to 32 moves. Press SAVE to keep the motion
+  over a restart.
 
 ## 3d. KEY & CHORDS (ARP): the lock
 
