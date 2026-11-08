@@ -4,8 +4,9 @@ DUBWISE (Dubwise FM) is a reggae/dub groovebox for the M-VAVE FM-1 in the making
 instrument. This early build has the desk's first move: the DUB page, where the white keys mute and solo the eight
 channels, and every change can wait for the next beat or bar line so it lands on time.
 
-There are no drum or bass voices yet. Press GLO to put a test tone on every channel so you can hear the mutes. MIDI
-in plays a test voice on the bass channel. There's no Bluetooth: the RAM it would take goes to the dub bus.
+The first four channels have voices: an FM kick, rim, hats and bass. Play them over MIDI (drums on channel 10,
+bass on any other) until the step sequencer arrives. Press GLO to put a test tone on every channel so you can hear the
+desk without them. There's no Bluetooth: the RAM it would take goes to the dub bus.
 
 ![The DUB page, stopped: 75.0 BPM, BAR 1.1, Q 1 BAR in the header; eight channel strips, all playing; the echo's repeats falling; TIME 1/8., FB 3.2s, ECHO 100, SPRG 90](img/screen-ready.png "The DUB page at rest")
 
@@ -62,7 +63,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | PLAY | Start and stop (when you let go). Starting counts from bar 1. Stopping makes anything waiting happen at once. Hold PLAY while you press a white key to make that change now instead of on the line. |
 | HOME + SELECT | Tempo, 1 BPM a click. |
 | ALGORITHM | Moves the focus between the channels. |
-| PRESET | Picks the test voice's wave: sine or triangle. |
+| EDIT | The SOUND view: KNOB 1–4 edit the focused channel's voice, four settings at a time. Press EDIT again for the next four, then once more to go back to the echo's knobs. ALGORITHM picks the channel. |
 | GLO | Test tones on every channel, on or off, so you can hear the desk until the voices arrive. |
 | MASTER | Sets the volume. |
 | SAVE | Saves the tempo, the quantise setting and the wave. SAVE lights while there's something to save. |
@@ -83,7 +84,7 @@ The keys light by one rule: bright is playing, dim is muted or not in use yet, a
 
 ## 4. Saving
 
-Press SAVE to keep the tempo, the quantise setting, the wave and the echo's knobs. They come back the next time the FM-1 starts. The
+Press SAVE to keep the tempo, the quantise setting, the echo's knobs and the sounds. They come back the next time the FM-1 starts. The
 mutes and solos aren't saved: scenes will do that.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")
@@ -92,8 +93,18 @@ mutes and solos aren't saved: scenes will do that.
 
 ## 5. MIDI and audio
 
-MIDI comes in over USB and the TRS jack. A note on any channel plays the test voice on the bass channel, and a
-note off releases it. DUBWISE has no Bluetooth.
+MIDI comes in over USB and the TRS jack. On channel 10, General MIDI's drum notes play the drums: 35 or 36 the kick,
+37 to 40 the rim, 42 or 44 the closed hat, 46 the open hat (a closed hat cuts an open one short). On any other
+channel, notes play the bass, one at a time. DUBWISE has no Bluetooth.
+
+The voices:
+
+| Voice | Settings (SOUND view) |
+| --- | --- |
+| Kick | TUNE (where the pitch lands, 40–70 Hz), SWEEP (where it starts), PTIME (how fast it falls), DECAY, CLICK (the beater) |
+| Rim | TUNE, DECAY, NOISE, INDEX (how metallic) |
+| Hats | TONE, CLOSED and OPEN (their lengths), NOISE |
+| Bass | INDEX (the pluck's brightness), IDECAY (how fast the pluck fades to a pure tone), DECAY, CUTOFF, RATIO (1:1 or 2:1, hollow), SUB (an octave below), SUSTAIN |
 
 The keys sense how hard you play them, with no change to the FM-1. The 20 lowest keys
 (F3 to C5) give velocity and pressure. The top seven give velocity only.

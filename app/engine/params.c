@@ -5,7 +5,7 @@
 #include "fastmath.h"
 
 typedef char p_ch_fits[(CHF_N <= CH_STRIDE && P_CH_BASE + NCH * CH_STRIDE <= P_BUS_BASE) ? 1 : -1];
-typedef char p_voice_fits[(VF_N <= VOICE_STRIDE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
+typedef char p_voice_fits[(VB_N <= VOICE_STRIDE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
 
 static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_LEVEL] = {"level", 0, 127, 100},           /* 100 = unity (gain (v/100)^2: +4 dB at 127) */
@@ -16,9 +16,37 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_THROW] = {"throw", 0, 1, 0},               /* pre-fader, pre-mute: a muted channel can be thrown (P0.2) */
     [CHF_THROW_DEST] = {"dest", 0, DEST_N - 1, DEST_ECHO},   /* per channel: param_def */
 };
-static const pdesc_t VOICE_FIELDS[VF_N] = {
-    [VF_WAVE] = {"wave", 0, 1, 0},                  /* the template's key voice: 0 sine, 1 triangle */
+/* the voices' parameters, 0..127 unless said (voices.c maps them) */
+static const pdesc_t KICK_F[VK_N] = {
+    [VK_TUNE] = {"tune", 0, 127, 42},               /* 40..70 Hz: where the sweep lands */
+    [VK_SWEEP] = {"sweep", 0, 127, 40},             /* 80..300 Hz: where it starts */
+    [VK_PTIME] = {"ptime", 0, 127, 30},             /* 10..120 ms */
+    [VK_DECAY] = {"decay", 0, 127, 40},             /* 100..1000 ms */
+    [VK_CLICK] = {"click", 0, 127, 40},
 };
+static const pdesc_t RIM_F[VR_N] = {
+    [VR_TUNE] = {"tune", 0, 127, 37},               /* 300..1200 Hz */
+    [VR_DECAY] = {"decay", 0, 127, 25},             /* 20..200 ms */
+    [VR_NOISE] = {"noise", 0, 127, 50},
+    [VR_INDEX] = {"index", 0, 127, 70},
+};
+static const pdesc_t HAT_F[VH_N] = {
+    [VH_TONE] = {"tone", 0, 127, 55},               /* 300..800 Hz, the squares' base */
+    [VH_CLOSED] = {"closed", 0, 127, 30},           /* 20..150 ms */
+    [VH_OPEN] = {"open", 0, 127, 50},               /* 150..800 ms */
+    [VH_NOISE] = {"noise", 0, 127, 50},
+};
+static const pdesc_t BASS_F[VB_N] = {
+    [VB_INDEX] = {"index", 0, 127, 50},             /* 0..2.5 */
+    [VB_IDECAY] = {"idecay", 0, 127, 30},           /* 10..150 ms */
+    [VB_DECAY] = {"decay", 0, 127, 20},             /* 80..1500 ms */
+    [VB_CUTOFF] = {"cutoff", 0, 127, 35},           /* 300..2500 Hz */
+    [VB_RATIO] = {"ratio", 0, 1, 0},                /* 1:1, 2:1 */
+    [VB_SUB] = {"sub", 0, 127, 0},
+    [VB_SUSTAIN] = {"sustain", 0, 127, 25},
+};
+static const pdesc_t *const VOICE_T[NCH] = {KICK_F, RIM_F, HAT_F, BASS_F, 0, 0, 0, 0};
+static const uint8_t VOICE_N[NCH] = {VK_N, VR_N, VH_N, VB_N, 0, 0, 0, 0};
 static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_TEMPO] = {"tempo", 400, 1800, 750},          /* 40.0 .. 180.0 BPM */
     [P_PLAY] = {"play", 0, 1, 0},
@@ -74,8 +102,10 @@ const pdesc_t *param_desc(uint32_t id)
         return &SPRING_RET;
     if (id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE < CHF_N)
         return &CH_FIELDS[(id - P_CH_BASE) % CH_STRIDE];
-    if (id >= P_VOICE_BASE && id < P_VOICE_BASE + NCH * VOICE_STRIDE && (id - P_VOICE_BASE) % VOICE_STRIDE < VF_N)
-        return &VOICE_FIELDS[(id - P_VOICE_BASE) % VOICE_STRIDE];
+    if (id >= P_VOICE_BASE && id < P_VOICE_BASE + NCH * VOICE_STRIDE) {
+        uint32_t ch = (id - P_VOICE_BASE) / VOICE_STRIDE, f = (id - P_VOICE_BASE) % VOICE_STRIDE;
+        return f < VOICE_N[ch] ? &VOICE_T[ch][f] : 0;
+    }
     return 0;
 }
 

@@ -18,8 +18,11 @@ enum { CH_KICK, CH_SNARE, CH_HATS, CH_BASS, CH_SKANK, CH_ORGAN, CH_LEAD, CH_VOX,
 /* channel strip fields (append only, at most CH_STRIDE) */
 enum { CHF_LEVEL, CHF_MUTE, CHF_SOLO, CHF_ECHO_SEND, CHF_SPRING_SEND, CHF_THROW, CHF_THROW_DEST, CHF_N };
 enum { DEST_ECHO, DEST_SPRING, DEST_BOTH, DEST_N };   /* a throw's destination (spec 3) */
-/* voice fields (append only, at most VOICE_STRIDE) */
-enum { VF_WAVE, VF_N };
+/* voice fields, each channel its own (append only, at most VOICE_STRIDE; voices.h) */
+enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_N };                         /* kick */
+enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_N };                                   /* rim / snare */
+enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_N };                                   /* hats */
+enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_N };   /* bass */
 
 #define P_GLOBAL_BASE 0x000u
 #define P_CH_BASE 0x040u

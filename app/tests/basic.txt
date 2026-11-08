@@ -4,7 +4,7 @@
 wait 600
 shot boot.png
 expect ble 0
-# MIDI in plays the test voice on the bass channel (until the voices of P0.5)
+# MIDI in plays the bass (any channel but 10)
 midi 90 3C 64
 wait 30
 expect note 60
@@ -16,11 +16,16 @@ expect peak_db_min -30
 midi 80 3C 00
 wait 50
 expect note -1
-# PRESET: the test voice's wave; OCT+: quantise; HOME + SELECT: tempo; SAVE keeps them over a restart
-turn PRESET 1
+# EDIT: the SOUND view of the focused channel (the kick); OCT+: quantise; HOME + SELECT: tempo; SAVE keeps them
+tap EDIT
 wait 30
-expect wave 1
+turn K1 3
+wait 30
+expect ui.v1.tune 45
 expect dirty 1
+tap EDIT
+tap EDIT
+wait 30
 tap OCT+
 wait 30
 expect ui.quant 2
@@ -33,10 +38,10 @@ expect ui.tempo 780
 tap SAVE
 wait 30
 expect dirty 0
-expect store_writes 1
+expect store_writes 2
 reboot
 wait 600
-expect wave 1
+expect ui.v1.tune 45
 expect ui.quant 2
 expect eng.tempo 780
 # the screen reader hears the page, then each change
@@ -53,9 +58,6 @@ tap OCT-
 wait 30
 said QUANTISE 1 BAR
 # MASTER turned while a note plays: the gain glides, so no sample jumps further than the wave itself does
-turn PRESET 1
-wait 30
-expect wave 0
 midi 90 45 64
 wait 100
 wav master.wav

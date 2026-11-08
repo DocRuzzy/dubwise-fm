@@ -9,8 +9,9 @@
  *   PLAY           start / stop (on release). Held with a white key: that key acts now, not on the line
  *   HOME + SELECT  tempo, 1 BPM a detent
  *   ALGORITHM      the focused channel (its strip underlined; the knobs follow it later)
- *   PRESET         the test voice's wave (MIDI in plays it on the bass channel; until P0.5)
- *   SAVE           tempo, quantise and wave
+ *   EDIT           the SOUND view: KNOB 1-4 edit the focused channel's voice, four parameters a bank; EDIT again
+ *                  for the next bank, then back to the echo's knobs (P0.5)
+ *   SAVE           tempo, quantise, the echo's knobs and the sounds
  *   GLO            test tones on every channel (until the SETUP page and the voices of P0.5)
  *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
  *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
@@ -50,6 +51,7 @@ static struct {
     int32_t last_key;
     uint8_t play_used, home_used;        /* held as a modifier: its own press does nothing on release */
     int32_t focus;                       /* ALGORITHM's channel */
+    uint8_t sound;                       /* the SOUND view: 0 off, else its bank (1, 2) */
     int32_t turns[NE];                   /* detents since boot, per encoder */
     uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
     uint32_t foot_sig, centre_t;         /* what the footer shows (redrawn when it changes); the centre's last draw */
@@ -126,6 +128,28 @@ static void tempo_text(char *t)          /* "75.0" */
     int_text(v / 10, t);
     d[1] = (char)('0' + v % 10);
     text_cat(t, d);
+}
+
+static uint32_t voice_fields(int32_t ch)  /* how many parameters the channel's voice has (0: none yet) */
+{
+    uint32_t n = 0;
+    while (n < VOICE_STRIDE && param_desc(P_VOICE(ch, n)))
+        n++;
+    return n;
+}
+
+static int32_t sound_id(uint32_t i)      /* the SOUND view's knob i: its parameter, -1 none */
+{
+    uint32_t f = (uint32_t)(dub.sound - 1u) * 4u + i;
+    return dub.sound && f < voice_fields(dub.focus) ? (int32_t)P_VOICE(dub.focus, f) : -1;
+}
+
+static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as the screen shows it */
+{
+    uint32_t i;
+    for (i = 0; a[i] && i + 1 < n; i++)
+        t[i] = a[i] >= 'a' && a[i] <= 'z' ? (char)(a[i] - 32) : a[i];
+    t[i] = 0;
 }
 
 /* ------------------------------------------------------------------ input --- */
@@ -238,7 +262,17 @@ static void button_press(uint32_t k)
         dub.home_used = 0;
     else if (k == B_SAVE)
         settings_save();
-    else if (k == B_GLO) {               /* (until SETUP and the voices: a test tone on every channel, to hear the desk) */
+    else if (k == B_EDIT) {              /* the SOUND view, a bank at a time, then back */
+        uint32_t nf = voice_fields(dub.focus);
+        dub.sound = (uint8_t)(dub.sound + 1u);
+        if ((uint32_t)(dub.sound - 1u) * 4u >= nf || nf == 0u)
+            dub.sound = 0;
+        dub.dirty_foot = 1;
+        if (dub.sound)
+            app_say("SOUND", CH_NAME[dub.focus]);
+        else
+            app_say(nf ? "ECHO" : "NO VOICE YET", nf ? "KNOBS" : CH_NAME[dub.focus]);
+    } else if (k == B_GLO) {               /* (until SETUP and the voices: a test tone on every channel, to hear the desk) */
         int on = !ctl_get(P_DEV_TONES);
         ctl_set(P_DEV_TONES, on);
         app_say("TEST TONES", on ? "ON" : "OFF");
@@ -317,6 +351,12 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 {
     int32_t tc = held_throw();
     t[0] = 0;
+    if (dub.sound && tc < 0 && ch < 0) { /* the SOUND view */
+        int32_t id = sound_id(i);
+        if (id >= 0)
+            int_text(ctl_get((uint32_t)id), t);
+        return;
+    }
     if (tc >= 0) {                       /* a throw key held: K1 its destination */
         text_cat(t, i == 0u ? DEST_WORD[ctl_get(P_CH(tc, CHF_THROW_DEST))] : "");
         return;
@@ -350,6 +390,19 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
         ctl_set(did, (ctl_get(did) + e % DEST_N + DEST_N) % DEST_N);
         app_say("THROW TO", DEST_WORD[ctl_get(did)]);
         dub.dirty_strips = dub.dirty_foot = 1;
+        return;
+    }
+    if (dub.sound && ch < 0) {           /* the SOUND view: the focused voice */
+        char l[12];
+        int32_t sid = sound_id(i);
+        if (sid < 0)
+            return;
+        ctl_set((uint32_t)sid, ctl_get((uint32_t)sid) + e);
+        set_dirty = 1;
+        upper(param_desc((uint32_t)sid)->name, l, sizeof l);
+        int_text(ctl_get((uint32_t)sid), t);
+        app_say(l, t);
+        dub.dirty_foot = 1;
         return;
     }
     if (ch >= 0) {                       /* hold-to-focus: the held channel's strip */
@@ -391,13 +444,10 @@ static void encoder(uint32_t k, int32_t e)
         app_say("TEMPO", t);
     } else if (k == EN_ALGO) {
         dub.focus = (dub.focus + e % (int32_t)NCH + (int32_t)NCH) % (int32_t)NCH;
+        if (dub.sound)
+            dub.sound = voice_fields(dub.focus) ? 1u : 0u;
         dub.dirty_strips = 1;
         app_say("FOCUS", CH_NAME[dub.focus]);
-    } else if (k == EN_PRESET) {
-        int32_t w = !ctl_get(P_VOICE(CH_BASS, VF_WAVE));
-        ctl_set(P_VOICE(CH_BASS, VF_WAVE), w);
-        set_dirty = 1;
-        app_say("WAVE", w ? "TRIANGLE" : "SINE");
     } else if (k >= EN_K1 && k <= EN_K4) {
         knob(k - EN_K1, e);
     } else {
@@ -682,20 +732,34 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
         int32_t x = 6 + (int32_t)i * 59;
         if (held_throw() >= 0)
             cv_text(x, 4, &FONT_XS, i == 0u ? "DEST" : "", C_AMB);
-        else
+        else if (dub.sound && ch < 0) {
+            char l[12];
+            int32_t sid = sound_id(i);
+            l[0] = 0;
+            if (sid >= 0)
+                upper(param_desc((uint32_t)sid)->name, l, sizeof l);
+            cv_text(x, 4, &FONT_XS, l, C_AMB);
+        } else
             cv_text(x, 4, &FONT_XS, ch >= 0 ? FOCUS_LABEL[i] : KNOB_LABEL[i], ch >= 0 ? C_AMB : C_GRAY);
         knob_value(i, ch, t);
         cv_text(x, 18, &FONT_B, t, i == 1u && ch < 0 && eng_echo_g() >= 1.0f ? C_RED : C_HI);
     }
-    if (ch >= 0) {
+    if (ch >= 0)
         cv_text(234 - text_w(&FONT_T, CH_NAME[ch]), 4, &FONT_T, CH_NAME[ch], C_AMB);
+    else if (dub.sound && held_throw() < 0) {   /* which voice, which bank */
+        char t2[20];
+        t2[0] = 0;
+        text_cat(t2, CH_NAME[dub.focus]);
+        text_cat(t2, dub.sound == 1u ? " 1" : " 2");
+        cv_text(234 - text_w(&FONT_T, t2), 4, &FONT_T, t2, C_AMB);
     }
     cv_blit(0, FOOT_Y);
 }
 
 static uint32_t foot_sig(void)           /* changes whenever what the footer shows does */
 {
-    uint32_t h = (uint32_t)(held_mute() + 1) * 17u + (uint32_t)(held_throw() + 1), i;
+    uint32_t h = ((uint32_t)(held_mute() + 1) * 17u + (uint32_t)(held_throw() + 1)) * 7u + dub.sound * 131u
+                 + (uint32_t)dub.focus * 1031u, i;
     for (i = 0; i < 4u; i++) {
         char t[16], *p;
         knob_value(i, held_mute(), t);

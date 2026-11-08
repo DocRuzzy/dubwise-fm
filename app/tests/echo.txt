@@ -1,4 +1,4 @@
-# The dub tape echo (P0.3). A short note from MIDI (the test voice, on the bass channel) sent to the echo. At 75 BPM
+# The dub tape echo (P0.3). A short note from MIDI (the bass) sent to the echo. At 75 BPM
 # the default time, a dotted eighth, is 0.75 x 800 ms = 600 ms: 6615 line samples (11,025 a second), less one for the
 # converters. Run by tests/run_tests.sh, then the #wav checks at the end.
 wait 600
@@ -58,7 +58,7 @@ wait 200
 midi 80 3C 00
 key b2 down
 wait 20000
-expect echo_ret_db >-30
+expect echo_ret_db >-40
 said DUB PUSH
 key b2 up
 wait 50

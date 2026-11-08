@@ -5,6 +5,7 @@
 #include "fastmath.h"
 #include "plat.h"                                /* plat_ticks24: the profiler */
 #include "echo.h"
+#include "voices.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -75,10 +76,6 @@ static cue_t cues[NCUES];
 static uint32_t ncues;
 static volatile uint32_t cue_overflows;          /* a cue the full list could not hold fired at once instead */
 
-/* the key voice: one voice, the last note wins (the template's; P0.5 replaces it with the bass voice) */
-static volatile int32_t voice_note = -1;
-static volatile float voice_vel = 1.0f;
-static float voice_phase, voice_level;
 
 /* -------------------------------------------------------------- profiler --- */
 static uint32_t prof_acc[NPARTS];                /* this block's ticks, per part */
@@ -232,7 +229,7 @@ static float echo_line_t(int32_t d)              /* a division's time in line sa
     return echo_div_beats(d) * 6615000.0f / (float)ev[P_TEMPO];   /* beats x 60 / BPM x 11025 */
 }
 
-static void bus_update(void)                     /* the echo's settings from the applied values */
+static void bus_update(void)                     /* the echo's and the voices' settings from the applied values */
 {
     echo_cfg_t c;
     int32_t d = ev[P_ECHO_TIME];
@@ -258,6 +255,7 @@ static void bus_update(void)                     /* the echo's settings from the
         c.head2 = 0.35f;
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
+    voices_config(ev);
 }
 
 static void drain(void)                          /* every queued command, at the start of the block */
@@ -296,6 +294,7 @@ void eng_init(void)
     }
     strips_update();
     echo_init();
+    voices_init();
     echo_ret.g = echo_ret.target = 0.0f;
     echo_ret.left = 0;
     bus_update();
@@ -306,45 +305,15 @@ void eng_init(void)
 }
 
 /* ---------------------------------------------------------------- sources --- */
-void eng_note_on(int32_t note, uint32_t vel)
-{
-    voice_vel = (float)vel * (1.0f / 127.0f);
-    voice_note = note;
-}
-void eng_note_off(int32_t note)
-{
-    if (voice_note == note)
-        voice_note = -1;
-}
-int32_t eng_note(void) { return voice_note; }
-
-static int key_voice(float *o, uint32_t n)       /* 0: silent (nothing written) */
-{
-    uint32_t i;
-    int32_t note = voice_note;
-    float target = note >= 0 ? 0.25f * voice_vel : 0.0f;
-    float inc = note >= 0 ? 440.0f * fm_exp2f((float)(note - 69) / 12.0f) / 44100.0f : 0.0f;
-    int tri = ev[P_VOICE(CH_BASS, VF_WAVE)] != 0;
-    if (note < 0 && voice_level < 1e-6f) {
-        voice_level = 0.0f;
-        return 0;
-    }
-    for (i = 0; i < n; i++) {
-        voice_level += (target - voice_level) * 0.002f;          /* ~10 ms attack and release */
-        voice_phase += inc;
-        if (voice_phase >= 1.0f)
-            voice_phase -= 1.0f;
-        o[i] = (tri ? 4.0f * fm_fabsf(voice_phase - 0.5f) - 1.0f : fm_sin_turns(voice_phase)) * voice_level;
-    }
-    return 1;
-}
+void eng_trig(uint32_t ch, int32_t note, uint32_t vel) { voice_trig(ch, note, vel); }
+void eng_release(uint32_t ch, int32_t note) { voice_release(ch, note); }
+int32_t eng_note(void) { return voice_note(CH_BASS); }
 
 static int source(uint32_t ch, float *o, uint32_t n)   /* the channel's sound, mono; 0: silent */
 {
     uint32_t i;
     int any = 0;
-    if (ch == CH_BASS)
-        any = key_voice(o, n);
+    any = voice_render(ch, o, n);
     if (ev[P_DEV_TONES]) {                       /* a sine per channel: 110 Hz x (channel + 1), -20 dBFS */
         strip_t *s = &strip[ch];
         float inc = 110.0f * (float)(ch + 1u) / 44100.0f;
@@ -464,11 +433,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     prof_block();
 }
 
-void eng_panic(void)
-{
-    voice_note = -1;
-    voice_level = 0.0f;
-}
+void eng_panic(void) { voices_panic(); }
 
 int32_t eng_param(uint32_t id) { return id < P_NIDS ? ev[id] : 0; }
 float eng_ch_peak(uint32_t ch) { return ch < NCH ? strip[ch].peak : 0.0f; }

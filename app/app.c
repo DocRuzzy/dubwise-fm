@@ -11,32 +11,53 @@
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x44554233u            /* "DUB3": the settings record; another magic loads defaults */
+#define SET_MAGIC 0x44554234u            /* "DUB4": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
     uint8_t quant;                       /* P_QUANT */
-    uint8_t wave;                        /* the test voice's (MIDI in, on the bass channel): 0 sine, 1 triangle */
+    uint8_t rsv;
     uint8_t echo_time, echo_fb, echo_ret, spring_ret;   /* the DUB page's knobs */
 } settings_t;
+/* the sounds: every voice parameter (P_VOICE_BASE..P_NIDS), in their own store object (OBJ_SOUND) */
+#define SOUND_MAGIC 0x534E4431u          /* "SND1" */
+typedef struct {
+    uint32_t magic;
+    int16_t v[P_NIDS - P_VOICE_BASE];
+} sound_t;
+static sound_t snd;
 static settings_t set;
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
 
 /* ------------------------------------------------------------------- MIDI --- */
-/* MIDI in plays the test voice on the bass channel (engine/engine.c), until the voices of P0.5 */
+/* MIDI in plays the voices: channel 10 the drums by General MIDI's notes, any other the bass */
 static volatile uint32_t midi_count;     /* messages in (clock and active sensing left out) */
+static int32_t gm_drum(uint32_t note)    /* GM drum note -> our channel, -1 none */
+{
+    switch (note) {
+    case 35: case 36: return CH_KICK;
+    case 37: case 38: case 39: case 40: return CH_SNARE;
+    case 42: case 44: case 46: return CH_HATS;
+    default: return -1;
+    }
+}
 static void midi_in(void)                /* audio interrupt: the packets that came in */
 {
     uint32_t pkt;
     int port;
     while (plat_midi_in(&pkt, &port)) {
-        uint32_t st = (pkt >> 8) & 0xFFu, d1 = (pkt >> 16) & 0x7Fu, d2 = pkt >> 24;
+        uint32_t st = (pkt >> 8) & 0xFFu, d1 = (pkt >> 16) & 0x7Fu, d2 = pkt >> 24, mch = st & 0x0Fu;
+        int on = (st & 0xF0u) == 0x90u && d2, off = (st & 0xF0u) == 0x80u || ((st & 0xF0u) == 0x90u && !d2);
         if (st != 0xF8u && st != 0xFEu)
             midi_count++;
-        if ((st & 0xF0u) == 0x90u && d2)
-            eng_note_on((int32_t)d1, d2);
-        else if ((st & 0xF0u) == 0x80u || (st & 0xF0u) == 0x90u)
-            eng_note_off((int32_t)d1);
+        if (mch == 9u) {                 /* drums ring out: note offs ignored */
+            int32_t ch = gm_drum(d1);
+            if (on && ch >= 0)
+                eng_trig((uint32_t)ch, (int32_t)d1, d2);
+        } else if (on)
+            eng_trig(CH_BASS, (int32_t)d1, d2);
+        else if (off)
+            eng_release(CH_BASS, (int32_t)d1);
     }
 }
 
@@ -54,7 +75,6 @@ static void settings_defaults(void)
     set.magic = SET_MAGIC;
     set.tempo = (int16_t)param_def(P_TEMPO);
     set.quant = (uint8_t)param_def(P_QUANT);
-    set.wave = 0;
     set.echo_time = (uint8_t)param_def(P_ECHO_TIME);
     set.echo_fb = (uint8_t)param_def(P_ECHO_FB);
     set.echo_ret = (uint8_t)param_def(P_ECHO_RET);
@@ -65,12 +85,17 @@ static void settings_save(void)
 {
     set.tempo = (int16_t)ctl_get(P_TEMPO);
     set.quant = (uint8_t)ctl_get(P_QUANT);
-    set.wave = (uint8_t)ctl_get(P_VOICE(CH_BASS, VF_WAVE));
     set.echo_time = (uint8_t)ctl_get(P_ECHO_TIME);
     set.echo_fb = (uint8_t)ctl_get(P_ECHO_FB);
     set.echo_ret = (uint8_t)ctl_get(P_ECHO_RET);
     set.spring_ret = (uint8_t)ctl_get(P_SPRING_RET);
-    if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0) {
+    snd.magic = SOUND_MAGIC;
+    {
+        uint32_t i;
+        for (i = 0; i < P_NIDS - P_VOICE_BASE; i++)
+            snd.v[i] = (int16_t)ctl_get(P_VOICE_BASE + i);
+    }
+    if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0) {
         set_dirty = 0;
         app_say("SAVED", "");
     } else {
@@ -83,11 +108,16 @@ void app_init(void)
     eng_init();                          /* every parameter at its default, on both sides of the queue */
     ctl_init();
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC
-        || set.tempo != param_clamp(P_TEMPO, set.tempo) || set.quant >= QUANT_N || set.wave > 1u)
+        || set.tempo != param_clamp(P_TEMPO, set.tempo) || set.quant >= QUANT_N)
         settings_defaults();
+    if (plat_store_load(OBJ_SOUND, &snd, sizeof snd) == (int)sizeof snd && snd.magic == SOUND_MAGIC) {
+        uint32_t i;
+        for (i = 0; i < P_NIDS - P_VOICE_BASE; i++)
+            if (param_desc(P_VOICE_BASE + i))
+                ctl_set(P_VOICE_BASE + i, snd.v[i]);   /* (clamped) */
+    }
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
-    ctl_set(P_VOICE(CH_BASS, VF_WAVE), set.wave);
     ctl_set(P_ECHO_TIME, set.echo_time);  /* (clamped to their ranges) */
     ctl_set(P_ECHO_FB, set.echo_fb);
     ctl_set(P_ECHO_RET, set.echo_ret);
@@ -223,9 +253,7 @@ int app_host_fails(void) { return host_fails; }
 
 int app_expect(const char *what, int *got)
 {
-    if (!strcmp(what, "wave"))
-        *got = ctl_get(P_VOICE(CH_BASS, VF_WAVE));
-    else if (!strcmp(what, "note"))
+    if (!strcmp(what, "note"))
         *got = eng_note();
     else if (!strcmp(what, "dirty"))
         *got = set_dirty;

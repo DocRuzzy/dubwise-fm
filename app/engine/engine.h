@@ -19,10 +19,10 @@ void eng_init(void);                         /* boot: every parameter at its def
 void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12);   /* audio interrupt; n <= ENG_BLOCK */
 void eng_panic(void);                        /* silence now */
 
-/* the key voice (the template's, on the bass channel until P0.5): main loop or audio interrupt (MIDI in) */
-void eng_note_on(int32_t note, uint32_t vel);
-void eng_note_off(int32_t note);
-int32_t eng_note(void);                      /* the note sounding, -1 none */
+/* the voices (voices.h): a hit or a note on channel ch, from the audio interrupt (MIDI in, the sequencer) */
+void eng_trig(uint32_t ch, int32_t note, uint32_t vel);
+void eng_release(uint32_t ch, int32_t note);
+int32_t eng_note(void);                      /* the bass's note held, -1 none */
 
 /* read back (main loop): what the engine has applied, and its meters */
 int32_t eng_param(uint32_t id);

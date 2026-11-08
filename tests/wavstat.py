@@ -17,6 +17,9 @@ Metrics (dBFS unless noted; -200 for silence):
   head      RMS of the first 250 ms
   growth    tail - head in dB (feedback stability: a loop that runs away grows)
   seconds   the length (s)
+  zc_hz     the pitch by zero crossings over the middle half (where the sound is over -60 dBFS): a kick's or a
+            bass note's fundamental
+  hf        the energy above ~4 kHz against all of it, dB (0: all highs; hats near it, a kick far under)
   repeat_ms the time from the first sound's onset to the next one (an echo's repeat): where a 5 ms envelope
             rises past -40 dBFS, and again after it has fallen 6 dB under that (-1 if there is no second onset)
 """
@@ -84,6 +87,30 @@ def repeat_ms(xs, rate):
     return (i - on1) * 1000.0 / rate if i < n else -1.0
 
 
+def zc_hz(xs, rate):
+    n = len(xs)
+    seg = xs[n // 4: 3 * n // 4]
+    thr = 10 ** (-60 / 20.0)
+    last = max((i for i, x in enumerate(seg) if abs(x) > thr), default=-1)   # the sound's end in the window
+    if last < 64:
+        return -1.0
+    seg = seg[:last + 1]
+    crossings = sum(1 for a, b in zip(seg, seg[1:]) if (a < 0.0) != (b < 0.0))
+    return crossings * rate / (2.0 * len(seg))
+
+
+def highpass(xs, rate, fc):            # two one-pole high-passes
+    a = math.exp(-2.0 * math.pi * fc / rate)
+    out, x1, y1, x2, y2 = [], 0.0, 0.0, 0.0, 0.0
+    for x in xs:
+        y1 = a * (y1 + x - x1)
+        x1 = x
+        y2 = a * (y2 + y1 - x2)
+        x2 = y1
+        out.append(y2)
+    return out
+
+
 def metrics(path):
     rate, L, R = read(path)
     n = len(L)
@@ -102,6 +129,8 @@ def metrics(path):
         "growth": tail - head,
         "seconds": n / rate,
         "repeat_ms": repeat_ms(L, rate),
+        "zc_hz": zc_hz(L, rate),
+        "hf": db(rms(highpass(L, rate, 4000.0))) - db(rms(L)) if rms(L) > 0 else -200.0,
     }
 
 
