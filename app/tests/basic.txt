@@ -50,7 +50,10 @@ wait 100
 said DUBWISE. 78.0 BPM. STOPPED. QUANTISE 2 BARS
 tap ARP
 wait 30
-said BUTTON ARP
+said KEY AND LOCK
+tap HOME
+wait 30
+said DUB PAGE
 tap REC
 wait 30
 said BUTTON REC

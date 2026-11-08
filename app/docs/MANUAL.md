@@ -103,6 +103,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | CUE TICK | A short tick on the runway's beats, higher on each bar's first. |
 | REDUCED MOTION | No pulsing border, no green flash. The count still shows, and the screen reader still hears it. |
 | CUE LEAD | How early a quantised change lands before its line: 0–50 ms (10 by default, so it catches the downbeat). |
+| LOCK MIDI IN | The key lock filters MIDI notes coming in, too (off by default). |
 | TEST TONES | A test tone on every channel (not saved). |
 
 ## 3c. The STEPS page (SEQ)
@@ -121,13 +122,32 @@ channel you're editing, bigger, with its notes.
 | KNOB 1 · LEN | The pattern's length, 1 to 64 steps. |
 | KNOB 2 · NOTE | The note of the step you hold, or the last one you touched: a semitone a click. On the hats, closed or open. |
 | KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS or FLYERS. It lands on the next bar line, and then it's just steps you can change. |
+| REC (on the bass) | The keyboard: all 27 keys play the bass, from F in the octave set on the KEY page. While playing, each note you play is recorded at the nearest step. While stopped, notes go in one step after another. Press REC again for the steps. |
 
 The riddims: ONE DROP has the kick and rim on beat 3 only. ROCKERS puts the kick on 1 and 3 and doubles the rim.
 STEPPERS has the kick on every beat. FLYERS opens the hat on every off-beat and closes it on the beat.
 
+## 3d. KEY & CHORDS (ARP): the lock
+
+The lock makes wrong notes impossible: keys outside the allowed notes are silent. They're never moved to a
+neighbouring note, so the keyboard keeps its usual spacing and what you learn carries over to a real one. The lock
+only filters what you play: notes already recorded play as recorded.
+
+| Control | Bank 1 (ARP) | Bank 2 (ARP again): the chord lane |
+| --- | --- | --- |
+| KNOB 1 | The key's root | The lane's bar to edit |
+| KNOB 2 | The scale: natural minor, dorian, minor pentatonic, minor blues, major, mixolydian, major pentatonic, harmonic minor, phrygian | Its chord's root |
+| KNOB 3 | The lock: OFF, SCALE (the key's notes) or CHORD (only the notes of the chord playing now, which follow the lane bar by bar) | Its chord: minor, major, 7, minor 7, major 7, sus 4, diminished |
+| KNOB 4 | The keyboard's octave | How many bars the lane has, 1–16 |
+
+HOME + ARP turns the lock on or off from any page. While it's on, the header shows LOCK (or CHD in chord mode), and
+the keys light the allowed notes: the root bright, the rest dim. A screen reader hears "lock on, A natural minor"
+or "chord lock, A minor". On the STEPS page, KNOB 2 skips notes the lock doesn't allow. On the SETUP page, LOCK MIDI
+IN makes the lock filter MIDI notes coming in too.
+
 ## 4. Saving
 
-Press SAVE to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the sounds and the patterns. They come back the next time the FM-1 starts. The
+Press SAVE to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the key, its lock and the chord lane, the sounds and the patterns. They come back the next time the FM-1 starts. The
 mutes and solos aren't saved: scenes will do that.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")

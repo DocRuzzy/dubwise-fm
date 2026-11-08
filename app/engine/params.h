@@ -47,12 +47,33 @@ enum {
     P_RUNWAY_NUM,             /* 1: the big countdown numeral */
     P_TICK,                   /* 1: an audible tick on the runway's beats */
     P_REDUCED,                /* 1: reduced motion (no pulses, no flash) */
+    P_KEY_ROOT,               /* the key's root, 0 C .. 11 B (P0.8) */
+    P_SCALE,                  /* SCALE_* */
+    P_LOCK,                   /* LOCK_OFF, LOCK_SCALE, LOCK_CHORD: out-of-set keys silent (never remapped) */
+    P_KB_OCT,                 /* the keyboard's octave: 0..5 = -3..+2 (the bass plays at -2) */
+    P_LOCK_MIDI,              /* 1: the lock filters MIDI in too */
+    P_CHORD_LEN,              /* the chord lane's bars, 1..16 */
     P_NGLOBAL,
+    P_CHORD0 = 0x010,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
+    P_CHORD_END = 0x020,
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
 enum { QUANT_BEAT, QUANT_1, QUANT_2, QUANT_4, QUANT_8, QUANT_16, QUANT_32, QUANT_CYCLE, QUANT_N };
 enum { CYCLE_8, CYCLE_16, CYCLE_32, CYCLE_64, CYCLE_N };
 enum { RUNWAY_1, RUNWAY_2, RUNWAY_4, RUNWAY_8, RUNWAY_N };
+enum { SCALE_AEOLIAN, SCALE_DORIAN, SCALE_MIN_PENT, SCALE_MIN_BLUES, SCALE_IONIAN, SCALE_MIXOLYDIAN,
+       SCALE_MAJ_PENT, SCALE_HARM_MIN, SCALE_PHRYGIAN, SCALE_N };
+enum { CHORD_MIN, CHORD_MAJ, CHORD_7, CHORD_M7, CHORD_MAJ7, CHORD_SUS4, CHORD_DIM, CHORD_N };
+enum { LOCK_OFF, LOCK_SCALE, LOCK_CHORD, LOCK_N };
+const char *scale_name(int32_t s);                   /* "NATURAL MINOR" */
+const char *chord_name(int32_t q);                   /* "MINOR" */
+const char *chord_short(int32_t q);                  /* "m" */
+const char *pitch_name(int32_t pc);                  /* "C", "C#" .. */
+uint32_t scale_mask(int32_t root, int32_t s);        /* the allowed pitch classes, a bit each (bit 0 = C) */
+uint32_t chord_mask(int32_t code);                   /* a chord lane entry's pitch classes */
+/* the lock's allowed set now, from the values given (vals[id]): all 12 when off. bar: the bar playing (the chord
+ * lane follows it) */
+uint32_t lock_mask(const int16_t *vals, uint32_t bar);
 
 /* bus modules (append only, within 0x0C0-0x0FF) */
 enum {

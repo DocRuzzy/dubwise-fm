@@ -4,11 +4,11 @@
  * reduced motion and the test tones. KNOB 1 (or SELECT) moves through the list, KNOB 2 (or PRESET) changes the
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
-enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_LEAD, SU_TONES, SU_N };
+enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_LEAD, SU_LOCK_MIDI, SU_TONES, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
-                                          "REDUCED MOTION", "CUE LEAD", "TEST TONES"};
+                                          "REDUCED MOTION", "CUE LEAD", "LOCK MIDI IN", "TEST TONES"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_LEAD,
-                                     P_DEV_TONES};
+                                     P_LOCK_MIDI, P_DEV_TONES};
 static int32_t su_cur;
 static uint32_t su_sig;
 
@@ -67,17 +67,18 @@ static void setup_draw(int all)          /* the list in the strips' and centre's
     if (!all && sig == su_sig)
         return;
     su_sig = sig;
-    cv_begin(240, STRIP_H + 2 + CENTRE_H, C_BLACK);
+    cv_begin(240, PAGE_H, C_BLACK);      /* (a canvas holds 144 rows: the rest of the area below, cleared) */
     cv_text(6, 2, &FONT_XS, "SETUP", C_GRAY);
     for (i = 0; i < SU_N; i++) {
-        int32_t y = 20 + (int32_t)i * 19, cur = (int32_t)i == su_cur;
+        int32_t y = 17 + (int32_t)i * 14, cur = (int32_t)i == su_cur;
         if (cur)
-            cv_rect(0, y - 1, 240, 18, C_LINE);
-        cv_text(10, y, &FONT_XS, SU_NAME[i], cur ? C_WHITE : C_GRAY);
+            cv_rect(0, y - 1, 240, 14, C_LINE);
+        cv_text(10, y, &FONT_T, SU_NAME[i], cur ? C_WHITE : C_GRAY);
         su_value(i, t);
-        cv_text(232 - text_w(&FONT_XS, t), y, &FONT_XS, t, cur ? C_HI : C_AMB);
+        cv_text(232 - text_w(&FONT_T, t), y, &FONT_T, t, cur ? C_HI : C_AMB);
     }
     cv_blit(0, STRIP_Y);
+    lcd_fill(0, STRIP_Y + PAGE_H, 240, FOOT_Y - STRIP_Y - PAGE_H, C_BLACK);
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);
     cv_text(6, 4, &FONT_XS, "ITEM", C_GRAY);

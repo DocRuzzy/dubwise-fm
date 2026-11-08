@@ -59,7 +59,14 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_RUNWAY_NUM] = {"runway.num", 0, 1, 1},
     [P_TICK] = {"tick", 0, 1, 0},
     [P_REDUCED] = {"reduced", 0, 1, 0},
+    [P_KEY_ROOT] = {"key", 0, 11, 9},               /* A */
+    [P_SCALE] = {"scale", 0, SCALE_N - 1, SCALE_AEOLIAN},
+    [P_LOCK] = {"lock", 0, LOCK_N - 1, LOCK_OFF},
+    [P_KB_OCT] = {"kb.oct", 0, 5, 1},               /* -2: the bass's register */
+    [P_LOCK_MIDI] = {"lock.midi", 0, 1, 0},
+    [P_CHORD_LEN] = {"chord.len", 1, 16, 4},
 };
+static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
     [P_ECHO_TIME - P_ECHO_TIME] = {"echo.time", 0, ECHO_DIV_N - 1, ECHO_DIV_8D},
     [P_ECHO_FB - P_ECHO_TIME] = {"echo.fb", 0, 100, 45},
@@ -104,6 +111,8 @@ const pdesc_t *param_desc(uint32_t id)
 {
     if (id < P_NGLOBAL)
         return &GLOBALS[id];
+    if (id >= P_CHORD0 && id < P_CHORD_END)
+        return &CHORD_SLOT;
     if (id == P_DEV_TONES)
         return &DEV_TONES;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)
@@ -128,6 +137,10 @@ int32_t param_def(uint32_t id)
         return 0;
     if (id >= P_CH_BASE && id < P_BUS_BASE && (id - P_CH_BASE) % CH_STRIDE == CHF_THROW_DEST)
         return DEST[(id - P_CH_BASE) / CH_STRIDE];
+    if (id >= P_CHORD0 && id < P_CHORD_END) {     /* the lane: Am Dm Am Em, then Am */
+        static const uint8_t L[4] = {9 * 8 + CHORD_MIN, 2 * 8 + CHORD_MIN, 9 * 8 + CHORD_MIN, 4 * 8 + CHORD_MIN};
+        return (id - P_CHORD0) < 4u ? L[id - P_CHORD0] : 9 * 8 + CHORD_MIN;
+    }
     return d->def;
 }
 
@@ -149,6 +162,18 @@ void param_name(uint32_t id, char *buf, uint32_t n)
     buf[0] = 0;
     if (!d)
         return;
+    if (id >= P_CHORD0 && id < P_CHORD_END) {     /* "chord1" .. "chord16" */
+        uint32_t k = id - P_CHORD0 + 1u;
+        const char *c = "chord";
+        for (; *c && i + 1 < n; c++)
+            buf[i++] = *c;
+        if (k >= 10u && i + 1 < n)
+            buf[i++] = '1';
+        if (i + 1 < n)
+            buf[i++] = (char)('0' + k % 10u);
+        buf[i] = 0;
+        return;
+    }
     if (id >= P_CH_BASE && id < P_BUS_BASE) {        /* "ch4." or "v4." before a channel's own */
         uint32_t ch = (id - P_CH_BASE) / CH_STRIDE;
         const char *pre = "ch";
@@ -190,4 +215,60 @@ int param_find(const char *name)
             return (int)id;
     }
     return -1;
+}
+
+/* ------------------------------------------------------------------ keys --- */
+static const uint16_t SCALE_BITS[SCALE_N] = {   /* intervals from the root, a bit each */
+    0x5AD,   /* aeolian 0 2 3 5 7 8 10 */
+    0x6AD,   /* dorian 0 2 3 5 7 9 10 */
+    0x4A9,   /* minor pentatonic 0 3 5 7 10 */
+    0x4E9,   /* minor blues 0 3 5 6 7 10 */
+    0xAB5,   /* ionian 0 2 4 5 7 9 11 */
+    0x6B5,   /* mixolydian 0 2 4 5 7 9 10 */
+    0x295,   /* major pentatonic 0 2 4 7 9 */
+    0x9AD,   /* harmonic minor 0 2 3 5 7 8 11 */
+    0x5AB,   /* phrygian 0 1 3 5 7 8 10 */
+};
+static const uint16_t CHORD_BITS[CHORD_N] = {0x089, 0x091, 0x491, 0x489, 0x891, 0x0A1, 0x049};
+
+const char *scale_name(int32_t s)
+{
+    static const char *const N[SCALE_N] = {"NATURAL MINOR", "DORIAN", "MINOR PENTATONIC", "MINOR BLUES", "MAJOR",
+                                           "MIXOLYDIAN", "MAJOR PENTATONIC", "HARMONIC MINOR", "PHRYGIAN"};
+    return s >= 0 && s < SCALE_N ? N[s] : "";
+}
+const char *chord_name(int32_t q)
+{
+    static const char *const N[CHORD_N] = {"MINOR", "MAJOR", "SEVENTH", "MINOR SEVENTH", "MAJOR SEVENTH", "SUS FOUR",
+                                           "DIMINISHED"};
+    return q >= 0 && q < CHORD_N ? N[q] : "";
+}
+const char *chord_short(int32_t q)
+{
+    static const char *const N[CHORD_N] = {"m", "", "7", "m7", "M7", "s4", "o"};
+    return q >= 0 && q < CHORD_N ? N[q] : "";
+}
+const char *pitch_name(int32_t pc)
+{
+    static const char *const N[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    return N[((pc % 12) + 12) % 12];
+}
+static uint32_t rot(uint32_t bits, int32_t root)    /* intervals -> pitch classes */
+{
+    uint32_t r = (uint32_t)(((root % 12) + 12) % 12);
+    return ((bits << r) | (bits >> (12u - r))) & 0xFFFu;
+}
+uint32_t scale_mask(int32_t root, int32_t s) { return rot(SCALE_BITS[s >= 0 && s < SCALE_N ? s : 0], root); }
+uint32_t chord_mask(int32_t code) { return rot(CHORD_BITS[(code & 7) < CHORD_N ? code & 7 : 0], code / 8); }
+
+uint32_t lock_mask(const int16_t *vals, uint32_t bar)
+{
+    int32_t mode = vals[P_LOCK];
+    if (mode == LOCK_SCALE)
+        return scale_mask(vals[P_KEY_ROOT], vals[P_SCALE]);
+    if (mode == LOCK_CHORD) {
+        uint32_t len = (uint32_t)(vals[P_CHORD_LEN] > 0 ? vals[P_CHORD_LEN] : 1);
+        return chord_mask(vals[P_CHORD0 + bar % len]);
+    }
+    return 0xFFFu;
 }

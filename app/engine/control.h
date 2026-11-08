@@ -20,6 +20,11 @@ void ctl_step(uint32_t ch, uint32_t i, step_t st);
 step_t ctl_get_step(uint32_t ch, uint32_t i);
 void ctl_template(int32_t t, uint32_t mask, uint32_t beats);   /* the mirror at once, the engine on the line */
 
+/* a played note (the keyboard): at once, never quantised; vel 0 lets it go. Notes are not resent: a full queue
+ * (256 waiting) drops one (counted as refused) */
+void ctl_note(uint32_t ch, int32_t note, uint32_t vel);
+const int16_t *ctl_vals(void);             /* the desired values, by ID (lock_mask and the like) */
+
 typedef struct {
     uint32_t sent;                         /* commands queued */
     uint32_t refused;                      /* pushes the full queue refused */

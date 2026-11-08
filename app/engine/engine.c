@@ -55,7 +55,8 @@ static strip_t strip[NCH];
 static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], eret[ENG_BLOCK];
 static volatile float echo_peak, spring_peak, echo_ret_peak;
 static ramp_t echo_ret;                          /* the echo return's level */
-static volatile int32_t echo_div_now;            /* the division in use (the longest that fits, at this tempo) */
+static volatile int32_t echo_div_now;
+static volatile uint32_t lock_now = 0xFFFu;      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
 
@@ -294,6 +295,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev);
+    lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
 }
 
 static void drain(void)                          /* every queued command, at the start of the block */
@@ -308,6 +310,13 @@ static void drain(void)                          /* every queued command, at the
             pat[c.id / NSTEPS][c.id % NSTEPS] = step_unpack(c.v);
         else if (c.op == CMD_TEMPLATE)
             cue_add(CMD_TEMPLATE, c.id, c.v, c.beats);
+        else if (c.op == CMD_NOTE && c.id < NCH) {
+            int32_t note = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
+            if (vel)
+                voice_trig(c.id, note, (uint32_t)vel);
+            else
+                voice_release(c.id, note);
+        }
         cmds++;
     }
     if (ev[P_PLAY] && !t_playing) {              /* start: bar 1, beat 1, at this block's first sample */
@@ -556,6 +565,11 @@ float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
 uint32_t eng_seq_hits(void) { return seq_hits; }
 uint32_t eng_ticks(void) { return ticks; }
+int eng_midi_allowed(int32_t note)               /* MIDI in, when the lock covers it (P_LOCK_MIDI) */
+{
+    return !ev[P_LOCK_MIDI] || (lock_now >> (note % 12) & 1u);
+}
+uint32_t eng_frac16(void) { return (t_phase % Q16) / (Q16 / 256u); }
 int32_t eng_tick(void) { return t_playing ? last_tick : -1; }
 uint32_t eng_seq_hit_at(uint32_t ch) { return ch < NCH ? seq_hit_at[ch] : 0; }
 step_t eng_step(uint32_t ch, uint32_t i) { return pat[ch % NCH][i % NSTEPS]; }

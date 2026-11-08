@@ -11,7 +11,7 @@
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x44554235u            /* "DUB5": the settings record; another magic loads defaults */
+#define SET_MAGIC 0x44554236u            /* "DUB6": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
@@ -19,6 +19,7 @@ typedef struct {
     uint8_t rsv;
     uint8_t echo_time, echo_fb, echo_ret, spring_ret;   /* the DUB page's knobs */
     uint8_t setup[P_NGLOBAL];            /* the globals from P_LEAD on: lead, cycle, runway .. (SETUP) */
+    uint8_t chords[P_CHORD_END - P_CHORD0];   /* the chord lane */
 } settings_t;
 /* the sounds: every voice parameter (P_VOICE_BASE..P_NIDS), in their own store object (OBJ_SOUND) */
 #define SOUND_MAGIC 0x534E4431u          /* "SND1" */
@@ -63,7 +64,7 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
             int32_t ch = gm_drum(d1);
             if (on && ch >= 0)
                 eng_trig((uint32_t)ch, (int32_t)d1, d2);
-        } else if (on)
+        } else if (on && eng_midi_allowed((int32_t)d1))   /* the key lock, if it covers MIDI in */
             eng_trig(CH_BASS, (int32_t)d1, d2);
         else if (off)
             eng_release(CH_BASS, (int32_t)d1);
@@ -92,6 +93,8 @@ static void settings_defaults(void)
         uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
             set.setup[i] = (uint8_t)param_def(i);
+        for (i = P_CHORD0; i < P_CHORD_END; i++)
+            set.chords[i - P_CHORD0] = (uint8_t)param_def(i);
     }
 }
 
@@ -107,6 +110,8 @@ static void settings_save(void)
         uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
             set.setup[i] = (uint8_t)ctl_get(i);
+        for (i = P_CHORD0; i < P_CHORD_END; i++)
+            set.chords[i - P_CHORD0] = (uint8_t)ctl_get(i);
     }
     snd.magic = SOUND_MAGIC;
     {
@@ -164,6 +169,8 @@ void app_init(void)
         uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
             ctl_set(i, set.setup[i]);
+        for (i = P_CHORD0; i < P_CHORD_END; i++)
+            ctl_set(i, set.chords[i - P_CHORD0]);
     }
 }
 

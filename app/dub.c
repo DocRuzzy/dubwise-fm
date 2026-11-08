@@ -13,6 +13,7 @@
  *                  for the next bank, then back to the echo's knobs (P0.5)
  *   SAVE           tempo, quantise, the echo's knobs and the sounds
  *   GLO            the SETUP page (setup.c): cycle, runway, cue tick, reduced motion, cue lead, test tones
+ *   ARP            the KEY & CHORDS page (keys.c); HOME + ARP: the key lock on / off from any page
  *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
  *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
  *                  a knob keeps the key from flipping the mute
@@ -33,6 +34,7 @@
 #define CENTRE_H 76
 #define FOOT_Y 202
 #define FOOT_H 38
+#define PAGE_H 144                       /* a full page's canvas (the most a canvas holds), from STRIP_Y */
 
 #define TAP_MS 300u                      /* shorter than this, a tap; two within it, a double tap */
 #define BLINK_MS 250u                    /* slow blink: cued */
@@ -192,7 +194,8 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
     t[i] = 0;
 }
 
-enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP };
+enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY };
+#include "keys.c"                        /* the KEY & CHORDS page (GPL-3.0-only) */
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 #include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
 
@@ -305,6 +308,19 @@ static void button_press(uint32_t k)
     else if (k == B_SEQ) {
         dub.page = PAGE_STEPS;
         app_say("STEPS", CH_NAME[st.ch]);
+    } else if (k == B_ARP && (dub.btn >> B_HOME & 1u)) {
+        dub.home_used = 1;
+        lock_toggle();
+    } else if (k == B_ARP) {             /* the page; again: its next bank */
+        if (dub.page == PAGE_KEY)
+            ks.bank = (uint8_t)!ks.bank;
+        else
+            ks.bank = 0;
+        dub.page = PAGE_KEY;
+        ks.sig = 0;
+        app_say("KEY", ks.bank ? "CHORD LANE" : "AND LOCK");
+    } else if (k == B_REC && dub.page == PAGE_STEPS) {
+        steps_rec();
     }
     else if (k == B_PLAY)
         dub.play_used = 0;               /* start / stop on release, unless used as a modifier */
@@ -498,6 +514,8 @@ static void encoder(uint32_t k, int32_t e)
             dub.sound = voice_fields(dub.focus) ? 1u : 0u;
         dub.dirty_strips = 1;
         app_say("FOCUS", CH_NAME[dub.focus]);
+    } else if (dub.page == PAGE_KEY && k >= EN_K1 && k <= EN_K4) {
+        keys_knob(k - EN_K1, e);
     } else if (dub.page == PAGE_SETUP && (k == EN_K1 || k == EN_SELECT)) {
         setup_move(e);
     } else if (dub.page == PAGE_SETUP && (k == EN_K2 || k == EN_PRESET)) {
@@ -533,6 +551,8 @@ void dub_input(void)
         goto encoders;
     }
     if (dub.page == PAGE_SETUP)
+        goto encoders;
+    if (dub.page == PAGE_KEY)            /* the keys show the lock's set; they play nothing here */
         goto encoders;
     for (k = 0; k < 16u; k++) {          /* white keys: 1-8 mutes, 9-16 throws (P0.2) */
         uint32_t bit = 1u << WK[k];
@@ -583,6 +603,10 @@ static void lights(void)
     uint32_t ch, bright = 0, dim = 0, bb = dub.btn, k;
     if (dub.page == PAGE_STEPS) {
         bright = steps_lights(&dim);
+        goto buttons;
+    }
+    if (dub.page == PAGE_KEY) {
+        bright = kb_lights(&dim);
         goto buttons;
     }
     for (ch = 0; ch < NCH; ch++) {
@@ -646,7 +670,7 @@ static void draw_header(void)            /* tempo, transport, the cycle bar, bar
         x = cv_text(6, 4, &FONT_B, msg.text[0], C_WHITE);
         cv_text(x + 8, 4, &FONT_B, msg.text[1], C_HI);
     } else {
-        uint32_t i, gaps = r.cyc / 4u - 1u, segw, w = 98;
+        uint32_t i, gaps = r.cyc / 4u - 1u, segw, w = ctl_get(P_LOCK) ? 76u : 98u;
         int32_t bx;
         tempo_text(t);
         x = cv_text(4, 4, &FONT_B, t, C_WHITE);
@@ -674,6 +698,11 @@ static void draw_header(void)            /* tempo, transport, the cycle bar, bar
         int_text((int32_t)r.cyc, n);
         text_cat(t, n);
         x = cv_text(bx + (int32_t)w + 4, 6, &FONT_XS, t, eng_playing() ? (r.on ? C_AMB : C_HI) : C_GRAY);
+        if (ctl_get(P_LOCK)) {           /* the key lock's chip: LOCK, or CHD in chord mode */
+            const char *c = ctl_get(P_LOCK) == LOCK_CHORD ? "CHD" : "LOCK";
+            cv_rect(x + 3, 5, text_w(&FONT_T, c) + 4, 14, C_AMB);
+            x = cv_text(x + 5, 6, &FONT_T, c, C_BLACK);
+        }
         t[0] = 0;
         text_cat(t, "Q ");
         text_cat(t, quant_name(ctl_get(P_QUANT)));
@@ -916,6 +945,7 @@ static void border_draw(int force)       /* the screen's 2 px edge: the runway's
         if (dub.page == PAGE_STEPS)
             st.sig = 0;
         su_sig = 0;
+        ks.sig = 0;
         return;
     }
     if (dub.border && (force || dub.border_drawn != dub.border)) {
@@ -975,6 +1005,7 @@ void dub_draw(void)
         if (dub.page == PAGE_STEPS)
             st.sig = 0;
         su_sig = 0;
+        ks.sig = 0;
     }
     if (dub.page == PAGE_STEPS) {
         uint32_t sg = st.sig;
@@ -985,6 +1016,11 @@ void dub_draw(void)
         uint32_t sg = su_sig;
         setup_draw(0);
         drew |= sg != su_sig;
+        dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
+    } else if (dub.page == PAGE_KEY) {
+        uint32_t sg = ks.sig;
+        keys_draw(0);
+        drew |= sg != ks.sig;
         dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
     } else {
         if (dub.dirty_strips) {
@@ -1031,6 +1067,15 @@ void dub_speak(void)
     text_cat(t, eng_playing() ? "PLAYING" : "STOPPED");
     if (dub.page == PAGE_STEPS) {
         steps_speak(t);
+        ann_say(t, 0, ANN_NOW);
+        return;
+    }
+    if (dub.page == PAGE_KEY) {
+        text_cat(t, ". KEY ");
+        text_cat(t, pitch_name(ctl_get(P_KEY_ROOT)));
+        text_cat(t, " ");
+        text_cat(t, scale_name(ctl_get(P_SCALE)));
+        text_cat(t, ctl_get(P_LOCK) == LOCK_OFF ? ", LOCK OFF" : ctl_get(P_LOCK) == LOCK_SCALE ? ", LOCK ON" : ", CHORD LOCK");
         ann_say(t, 0, ANN_NOW);
         return;
     }
@@ -1087,7 +1132,7 @@ static int dub_expect(const char *what, int *got)
         *got = (int)dub.pulses;
     else if (!strcmp(what, "key_flashes"))
         *got = (int)dub.key_flashes;
-    else if (steps_expect(what, got))
+    else if (steps_expect(what, got) || keys_expect(what, got))
         return 1;
     else
         return setup_expect(what, got);

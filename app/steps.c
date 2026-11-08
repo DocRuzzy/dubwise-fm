@@ -9,6 +9,9 @@
  *   KNOB 1             the pattern's length, 1..64 sixteenths
  *   KNOB 2             the note of the step held (or the last one touched): a semitone a click; hats: closed / open
  *   KNOB 4             a riddim template for the drums and bass (it lands on the next bar line)
+ *   REC (a tonal channel: the bass)   the keyboard (P0.8): all 27 keys play notes in KEY's octave; under the key
+ *                      lock, keys outside the set are silent. Playing, a note is recorded at the nearest sixteenth;
+ *                      stopped, at a cursor that moves on a step each note. REC again: the steps again
  * The grid of all eight channels is in the strips' place; the channel's own page, bigger, in the centre. */
 
 static struct {
@@ -18,7 +21,14 @@ static struct {
     int32_t tpl;                         /* the template KNOB 4 points at */
     int32_t last_tick;                   /* for redraws */
     uint32_t sig;                        /* what the grid shows */
-} st = {CH_KICK, 0, -1, TPL_ONE_DROP, -2, 0};
+    uint8_t kb;                          /* the keyboard (REC) */
+    int32_t cur;                         /* its cursor while stopped */
+    int8_t held[NKEYS];                  /* the note each held key plays, -1 none */
+    uint32_t recorded;                   /* notes recorded (tests) */
+} st = {CH_KICK, 0, -1, TPL_ONE_DROP, -2, 0, 0, 0, {0}, 0};
+
+static int tonal(int32_t ch) { return ch == CH_BASS; }   /* (skank, organ, lead: P1.6, P2.2) */
+static int32_t kb_note(uint32_t k) { return 53 + (int32_t)k + 12 * (ctl_get(P_KB_OCT) - 3); }
 
 static const char *const LVL_NAME[LVL_N] = {"OFF", "GHOST", "ON", "ACCENT"};
 
@@ -65,9 +75,67 @@ static void steps_key(uint32_t w)        /* white key w (0..15) pressed: its ste
     app_say("STEP", t);
 }
 
+static void steps_rec(void)             /* REC: the keyboard on or off */
+{
+    uint32_t k;
+    if (!tonal(st.ch)) {
+        app_say("KEYBOARD", "NOT ON DRUMS");
+        return;
+    }
+    st.kb = (uint8_t)!st.kb;
+    st.cur = st.last >= 0 ? st.last : 0;
+    for (k = 0; k < NKEYS; k++)
+        if (st.held[k] >= 0 && st.kb == 0u)
+            ctl_note((uint32_t)st.ch, st.held[k], 0);
+    for (k = 0; k < NKEYS; k++)
+        st.held[k] = -1;
+    app_say("KEYBOARD", st.kb ? "ON" : "OFF");
+}
+
+static void kb_keys(uint32_t keys, uint32_t prev)   /* the keyboard: play, and record */
+{
+    uint32_t k;
+    char t[16], n[8];
+    for (k = 0; k < NKEYS; k++) {
+        uint32_t bit = 1u << k;
+        if ((keys & bit) && !(prev & bit)) {
+            int32_t note = kb_note(k), len = steps_len(), idx;
+            step_t s;
+            if (!note_ok(note))
+                continue;                /* outside the lock's set: silent, never moved to a neighbour */
+            st.held[k] = (int8_t)note;
+            ctl_note((uint32_t)st.ch, note, touch_vel(k) ? touch_vel(k) : 100u);
+            if (eng_playing()) {         /* at the nearest sixteenth */
+                idx = (eng_tick() + (eng_frac16() >= 128u ? 1 : 0)) % len;
+            } else {                     /* at the cursor, which moves on */
+                idx = st.cur % len;
+                st.cur = (idx + 1) % len;
+            }
+            s.lvl = LVL_NORMAL;
+            s.note = (int8_t)note;
+            ctl_step((uint32_t)st.ch, (uint32_t)idx, s);
+            st.last = idx;
+            st.recorded++;
+            set_dirty = 1;
+            note_text(st.ch, note, t);
+            int_text(idx + 1, n);
+            text_cat(t, " STEP ");
+            text_cat(t, n);
+            app_say("NOTE", t);
+        } else if (!(keys & bit) && (prev & bit) && st.held[k] >= 0) {
+            ctl_note((uint32_t)st.ch, st.held[k], 0);
+            st.held[k] = -1;
+        }
+    }
+}
+
 static void steps_keys(uint32_t keys, uint32_t prev)
 {
     uint32_t k;
+    if (st.kb) {
+        kb_keys(keys, prev);
+        return;
+    }
     for (k = 0; k < 16u; k++)
         if ((keys >> WK[k] & 1u) && !(prev >> WK[k] & 1u))
             steps_key(k);
@@ -125,8 +193,16 @@ static void steps_knob(uint32_t i, int32_t e)
         else if (st.ch == CH_KICK || st.ch == CH_SNARE) {
             app_say("NOTE", "DRUM");
             return;
-        } else
-            s.note = (int8_t)clamp(s.note + e, 24, 96);
+        }
+        else {                           /* a semitone a click, over notes the lock does not allow */
+            int32_t nn = s.note, d = e > 0 ? 1 : -1, left = e > 0 ? e : -e, guard = 0;
+            while (left > 0 && guard++ < 48) {
+                nn = clamp(nn + d, 24, 96);
+                if (note_ok(nn))
+                    left--;
+            }
+            s.note = (int8_t)nn;
+        }
         ctl_step((uint32_t)st.ch, (uint32_t)k, s);
         st.last = k;
         set_dirty = 1;
@@ -145,6 +221,8 @@ static void steps_knob(uint32_t i, int32_t e)
 static uint32_t steps_lights(uint32_t *dim)   /* the keys: steps on bright, off dim; the playhead blinks off */
 {
     uint32_t k, bright = 0;
+    if (st.kb)                           /* the keyboard: the lock's set, and what is held */
+        return kb_lights(dim) | dub.keys;
     int32_t tick = eng_tick(), len = steps_len(), at = tick >= 0 ? tick % len : -1;
     for (k = 0; k < 16u; k++) {
         uint32_t i = st.page * 16u + k, bit = 1u << WK[k];
@@ -211,7 +289,7 @@ static void steps_draw_centre(void)      /* the channel's page, bigger, with its
     cv_rect(0, 0, 240, 1, C_LINE);
     t[0] = 0;
     text_cat(t, CH_NAME[st.ch]);
-    text_cat(t, "  STEPS ");
+    text_cat(t, st.kb ? "  KEYBOARD " : "  STEPS ");
     int_text((int32_t)st.page * 16 + 1, n);
     text_cat(t, n);
     text_cat(t, "-");
@@ -280,6 +358,8 @@ static void steps_speak(char *t)         /* the page, for a screen reader */
     char n[8];
     text_cat(t, ". STEPS, ");
     text_cat(t, CH_NAME[st.ch]);
+    if (st.kb)
+        text_cat(t, ", KEYBOARD");
     text_cat(t, ", LENGTH ");
     int_text(steps_len(), n);
     text_cat(t, n);
@@ -295,6 +375,10 @@ static int steps_expect(const char *what, int *got)
         *got = s.lvl;
     } else if (!strncmp(what, "note", 4) && what[4] >= '1' && what[4] <= '8' && what[5] == '_')
         *got = ctl_get_step((uint32_t)(what[4] - '1'), (uint32_t)(atoi(what + 6) - 1)).note;
+    else if (!strcmp(what, "kb"))
+        *got = st.kb;
+    else if (!strcmp(what, "recorded"))
+        *got = (int)st.recorded;
     else if (!strncmp(what, "eng_step", 8) && what[8] >= '1' && what[8] <= '8' && what[9] == '_')
         *got = eng_step((uint32_t)(what[8] - '1'), (uint32_t)(atoi(what + 10) - 1)).lvl;
     else

@@ -177,3 +177,18 @@ void ctl_flush(void)
         }
     }
 }
+
+void ctl_note(uint32_t ch, int32_t note, uint32_t vel)
+{
+    cmd_t c;
+    c.op = CMD_NOTE;
+    c.beats = 0;
+    c.id = (uint16_t)ch;
+    c.v = (note & 0x7F) | (int32_t)(vel & 0x7Fu) << 8;
+    if (cmdq_push(&eng_q, c))
+        ctl_stats.sent++;
+    else
+        ctl_stats.refused++;
+}
+
+const int16_t *ctl_vals(void) { return ctl_val; }
