@@ -6,6 +6,10 @@
  * played with velocity and pressure (lib/touch.h), shown on them. One of each thing the platform offers, kept short. Part of the unity build (device/unity.c, host/plat_host.c), after the platform:
  * gfx.c and announce.c are in scope. */
 #include "fastmath.h"
+#include "engine/engine.h"
+#include "engine/control.h"
+#include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
+#include "engine/control.c"
 
 #define SET_MAGIC 0x44554231u            /* "DUB1": the settings record; another magic (the template's) loads defaults */
 typedef struct {
@@ -24,21 +28,9 @@ static const char *const BTN_NAME[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO
 static const char *const ENC_NAME[NE] = {"SELECT", "ALGO", "PRESET", "K1", "K2", "K3", "K4"};
 
 /* ------------------------------------------------------------------ voice --- */
-/* one voice, the last note wins; the main loop and MIDI in set it, the audio interrupt plays it */
-static volatile int32_t voice_note = -1;     /* MIDI note, -1 = released */
-static volatile float voice_vel = 1.0f;      /* the note's velocity, 0..1 */
-static float voice_phase, voice_level, gain_now;   /* gain_now glides to MASTER: no step at a block's edge */
-
-static void note_on(int32_t note, uint32_t vel)
-{
-    voice_vel = (float)vel / 127.0f;
-    voice_note = note;
-}
-static void note_off(int32_t note)
-{
-    if (voice_note == note)
-        voice_note = -1;
-}
+/* the key voice lives in the engine (engine/engine.c), on the bass channel; the keys and MIDI in play it */
+static void note_on(int32_t note, uint32_t vel) { eng_note_on(note, vel); }
+static void note_off(int32_t note) { eng_note_off(note); }
 
 static volatile uint32_t midi_last, midi_last_port, midi_count;   /* the last message in (shown), and how many */
 static void midi_in(void)                    /* audio interrupt: the packets that came in */
@@ -61,31 +53,11 @@ static void midi_in(void)                    /* audio interrupt: the packets tha
 
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
-    uint32_t i;
-    int32_t note = voice_note;
-    float target = note >= 0 ? 0.25f * voice_vel : 0.0f;
-    float inc = note >= 0 ? 440.0f * fm_exp2f((float)(note - 69) / 12.0f) / 44100.0f : 0.0f;
-    float gain = (float)master_q12 / 4096.0f * 8300000.0f;   /* MASTER, read once a block */
     midi_in();
-    for (i = 0; i < n; i++) {
-        float s;
-        voice_level += (target - voice_level) * 0.002f;          /* ~10 ms attack and release */
-        gain_now += (gain - gain_now) * 0.004f;                  /* ~5 ms: turning MASTER does not click */
-        voice_phase += inc;
-        if (voice_phase >= 1.0f)
-            voice_phase -= 1.0f;
-        s = set.wave ? 4.0f * fm_fabsf(voice_phase - 0.5f) - 1.0f : fm_sinf(voice_phase * 6.2831853f);
-        s *= voice_level * gain_now;
-        lr[2 * i] = (int32_t)s;
-        lr[2 * i + 1] = (int32_t)s;
-    }
+    eng_render(lr, n, master_q12);           /* the commands queued, the channels, the mix (engine/engine.c) */
 }
 
-void app_panic(void)
-{
-    voice_note = -1;
-    voice_level = 0.0f;
-}
+void app_panic(void) { eng_panic(); }
 
 /* --------------------------------------------------------------- settings --- */
 static void settings_defaults(void)
@@ -97,9 +69,12 @@ static void settings_defaults(void)
 
 void app_init(void)
 {
+    eng_init();                              /* every parameter at its default, on both sides of the queue */
+    ctl_init();
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC
         || set.octave < -2 || set.octave > 2 || set.wave > 1u)
         settings_defaults();
+    ctl_set(P_VOICE(CH_BASS, VF_WAVE), set.wave);
 }
 
 /* --------------------------------------------------------------------- UI --- */
@@ -216,7 +191,7 @@ static void octave_step(int32_t d)
     char t[4];
     if (o == set.octave)
         return;
-    voice_note = -1;                         /* a key held across the change would not find its note off */
+    eng_note_off(eng_note());                /* a key held across the change would not find its note off */
     set.octave = (int8_t)o;
     set_dirty = 1;
     octave_text(t);
@@ -278,6 +253,7 @@ static void input(void)
         if (k == EN_PRESET) {
             set.wave ^= 1u;
             set_dirty = 1;
+            ctl_set(P_VOICE(CH_BASS, VF_WAVE), set.wave);
             app_say("WAVE", WAVE_NAME[set.wave]);
         } else {
             int_text(ui.turns[k], t);
@@ -316,7 +292,7 @@ static void key_cell(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t k, uin
 static void draw(void)
 {
     char t[24];
-    int32_t note = voice_note;
+    int32_t note = eng_note();
     uint32_t i, now = plat_ms(), pct = plat_master() * 100u / 4096u;
     static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
     /* the header: the name and the note, or a message for a moment */
@@ -402,6 +378,7 @@ void app_frame(void)
     static uint32_t last_pct, lit_until, last_midi;
     uint32_t i, now = plat_ms(), pct = plat_master() * 100u / 4096u;
     input();
+    ctl_flush();                             /* parameters the full queue refused: their latest values */
     speak();
     for (i = 0; i < NE; i++)                 /* an encoder's light goes out */
         if (ui.turned_at[i] && now - ui.turned_at[i] < 400u && now > lit_until)
@@ -427,6 +404,34 @@ void app_frame(void)
 }
 
 #ifdef PLAT_HOST
+static int host_fails;
+static int peak_db(float pk) { return pk > 1e-6f ? (int)floorf(20.0f * log10f(pk) + 0.5f) : -120; }
+
+/* the simulator's commands (app.h APP_HOST_CMD), through the same queue as the UI:
+ *   param NAME VALUE      set a parameter (ch1.mute, v4.wave, dev.tones ...: params.c)
+ *   flood NAME FROM TO    set it to FROM, FROM+1 .. TO, all at once (more than the queue holds: overflow) */
+int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
+{
+    int id;
+    (void)d;
+    if (strcmp(cmd, "param") && strcmp(cmd, "flood"))
+        return 0;
+    if ((id = param_find(a)) < 0) {
+        printf("FAIL: no parameter %s\n", a);
+        host_fails++;
+        return 1;
+    }
+    if (!strcmp(cmd, "param"))
+        ctl_set((uint32_t)id, atoi(b));
+    else {
+        int v, from = atoi(b), to = atoi(c);
+        for (v = from; v <= to; v++)
+            ctl_set((uint32_t)id, v);
+    }
+    return 1;
+}
+int app_host_fails(void) { return host_fails; }
+
 int app_expect(const char *what, int *got)
 {
     if (!strcmp(what, "octave"))
@@ -434,13 +439,34 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "wave"))
         *got = set.wave;
     else if (!strcmp(what, "note"))
-        *got = voice_note;
+        *got = eng_note();
     else if (!strcmp(what, "dirty"))
         *got = set_dirty;
     else if (!strcmp(what, "vel"))           /* the last key's velocity and pressure */
         *got = ui.vel[ui.last_key];
     else if (!strcmp(what, "prs"))
         *got = ui.prs[ui.last_key];
+    else if (!strncmp(what, "eng.", 4) || !strncmp(what, "ui.", 3)) {   /* a parameter, as applied / as asked */
+        int id = param_find(what + (what[0] == 'e' ? 4 : 3));
+        if (id < 0)
+            return 0;
+        *got = what[0] == 'e' ? eng_param((uint32_t)id) : ctl_get((uint32_t)id);
+    } else if (!strncmp(what, "ch", 2) && what[2] >= '1' && what[2] <= '8' && !strcmp(what + 3, "_db"))
+        *got = peak_db(eng_ch_peak((uint32_t)(what[2] - '1')));   /* post-fader, dBFS (-120: silent) */
+    else if (!strcmp(what, "echo_db"))
+        *got = peak_db(eng_echo_peak());
+    else if (!strcmp(what, "spring_db"))
+        *got = peak_db(eng_spring_peak());
+    else if (!strcmp(what, "q_sent"))        /* the command queue (engine/control.c) */
+        *got = (int)ctl_stats.sent;
+    else if (!strcmp(what, "q_refused"))
+        *got = (int)ctl_stats.refused;
+    else if (!strcmp(what, "q_resent"))
+        *got = (int)ctl_stats.resent;
+    else if (!strcmp(what, "q_pending"))
+        *got = (int)ctl_stats.pending;
+    else if (!strcmp(what, "q_applied"))
+        *got = (int)eng_cmds();
     else if (!strncmp(what, "turns", 5))    /* turnsN: encoder N's count (plat.h EN_*) */
         *got = ui.turns[atoi(what + 5) % NE];
     else

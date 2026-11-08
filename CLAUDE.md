@@ -12,6 +12,7 @@ Dubwise FM is an open-source (GPL-3.0-only) firmware that turns the M-VAVE FM-1 
 ## Layout
 - `app/`: our firmware, started from fm1-base's `template/`. The app talks only to `plat.h`. Licensing is per file: files copied from the template keep their MPL-2.0 header (MPL is file-level, so modified copies stay MPL-2.0); new files are GPL-3.0-only with an SPDX header. The firmware as a whole is distributed under GPL-3.0-only.
 - **Current state (P0.0):** `app/` is fm1-base's template renamed to DUBWISE, with the radio removed (`ble = false`, no `APP_BTDEV`/`OBJ_BLE`). Velocity and pressure (`APP_TOUCH`) are kept. Our `id_prefix` is `FM-1_57`.
+- **Engine plumbing** is in `app/engine/` (GPL-3.0-only): `params.h` (the one ID space; append only), `cmdq.h` (UI→engine queue), `control.c` (main-loop side, overflow resend), `engine.c` (audio side: 8-strip desk, compiled at -O2). Host tests: `app/tests/mixer.txt` (`param`, `flood` commands; `eng.*`, `ui.*`, `chN_db`, `echo_db`, `q_*` checks).
 - A SessionStart hook (`.claude/hooks/session-start.sh`) checks out `base/` when `base/tools/build.py` is missing.
 - `base/`: fm1-base as a git submodule (MPL-2.0), pinned. It contains `bsp/` (felucca-bsp). **Don't edit files in the submodule.** If the platform needs a change, propose it as an upstream PR (MPL-2.0) and note it in `docs/roadmap.md`.
 - `docs/`: design docs (source of truth; keep them in sync with decisions).

@@ -48,6 +48,26 @@ Companion docs in this folder:
 4. **Guard tiers** Studio → Four-track → Seven-inch: automatic step-down plus user lock. PERF page.
 5. **Plumbing:** one parameter ID space, a queue with overflow resend, per-module modulation state, and an ISR that never touches flash, allocates or waits.
 
+### Plumbing as built (2026-11-08, `app/engine/`)
+- **Parameter IDs** (`params.h`): 16-bit, fixed ranges, append-only (scenes and songs store IDs). `0x000` global,
+  `0x040` channel strips (8 × 16 fields), `0x0C0` bus modules (echo, spring, HPF, phaser, master), `0x100` voices
+  (8 × 32 fields). Values are int16 (every range fits). Commands carry an opcode (`CMD_SET`), separate from IDs.
+- **Queue** (`cmdq.h`): 256-entry lock-free SPSC ring, main loop → audio interrupt, compile-time size check. Drained
+  whole at the start of each block, so UI input lands within one block (≤ 5.8 ms). Sequencer events will carry
+  sample offsets instead (P0.6).
+- **Overflow** (`control.c`): a refused set marks the parameter pending; `ctl_flush` (every frame) sends its *latest*
+  value. While anything is pending, new sets join the pending set (ID order), so an old value never lands after a
+  newer one. Host test: 291 sets at once, final values applied.
+- **Desk** (`engine.c`): 8 mono strips mixed in fixed channel order (bit-identical on one or two cores). Each strip
+  owns its gain ramps (2.9 ms linear): no clicks on mute, solo or level.
+  - **Solo** is additive. A soloed channel that is muted stays muted. Solo-muted behaves as muted.
+  - **Sends** to echo and spring are post-fader and post-mute. Throws (P0.2) will be pre-fader.
+  - Fader law: gain (v/100)², 100 = unity, 127 = +4 dB. Send law: (v/127)².
+- **Cost** (device link, guard tier: all, it is the floor): `.data+.bss` +8,744 B (two 1 KB value tables, the 2 KB
+  queue, four 1 KB block buffers), image +1,980 B. CPU: ~0.07 % of a block on the host for 8 active channels with
+  sends, so roughly 5 % of one core on the device by the ×80 rule (an upper bound; constant-gain fast path not
+  reflected on the host). To be measured on the device with P0.7's per-part profiling.
+
 ---
 
 ## P0 — Foundation
