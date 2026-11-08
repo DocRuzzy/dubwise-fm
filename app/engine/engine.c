@@ -68,7 +68,18 @@ static int16_t kick_last;
 static float bus_echo_g;
 static int dive_back;
 static int ph_on;
-static int drive_on;                             /* where the tape drive is                                /* where the phaser is this block (PH_OFF when the tier says)                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
+static int drive_on;
+/* the snare-keyed spring gate (P2.5; C13): a snare opens it for HOLD, then it closes over RELEASE */
+static float sg_env;                             /* 0 closed .. 1 open */
+static uint32_t sg_hold, sg_hold_n;              /* samples left open; HOLD in samples */
+static float sg_rel = 0.999f;                    /* the closing's factor a sample */
+static void sgate_key(void) { sg_hold = sg_hold_n; }
+static void trig(uint32_t ch, int32_t note, uint32_t vel)   /* a voice struck: and a snare keys the gate */
+{
+    voice_trig(ch, note, vel);
+    if (ch == CH_SNARE)
+        sgate_key();
+}                             /* where the tape drive is                                /* where the phaser is this block (PH_OFF when the tier says)                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
 static float sret_last[ENG_BLOCK];               /* the spring's return a block ago: into the echo (cross-send) */
 static uint32_t sret_last_n;
 static ramp_t xs_e2s, xs_s2e;                    /* the cross-sends' levels (P1.3) */
@@ -424,6 +435,8 @@ static void bus_update(void)                     /* the echo's and the voices' s
             ph_on = on;
         }
     }
+    sg_hold_n = (uint32_t)((10.0f + 390.0f * (float)ev[P_SGATE_HOLD] * (1.0f / 127.0f)) * 44.1f);
+    sg_rel = fm_exp2f(-9.966f / ((5.0f + 295.0f * (float)ev[P_SGATE_REL] * (1.0f / 127.0f)) * 44.1f));
     {                                            /* tape drive */
         tape_cfg_t tc;
         tc.gain = fm_exp2f((float)ev[P_DRIVE_AMT] * (2.32f / 127.0f));   /* x1 .. x5 (+14 dB) */
@@ -464,7 +477,7 @@ static void drain(void)                          /* every queued command, at the
         } else if (c.op == CMD_NOTE && c.id < NCH) {
             int32_t note = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
             if (vel)
-                voice_trig(c.id, note, (uint32_t)vel);
+                trig(c.id, note, (uint32_t)vel);
             else
                 voice_release(c.id, note);
         }
@@ -592,7 +605,7 @@ static void seq_play(uint32_t tick)              /* sixteenth `tick` since the s
             chordv_trig(ch, chord, st.note, lvl_vel(st.lvl));
             chord_last[ch] = chord;
         } else
-            voice_trig(ch, st.note, lvl_vel(st.lvl));
+            trig(ch, st.note, lvl_vel(st.lvl));
         seq_hits++;
         seq_hit_at[ch] = t_samples;
         if (ch == CH_BASS)
@@ -631,7 +644,7 @@ static uint32_t until_cue(void)                  /* samples to the first cue's m
 }
 
 /* ---------------------------------------------------------------- sources --- */
-void eng_trig(uint32_t ch, int32_t note, uint32_t vel) { voice_trig(ch, note, vel); }
+void eng_trig(uint32_t ch, int32_t note, uint32_t vel) { trig(ch, note, vel); }
 void eng_release(uint32_t ch, int32_t note) { voice_release(ch, note); }
 int32_t eng_note(void) { return voice_note(CH_BASS); }
 
@@ -733,6 +746,14 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         float rp = 0.0f, op = 0.0f, srp = 0.0f;
         for (i = 0; i < n; i++) {
             float ge = ramp_next(&echo_ret), gs = ramp_next(&spring_ret);
+            if (ev[P_SGATE_ON]) {                /* the gate: open (in ~1 ms) while held, then closing */
+                if (sg_hold) {
+                    sg_hold--;
+                    sg_env = fm_minf(1.0f, sg_env + 0.0227f);
+                } else
+                    sg_env = undenorm(sg_env * sg_rel);
+                gs *= sg_env;
+            }
             float r = ge * eret[i], rr = ge * eretr[i], sr = gs * sret[i], srr = gs * sretr[i];
             ep = fm_maxf(ep, fm_fabsf(ebus[i]));
             sp = fm_maxf(sp, fm_fabsf(sbus[i]));

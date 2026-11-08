@@ -126,6 +126,10 @@ enum {
     P_DRIVE_AMT,              /* 0..127: into the tape 0 .. +14 dB */
     P_DRIVE_MIX,              /* 0..127: the driven part, blended with the dry */
     P_DRIVE_END,
+    P_SGATE_ON = 0x0FC,       /* the snare-keyed spring gate (P2.5): 0 off, 1 on */
+    P_SGATE_HOLD,             /* 0..127: 10 .. 400 ms open after a snare */
+    P_SGATE_REL,              /* 0..127: 5 .. 300 ms to close */
+    P_SGATE_END,
 };
 enum { ECHO_DIV_16, ECHO_DIV_8T, ECHO_DIV_16D, ECHO_DIV_8, ECHO_DIV_4T, ECHO_DIV_8D, ECHO_DIV_4, ECHO_DIV_2T,
        ECHO_DIV_4D, ECHO_DIV_2, ECHO_DIV_N };

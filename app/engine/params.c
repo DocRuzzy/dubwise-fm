@@ -115,6 +115,11 @@ static const pdesc_t SPRING[P_SPRING_END - P_SPRING_RET] = {
     {"spring.tone", 0, 127, 60},
     {"spring.kick", 0, 1, 0},
 };
+static const pdesc_t SGATE[P_SGATE_END - P_SGATE_ON] = {
+    {"sgate", 0, 1, 0},
+    {"sgate.hold", 0, 127, 40},
+    {"sgate.rel", 0, 127, 30},
+};
 static const pdesc_t DRIVE[P_DRIVE_END - P_DRIVE_ON] = {
     {"drive.on", 0, DRIVE_N - 1, DRIVE_OFF},
     {"drive", 0, 127, 64},
@@ -204,6 +209,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &PH[id - P_PH_ON];
     if (id >= P_DRIVE_ON && id < P_DRIVE_END)
         return &DRIVE[id - P_DRIVE_ON];
+    if (id >= P_SGATE_ON && id < P_SGATE_END)
+        return &SGATE[id - P_SGATE_ON];
     if (id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE < CHF_N)
         return &CH_FIELDS[(id - P_CH_BASE) % CH_STRIDE];
     if (id >= P_VOICE_BASE && id < P_VOICE_BASE + NCH * VOICE_STRIDE) {
