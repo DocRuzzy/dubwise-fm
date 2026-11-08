@@ -2,6 +2,7 @@
  * Copyright (C) 2026 Dubwise FM contributors */
 /* The parameters' ranges, defaults and names (params.h). Part of the unity build: app.c includes it. */
 #include "params.h"
+#include "song.h"                                /* SONG_BARS */
 #include "fastmath.h"
 
 typedef char p_ch_fits[(CHF_N <= CH_STRIDE && P_CH_BASE + NCH * CH_STRIDE <= P_BUS_BASE) ? 1 : -1];
@@ -93,7 +94,7 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_LOCK_MIDI] = {"lock.midi", 0, 1, 0},
     [P_CHORD_LEN] = {"chord.len", 1, 16, 4},
     [P_SONG_MODE] = {"song", 0, 2, 0},
-    [P_SONG_LEN] = {"song.len", 1, 192, 16},
+    [P_SONG_LEN] = {"song.len", 1, SONG_BARS, 16},
     [P_SONG_REC] = {"song.rec", 0, 1, 0},
     [P_TIER_LOCK] = {"tier.lock", 0, TIER_N, 0},
     [P_THROW_VEL] = {"throw.vel", 0, 1, 1},

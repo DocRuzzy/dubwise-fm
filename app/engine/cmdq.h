@@ -19,7 +19,7 @@ enum {
     CMD_TEMPLATE,                 /* a riddim template: id = TPL_*, v = the channels (a mask); quantised as CMD_CUE */
     CMD_NOTE,                     /* a played note (the keyboard): id = channel, v = note | velocity << 8 (0: off) */
     CMD_SCENE,                    /* a scene recalled (scenes.h): id = the scene; quantised as CMD_CUE */
-    CMD_MOTION,                   /* the song's motion (motion.h): id 0 = cleared; now */
+    CMD_MOTION,                   /* the song's motion (motion.h): id 0 cleared, 1 handed to the main loop, 2 back */
 };
 
 typedef struct {

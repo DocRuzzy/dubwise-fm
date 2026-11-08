@@ -9,7 +9,7 @@
 #include "params.h"
 #include "riddim.h"
 
-#define SONG_BARS 192
+#define SONG_BARS 512                            /* 28 min at 72 BPM, 15 at 140 */
 enum { SONG_OFF, SONG_ONCE, SONG_LOOP, SONG_N };
 enum { BAR_SET = 1, BAR_SECTION = 2 };           /* song_bar_t.flags */
 #define SECTIONS 15                              /* the black keys' 11, and HOME + black 1-4: the dub-plate words */

@@ -21,7 +21,7 @@ static struct {
     int32_t cursor;                      /* the song's bar shown / marked while stopped */
     uint8_t has_undo;
 } arr = {-1, SCOPE_DESK, 0, 0, 0};
-static song_bar_t song_undo[SONG_BARS];          /* the song before the last capture */
+static PLAT_POOL song_bar_t song_undo[SONG_BARS];          /* the song before the last capture */
 static uint8_t song_dirty;
 
 static void song_rec_toggle(void)        /* REC: capture on / off */

@@ -64,7 +64,7 @@ enum {
     P_LOCK_MIDI,              /* 1: the lock filters MIDI in too */
     P_CHORD_LEN,              /* the chord lane's bars, 1..16 */
     P_SONG_MODE,              /* the song (P1.8): SONG_OFF, SONG_ONCE, SONG_LOOP */
-    P_SONG_LEN,               /* its bars, 1..192 */
+    P_SONG_LEN,               /* its bars, 1..SONG_BARS (512) */
     P_SONG_REC,               /* 1: capturing (each bar's desk written at its line while playing) */
     P_TIER_LOCK,              /* the guard tier (P1.9): 0 automatic, else locked to TIER_* + 1 */
     P_THROW_VEL,              /* 1: a throw as hard as the key was hit (P2.9; CHF_THROW_AMT), 0: always in full */

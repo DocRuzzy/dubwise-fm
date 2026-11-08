@@ -529,8 +529,10 @@ static void drain(void)                          /* every queued command, at the
     while (cmdq_pop(&eng_q, &c)) {
         if (c.op == CMD_SET)
             set_by_hand(c.id, c.v);
-        else if (c.op == CMD_MOTION)
+        else if (c.op == CMD_MOTION && c.id == 0)
             mot_clear();
+        else if (c.op == CMD_MOTION)
+            mot_suspend(c.id == 1);
         else if (c.op == CMD_CUE)
             cue_add(CMD_SET, c.id, c.v, c.beats);
         else if (c.op == CMD_STEP && c.id < NCH * NSTEPS)

@@ -168,7 +168,7 @@ SAVE on its own (pressed and let go) saves everything to the FM-1, scenes includ
 
 ### The song
 
-The song is a list of bars (up to 192). Each bar can hold the mutes and solos, the Big Knob and a scene. To make
+The song is a list of bars (up to 512: about 28 minutes at 72 BPM, 15 at 140). Each bar can hold the mutes and solos, the Big Knob and a scene. To make
 one, play it: press REC (on the DUB or ARRANGE page) to arm capture, press PLAY, and dub. At every bar line, that
 bar takes what the desk is doing: your drops, mutes, solos, Big Knob moves and scene changes. Stop, and press REC to
 disarm. A pass that starts from bar 1 becomes the song, as long as you played. HOME + REC takes the last pass back.
@@ -194,7 +194,7 @@ back. Bars that hold motion have a white mark on the ARRANGE page.
 - **Stop** lets go of any throw, freeze, push or dive that motion was holding.
 - **SAVE + REC** (hold SAVE, press REC) clears all motion. HOME + REC (undo) takes back the bars' mutes and scenes,
   not the motion.
-- A knob keeps one value per sixteenth (the latest), and a bar holds up to 32 moves. Press SAVE to keep the motion
+- A knob keeps one value per sixteenth (the latest), a bar holds up to 128 moves, and the whole song 8,192. Press SAVE to keep the motion
   over a restart.
 
 ## 3d. KEY & CHORDS (ARP): the lock
