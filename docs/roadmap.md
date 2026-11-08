@@ -61,6 +61,7 @@ Companion docs in this folder:
 | 0.5 | Core voices | D3, C11 | FM bass, kick, rim, hats |
 | 0.6 | Phrase counter, cycle bar and runway | spec 5.4 | Shared launch quantiser. Countdown in the last 4 bars, beat pulses in the last bar, "ONE" flash. Cued actions land on the boundary |
 | 0.7 | Host scenario tests + WAV analysis + per-part CPU profiling | — | |
+| 0.8 | **Key / scale / chord lock** | spec 4.5 | Off / Scale / Chord. Out-of-set keys are silent, never remapped. Reggae-oriented scale list. Key LEDs show the allowed set. HOME + ARP toggles. An input filter only. UI cost only |
 
 **Exit test:** drills C1 and C4 drills 1–2 on the device, plus a first-timer runway test (can someone land a drop on bar 17 without counting?).
 

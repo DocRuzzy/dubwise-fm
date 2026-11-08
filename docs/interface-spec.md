@@ -87,12 +87,28 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 - **REC** on bass, skank or lead turns the keys into a keyboard.
 - **Templates** (one drop / rockers / steppers / flyers) are written as editable steps.
 
-### 4.4 Shift (hold HOME)
+### 4.5 Key / scale / chord lock ("can't play a wrong note") [0.8]
+When the lock is on, keys outside the allowed set are **silent**. They are never remapped, so the keyboard keeps normal piano spacing and what you learn on it transfers to a real keyboard.
+
+- **Modes:** Off · **Scale** (notes of the key and scale) · **Chord** (only the tones of the chord the chord lane is on now; follows chord changes live).
+- **Scales offered** (reggae/dub-oriented; treat the list as convention, not statistics):
+  - Natural minor (Aeolian), Dorian, minor pentatonic, minor blues: roots and rockers minor vamps, bass lines.
+  - Major (Ionian), Mixolydian, major pentatonic: lovers rock, ska/rocksteady-derived and major riddims.
+  - Harmonic minor and Phrygian: the "Far East" melodica colour.
+- **Where it applies:** live keyboard play and REC keyboard entry (bass, skank, lead); step-pitch entry on STEPS; optionally external MIDI note input (SETUP: "Lock MIDI in", default off).
+  - It is an **input** filter only: notes already recorded play as recorded, even if the key changes later. A per-pattern "scrub out-of-key notes" tool is a separate, explicit command.
+- **Visual guide (key LEDs):** root = bright, other allowed notes = dim, disallowed = dark. In Chord mode the lit set changes with the chord, so the keybed shows the current chord.
+- **Controls:** ARP → KEY & CHORDS bank 1: KNOB 1 root · KNOB 2 scale · KNOB 3 lock mode · KNOB 4 octave. **HOME + ARP** toggles the lock from any page. When on, the header shows a `LOCK` chip, plus `CHD` in Chord mode.
+- **Screen reader:** announces "lock on, D dorian" and "chord lock, G minor".
+- **Cost:** a 12-bit mask per scale and a chord-tone mask updated on chord change. UI only, no audio CPU.
+
+### 4.6 Shift (hold HOME)
 | HOME + | Function |
 |---|---|
 | REC / PLAY | Undo / redo |
 | SELECT | Tempo |
 | SEQ taps | Tap tempo |
+| ARP | Key/scale lock on/off |
 | SAVE | Save as… |
 | White key | Jump to pattern n (on DUB: solo) |
 | Black key | Copy focused channel's pattern to channel n |
