@@ -69,6 +69,7 @@ enum {
     P_TIER_LOCK,              /* the guard tier (P1.9): 0 automatic, else locked to TIER_* + 1 */
     P_THROW_VEL,              /* 1: a throw as hard as the key was hit (P2.9; CHF_THROW_AMT), 0: always in full */
     P_SAVER,                  /* the screen saver: SAVER_OFF, SAVER_1 .. SAVER_15 (minutes untouched, stopped) */
+    P_ROOTS,                  /* 1: ROOTS NAMES, the spoken homages (hidden: SETUP, black 11 three times) */
     P_NGLOBAL,
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */

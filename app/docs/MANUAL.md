@@ -283,3 +283,15 @@ To put the FM-1 in update mode, hold REC while you switch it on. If you installe
 installer, the installer can reach the FM-1 from there, and holding PLAY instead opens m-bootloader's recovery
 menu. Without m-bootloader, REC starts the chip's own update mode, which only the rescue can reach. For details,
 see felucca-bsp's `tools/fm1_rescue.sh`.
+
+---
+
+## For those who read to the end
+
+- **ROOTS NAMES.** On the SETUP page, tap black key 11 three times within two seconds. The screen reader then names
+  some tools after the hands and houses they come from: the Big Knob is KING TUBBY KNOB, the Bi-Phase BLACK ARK PHASE
+  (Lee Perry), the ping-pong MAD PROFESSOR PING-PONG, the sirens SHAKA SIREN A and B (Jah Shaka), the tape drive
+  ON-U DRIVE (On-U Sound), the STEPPERS riddim CHANNEL ONE STEPPERS and the FLYERS riddim BUNNY LEE FLYERS. The page
+  labels stay plain. Three taps again turn it off.
+- Other things to find: the rewind has more than one call; the dub-plate section words are HOME + black 1–4 on
+  ARRANGE; play at 72.0 BPM and watch the header; leave the screen saver alone for an hour.

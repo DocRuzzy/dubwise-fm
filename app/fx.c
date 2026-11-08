@@ -116,14 +116,14 @@ static void fx_knob(uint32_t i, int32_t e)
     ctl_set(b->id[i], ctl_get(b->id[i]) + (one ? e : 2 * e));
     set_dirty = 1;
     fx_value(b->id[i], t);
-    app_say(b->label[i], t);
+    app_say(roots_name(b->label[i]), t);
 }
 
 static void fx_next(int same_page)
 {
     fx_bank = same_page ? (fx_bank + 1u) % FX_NBANKS : 0u;
     fx_sig = 0;
-    app_say("FX", FX_BANK[fx_bank].title);
+    app_say("FX", roots_name(FX_BANK[fx_bank].title));
 }
 
 static uint32_t fx_sigf(void)

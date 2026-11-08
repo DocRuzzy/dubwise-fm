@@ -47,6 +47,35 @@ static const char *const CH_NAME[NCH] = {"KICK", "SNARE", "HATS", "BASS", "SKANK
 static const char *const CH_SHORT[NCH] = {"KICK", "SNR", "HAT", "BASS", "SKNK", "ORGN", "LEAD", "VOX"};
 static const char *const BLACK_NAME[11] = {"SPRING CRASH", "ECHO HOLD", "DUB PUSH", "TAPE DIVE", "DROP TO WET",
                                            "SIREN A", "SIREN B", "VOX 1", "VOX 2", "VOX 3", "DRUM AND BASS"};
+/* ROOTS NAMES (hidden; SETUP: black 11 three times): what the reader says, a tool by the hand or house it is tied
+ * to. The page labels stay plain */
+static const char *const ROOTS[][2] = {
+    {"BIG KNOB", "KING TUBBY KNOB"},             /* the stepped high-pass: Tubby's Altec filter */
+    {"BI-PHASE", "BLACK ARK PHASE"},             /* Lee Perry's Black Ark, its Bi-Phase */
+    {"PING-PONG", "MAD PROFESSOR PING-PONG"},    /* the Professor's stereo dub */
+    {"SIREN A", "SHAKA SIREN A"},                /* Jah Shaka's sound system */
+    {"SIREN B", "SHAKA SIREN B"},
+    {"DRIVE", "ON-U DRIVE"},                     /* On-U Sound's pushed desk */
+    {"STEPPERS", "CHANNEL ONE STEPPERS"},        /* the Revolutionaries at Channel One */
+    {"FLYERS", "BUNNY LEE FLYERS"},              /* Bunny Lee's flying cymbal */
+};
+static int same_text(const char *a, const char *b)
+{
+    while (*a && *a == *b)
+        a++, b++;
+    return *a == *b;
+}
+static const char *roots_name(const char *plain)
+{
+    uint32_t i;
+    if (!ctl_get(P_ROOTS))
+        return plain;
+    for (i = 0; i < sizeof ROOTS / sizeof ROOTS[0]; i++)
+        if (same_text(plain, ROOTS[i][0]))
+            return ROOTS[i][1];
+    return plain;
+}
+
 static const char *const BTN_NAME[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ",
                                          "PLAY", "REC", "OCT-", "OCT+"};
 static const char *const ENC_NAME[NE] = {"BIG KNOB", "FOCUS", "PRESET", "K1", "K2", "K3", "K4"};
@@ -582,7 +611,7 @@ static void encoder(uint32_t k, int32_t e)
     } else if (k == EN_SELECT && dub.page != PAGE_SETUP) {   /* the Big Knob: a detent a step, at once */
         ctl_set(P_HPF_STEP, ctl_get(P_HPF_STEP) + e);
         dub.dirty_centre = 1;
-        app_say("BIG KNOB", hpf_name(ctl_get(P_HPF_STEP)));
+        app_say(roots_name("BIG KNOB"), hpf_name(ctl_get(P_HPF_STEP)));
     } else if (k == EN_ALGO) {
         dub.focus = (dub.focus + e % (int32_t)NCH + (int32_t)NCH) % (int32_t)NCH;
         if (dub.sound)
@@ -633,8 +662,21 @@ void dub_input(void)
         steps_keys(keys, dub.keys);
         goto encoders;
     }
-    if (dub.page == PAGE_SETUP)
+    if (dub.page == PAGE_SETUP) {        /* (black 11 three times in 2 s: ROOTS NAMES, the hidden switch) */
+        static uint32_t taps, t0;
+        uint32_t bit = 1u << BK[10];
+        if ((keys & bit) && !(dub.keys & bit)) {
+            if (now - t0 > 2000u)
+                taps = 0, t0 = now;
+            if (++taps == 3u) {
+                taps = 0;
+                ctl_set(P_ROOTS, !ctl_get(P_ROOTS));
+                set_dirty = 1;
+                app_say("ROOTS NAMES", ctl_get(P_ROOTS) ? "ON" : "OFF");
+            }
+        }
         goto encoders;
+    }
     if (dub.page == PAGE_KEY)            /* the keys show the lock's set; they play nothing here */
         goto encoders;
     if (dub.page == PAGE_FX || dub.page == PAGE_PERF)
@@ -697,7 +739,7 @@ void dub_input(void)
                 }
                 ctl_set(P_SPRING_KICK, 1);
             }
-            app_say(BLACK_NAME[k], "");
+            app_say(roots_name(BLACK_NAME[k]), "");
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 5u || k == 6u)) {
             ctl_note(CH_VOX, k == 5u ? SIREN_A : SIREN_B, 0);
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 4u || k == 10u)) {

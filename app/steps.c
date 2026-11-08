@@ -222,7 +222,7 @@ static void steps_knob(uint32_t i, int32_t e)
         ctl_template(st.tpl, (1u << CH_KICK) | (1u << CH_SNARE) | (1u << CH_HATS) | (1u << CH_BASS)
                                  | (1u << CH_SKANK) | (1u << CH_ORGAN), 4u);
         set_dirty = 1;
-        app_say("RIDDIM", template_name(st.tpl));
+        app_say("RIDDIM", roots_name(template_name(st.tpl)));
     } else {
         app_say("SWING", "TO COME");
     }
