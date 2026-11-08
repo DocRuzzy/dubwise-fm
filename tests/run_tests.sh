@@ -13,3 +13,6 @@ for t in app/tests/*.txt; do
         python3 -I tests/wavstat.py "$OUT/$f" $checks
     done
 done
+echo "== tests/slot_transfer_test.py"
+python3 tests/slot_transfer_test.py >/dev/null || { echo "FAIL slot transfer (run tests/slot_transfer_test.py)"; exit 1; }
+echo "  ok slot transfer"

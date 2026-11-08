@@ -290,6 +290,24 @@ see felucca-bsp's `tools/fm1_rescue.sh`.
 
 ---
 
+## Backing up, and sharing songs
+
+**The whole FM-1 to a file.** `python3 base/tools/fm1_backup.py backup FILE` saves what's stored (your project and
+settings); `restore FILE` puts it back (the FM-1 asks you to confirm with SEL; stop playing first).
+
+**One song slot to a file, to keep or share.** With the FM-1 connected over USB and stopped:
+
+```
+python3 tools/dubwise_slots.py get 2 mydub.dws     # slot 2 to a file
+python3 tools/dubwise_slots.py put 3 mydub.dws     # a file into slot 3
+python3 tools/dubwise_slots.py info mydub.dws      # what a file holds
+```
+
+A `.dws` file is a whole project: the desk, sounds, key, patterns, scenes, the song and every recorded move. After a
+`put`, load it on the FM-1 with SETUP → LOAD SLOT. (Both tools need `pip install mido python-rtmidi`.)
+
+---
+
 ## For those who read to the end
 
 - **ROOTS NAMES.** On the SETUP page, tap black key 11 three times within two seconds. The screen reader then names

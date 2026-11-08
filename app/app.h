@@ -10,6 +10,18 @@
 #define APP_SPLASH_RGB RGB(242, 120, 72)
 #define APP_SPLASH                         /* app_splash (saver.c): the echo rings, drawn at boot */
 #define APP_TICK                           /* app_tick: the MIDI clock's sends, on time */
+/* backup and restore over USB (fm1.toml backup = true; base/tools/fm1_backup.py): the saved project and settings */
+#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SOUND, OBJ_PATTERN, OBJ_SCENES, OBJ_SCNPAT0, OBJ_SCNPAT0 + 1, OBJ_SCNPAT0 + 2, \
+                         OBJ_SCNPAT0 + 3, OBJ_SCNPAT0 + 4, OBJ_SCNPAT5, OBJ_SONG}
+#define APP_BACKUP_MAGIC 0x31425744u       /* "DWB1" */
+#define APP_BACKUP_VERSION 1u
+#define APP_BACKUP_WHAT "replaces the saved project"
+#define APP_SYSEX                          /* app_sysex: the song slots to and from a computer (tools/dubwise_slots.py) */
+int app_sysex(const uint8_t *p, uint32_t n);
+int app_backup_playing(void);
+void app_backup_flush(void);
+void app_backup_hold(int on);
+void app_backup_restored(void);
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 #define APP_TOUCH                        /* velocity and pressure from the keys (lib/touch.h) */
 /* no radio (fm1.toml ble = false, roadmap P0.0): its RAM goes to the dub bus */

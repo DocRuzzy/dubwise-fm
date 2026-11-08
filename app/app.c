@@ -161,6 +161,7 @@ static void scenes_load(void)
 }
 static settings_t set;
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
+static uint8_t save_hold;                  /* a backup streaming over USB: no saves meanwhile */
 
 /* ------------------------------------------------------------------- MIDI --- */
 /* MIDI in plays the voices: channel 10 the drums by General MIDI's notes, any other the bass */
@@ -280,6 +281,10 @@ static void settings_defaults(void)
 
 static void settings_save(void)
 {
+    if (save_hold) {                       /* (a backup streaming: what it reads must not move) */
+        app_say("SAVE", "BACKUP RUNNING");
+        return;
+    }
     set.tempo = (int16_t)ctl_get(P_TEMPO);
     set.quant = (uint8_t)ctl_get(P_QUANT);
     set.echo_time = (uint8_t)ctl_get(P_ECHO_TIME);
@@ -324,13 +329,39 @@ static void settings_save(void)
     }
 }
 
+static void load_saved(void);
+
+static int slot_sysex(const uint8_t *p, uint32_t n);
+int app_sysex(const uint8_t *p, uint32_t n) { return slot_sysex(p, n); }   /* (slots.c) */
+
 void app_init(void)
 {
     eng_init();                          /* every parameter at its default, on both sides of the queue */
     ctl_init();
+    mot_load();                          /* the song's motion (P2.7): the flash's data area, not a store object */
+    load_saved();
+}
+
+/* Backup and restore over USB (fm1.toml backup = true; tools/fm1_backup.py): the saved project and settings (the store
+ * objects in APP_BACKUP_OBJS). The motion and the song slots live in the flash's data area, outside the store: a slot
+ * goes to and from the computer with tools/dubwise_slots.py */
+int app_backup_playing(void) { return eng_playing(); }
+void app_backup_flush(void)
+{
+    if (set_dirty || scenes_dirty)
+        settings_save();
+}
+void app_backup_hold(int on) { save_hold = (uint8_t)(on != 0); }
+void app_backup_restored(void)           /* the restored objects, read as at boot */
+{
+    load_saved();
+    set_dirty = 0;
+}
+
+static void load_saved(void)             /* the store's objects into both sides of the queue (boot, a restore) */
+{
     scenes_load();
     song_load();
-    mot_load();                          /* the song's motion (P2.7): the flash's data area, not a store object */
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC
         || set.tempo != param_clamp(P_TEMPO, set.tempo) || set.quant >= QUANT_N)
         settings_defaults();

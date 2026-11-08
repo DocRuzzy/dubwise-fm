@@ -94,6 +94,7 @@ static void slot_value(char *t, int load);      /* (slots.c: song slots) */
 static void slot_pick(int32_t e);
 static void slot_action(int load);
 static void slot_tick(void);
+static void slot_sx_tick(void);
 static void steppers_load(void);
 void dub_init(void);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
@@ -1185,6 +1186,7 @@ void dub_draw(void)
     int drew = 0;
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     slot_tick();                         /* (a loaded slot's, the same way) */
+    slot_sx_tick();                      /* (a slot going to a computer) */
     song_sync();
     if (saver_draw(now)) {               /* the screen saver: the whole screen its own */
         lights();
