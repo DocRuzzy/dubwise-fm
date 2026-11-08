@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Dubwise FM contributors */
 /* Channel 8, Vox / FX: the sirens (roadmap P2.1; mastery guide C9, D3), held to sound; and three one-shots (P2.6;
- * C9, C10: HEY, HORN, LASER: original, synthesized by tools/make_oneshots.py), 8-bit mu-law at 22,050 Hz, copied
+ * C9, C10: BIM, HORN, LASER: original, synthesized by tools/make_oneshots.py), 8-bit mu-law at 22,050 Hz, copied
  * from the flash into the pool at boot (the render reads RAM only), played to their end. Siren A: a square LFO, two
  * tones a step apart (DEPTH); siren B: a rising sweep, over and over. PITCH, RATE, DEPTH, WAVE (sine / triangle).
  * The channel sends to the echo by default (the authentic use). Mono, 44.1 kHz, floats. */

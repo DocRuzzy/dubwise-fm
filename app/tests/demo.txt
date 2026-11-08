@@ -1,6 +1,6 @@
 # The demo song, RIGHTEOUS DUB (demo.c): loaded from SETUP (DEMO SONG, KNOB 2), played through once (72 BPM: a bar
 # is 3.33 s; 32 bars, 1 min 47 s). Its own moves are the song's motion (throws, crashes, a freeze, an echo swell, the
-# Big Knob climbing, a dub push, a tape dive, the drop to wet); a few live ones go on top (a siren in the DROP, a HEY).
+# Big Knob climbing, a dub push, a tape dive, the drop to wet); a few live ones go on top (a siren in the DROP, a BIM).
 # The recording, demo.wav, is the thing to listen to.
 wait 600
 listen
@@ -58,7 +58,7 @@ expect eng.echo.push 1
 wait 5033
 expect eng.echo.dive 1
 wait 3000
-# VERSE again; a HEY, live
+# VERSE again; a BIM, live
 expect eng.ch4.mute 0
 tapkey b7
 wait 22000
