@@ -1,0 +1,570 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Dubwise FM contributors */
+/* The DUB page, the home of the live desk (docs/interface-spec.md 4.1, 5.1): first version, P0.1 (quantised mutes
+ * and solo). Part of the unity build: app.c includes it, after its settings, messages and helpers.
+ *
+ *   White 1-8      mute channel 1-8: a tap toggles, a hold flips it until released, a double tap solos (additive)
+ *   HOME + white   solo, as an alternative
+ *   OCT- / OCT+    launch quantise: BEAT, 1, 2, 4, 8, 16, 32 bars
+ *   PLAY           start / stop (on release). Held with a white key: that key acts now, not on the line
+ *   HOME + SELECT  tempo, 1 BPM a detent
+ *   ALGORITHM      the focused channel (its strip underlined; the knobs follow it later)
+ *   PRESET         the test voice's wave (MIDI in plays it on the bass channel; until P0.5)
+ *   SAVE           tempo, quantise and wave
+ *   GLO            test tones on every channel (until the SETUP page and the voices of P0.5)
+ * Quantised actions blink their key until they land, and the centre says when. Not here yet: throws (white 9-16,
+ * P0.2), the black keys' effects (P0.3, P1.x), the knobs (echo, P0.3), the runway (P0.6). */
+
+#define TAP_MS 300u                      /* shorter than this, a tap; two within it, a double tap */
+#define BLINK_MS 250u                    /* slow blink: cued */
+
+static const char *const CH_NAME[NCH] = {"KICK", "SNARE", "HATS", "BASS", "SKANK", "ORGAN", "LEAD", "VOX"};
+static const char *const CH_SHORT[NCH] = {"KICK", "SNR", "HAT", "BASS", "SKNK", "ORGN", "LEAD", "VOX"};
+static const char *const BLACK_NAME[11] = {"SPRING CRASH", "ECHO HOLD", "DUB PUSH", "TAPE DIVE", "DROP TO WET",
+                                           "SIREN A", "SIREN B", "VOX 1", "VOX 2", "VOX 3", "DRUM AND BASS"};
+static const char *const BTN_NAME[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ",
+                                         "PLAY", "REC", "OCT-", "OCT+"};
+static const char *const ENC_NAME[NE] = {"BIG KNOB", "FOCUS", "PRESET", "K1", "K2", "K3", "K4"};
+static const char *const KNOB_LABEL[4] = {"TIME", "FB", "ECHO", "SPRG"};   /* spec 4.1: the echo's, from P0.3 */
+static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
+
+static struct {
+    uint32_t keys, btn;                  /* held at the last input */
+    uint32_t press_t[NCH], rel_t[NCH];   /* a mute key's last press and release */
+    uint8_t m0[NCH];                     /* its mute before the press (a hold, a double tap put it back) */
+    uint8_t tapped[NCH], dbl[NCH];       /* released as a tap (a double tap may follow); this press is the second */
+    uint8_t vel[NKEYS];                  /* each key's last velocity */
+    int32_t last_key;
+    uint8_t play_used, home_used;        /* held as a modifier: its own press does nothing on release */
+    int32_t focus;                       /* ALGORITHM's channel */
+    int32_t turns[NE];                   /* detents since boot, per encoder */
+    uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
+    uint32_t last_beat, last_cued, last_blink, last_meter_t;
+    int32_t last_lands;
+    uint8_t msg_up;
+} dub;
+
+/* ------------------------------------------------------------------ state --- */
+static int any_solo(int eng)
+{
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++)
+        if (eng ? eng_param(P_CH(ch, CHF_SOLO)) : ctl_get(P_CH(ch, CHF_SOLO)))
+            return 1;
+    return 0;
+}
+static int audible(uint32_t ch)          /* as the engine has it now */
+{
+    return !eng_param(P_CH(ch, CHF_MUTE)) && (!any_solo(1) || eng_param(P_CH(ch, CHF_SOLO)));
+}
+static int cued(uint32_t ch)             /* a change asked for that has not landed yet */
+{
+    return ctl_get(P_CH(ch, CHF_MUTE)) != eng_param(P_CH(ch, CHF_MUTE))
+        || ctl_get(P_CH(ch, CHF_SOLO)) != eng_param(P_CH(ch, CHF_SOLO));
+}
+static uint32_t cued_mask(void)
+{
+    uint32_t ch, m = 0;
+    for (ch = 0; ch < NCH; ch++)
+        if (cued(ch))
+            m |= 1u << ch;
+    return m;
+}
+
+/* the quantum an action waits for: none with PLAY held (and while stopped the engine acts at once anyway) */
+static uint32_t act_beats(void)
+{
+    if (dub.btn >> B_PLAY & 1u) {
+        dub.play_used = 1;
+        return 0;
+    }
+    return quant_beats(ctl_get(P_QUANT));
+}
+
+/* beats until the next line of the quantise setting (0: stopped, nothing to wait for) */
+static int32_t lands_in(void)
+{
+    uint32_t q = quant_beats(ctl_get(P_QUANT)), b = eng_beat();
+    if (!eng_playing())
+        return 0;
+    return (int32_t)((b / q + 1u) * q - b);
+}
+
+static void lands_text(int32_t beats, char *t)   /* "NEXT BEAT", "THIS BAR", "2 BARS" .. */
+{
+    char n[12];
+    t[0] = 0;
+    if (beats <= 1)
+        text_cat(t, "NEXT BEAT");
+    else if (beats <= 4)
+        text_cat(t, "1 BAR");
+    else {
+        int_text((beats + 3) / 4, n);
+        text_cat(t, n);
+        text_cat(t, " BARS");
+    }
+}
+
+static void tempo_text(char *t)          /* "75.0" */
+{
+    int32_t v = ctl_get(P_TEMPO);
+    char d[4] = {'.', 0, 0, 0};
+    int_text(v / 10, t);
+    d[1] = (char)('0' + v % 10);
+    text_cat(t, d);
+}
+
+/* ------------------------------------------------------------------ input --- */
+static void say_mute(uint32_t ch, int muted)
+{
+    app_say(muted ? "MUTE" : "UNMUTE", CH_NAME[ch]);
+}
+
+static void solo_toggle(uint32_t ch, uint32_t beats)
+{
+    uint32_t id = P_CH(ch, CHF_SOLO);
+    int on = !ctl_get(id);
+    ctl_cue(id, on, beats);
+    app_say(on ? "SOLO" : "UNSOLO", CH_NAME[ch]);
+}
+
+static void mute_press(uint32_t ch, uint32_t now)
+{
+    uint32_t id = P_CH(ch, CHF_MUTE), beats = act_beats();
+    if (dub.btn >> B_HOME & 1u) {        /* HOME + white: solo */
+        dub.home_used = 1;
+        dub.dbl[ch] = 1;                 /* (its release does nothing) */
+        solo_toggle(ch, beats);
+        return;
+    }
+    if (dub.tapped[ch] && now - dub.rel_t[ch] < TAP_MS) {   /* the second tap: solo, and the first tap undone */
+        dub.tapped[ch] = 0;
+        dub.dbl[ch] = 1;
+        ctl_cue(id, dub.m0[ch], beats);
+        solo_toggle(ch, beats);
+        return;
+    }
+    dub.dbl[ch] = 0;
+    dub.press_t[ch] = now;
+    dub.m0[ch] = (uint8_t)ctl_get(id);
+    ctl_cue(id, !dub.m0[ch], beats);
+    say_mute(ch, !dub.m0[ch]);
+}
+
+static void mute_release(uint32_t ch, uint32_t now)
+{
+    if (dub.dbl[ch]) {
+        dub.dbl[ch] = 0;
+        return;
+    }
+    if (now - dub.press_t[ch] >= TAP_MS) {   /* a hold: back as it was */
+        dub.tapped[ch] = 0;
+        ctl_cue(P_CH(ch, CHF_MUTE), dub.m0[ch], act_beats());
+        say_mute(ch, dub.m0[ch]);
+    } else {
+        dub.tapped[ch] = 1;
+        dub.rel_t[ch] = now;
+    }
+}
+
+static void quant_step(int32_t d)
+{
+    int32_t q = ctl_get(P_QUANT) + d;
+    if (q < 0 || q >= QUANT_N)
+        return;
+    ctl_set(P_QUANT, q);
+    set_dirty = 1;
+    dub.dirty_hdr = 1;
+    app_say("QUANTISE", quant_name(q));
+}
+
+static void button_press(uint32_t k)
+{
+    if (k == B_OCTDN)
+        quant_step(-1);
+    else if (k == B_OCTUP)
+        quant_step(1);
+    else if (k == B_PLAY)
+        dub.play_used = 0;               /* start / stop on release, unless used as a modifier */
+    else if (k == B_HOME)
+        dub.home_used = 0;
+    else if (k == B_SAVE)
+        settings_save();
+    else if (k == B_GLO) {               /* (until SETUP and the voices: a test tone on every channel, to hear the desk) */
+        int on = !ctl_get(P_DEV_TONES);
+        ctl_set(P_DEV_TONES, on);
+        app_say("TEST TONES", on ? "ON" : "OFF");
+    } else
+        app_say("BUTTON", BTN_NAME[k]);
+}
+
+static void button_release(uint32_t k)
+{
+    if (k == B_PLAY && !dub.play_used) {
+        int on = !ctl_get(P_PLAY);
+        ctl_set(P_PLAY, on);
+        app_say(on ? "PLAY" : "STOP", "");
+    } else if (k == B_HOME && !dub.home_used) {
+        app_say("DUB", "PAGE");
+    }
+}
+
+static void encoder(uint32_t k, int32_t e)
+{
+    char t[16];
+    dub.turns[k] += e;
+    if (k == EN_SELECT && (dub.btn >> B_HOME & 1u)) {   /* HOME + SELECT: tempo */
+        dub.home_used = 1;
+        ctl_set(P_TEMPO, ctl_get(P_TEMPO) + 10 * e);
+        set_dirty = 1;
+        dub.dirty_hdr = 1;
+        tempo_text(t);
+        app_say("TEMPO", t);
+    } else if (k == EN_ALGO) {
+        dub.focus = (dub.focus + e % (int32_t)NCH + (int32_t)NCH) % (int32_t)NCH;
+        dub.dirty_strips = 1;
+        app_say("FOCUS", CH_NAME[dub.focus]);
+    } else if (k == EN_PRESET) {
+        int32_t w = !ctl_get(P_VOICE(CH_BASS, VF_WAVE));
+        ctl_set(P_VOICE(CH_BASS, VF_WAVE), w);
+        set_dirty = 1;
+        app_say("WAVE", w ? "TRIANGLE" : "SINE");
+    } else {
+        int_text(dub.turns[k], t);
+        app_say(ENC_NAME[k], t);
+    }
+}
+
+void dub_input(void)
+{
+    uint32_t keys, btn = plat_buttons(), k, now = plat_ms();
+    int32_t e;
+    touch_poll();                        /* the sensed keys' presses and velocities */
+    keys = touch_keys();
+    for (k = 0; k < NB; k++) {           /* buttons first: a modifier pressed with a key counts */
+        uint32_t bit = 1u << k;
+        if ((btn & bit) && !(dub.btn & bit)) {
+            dub.btn |= bit;
+            button_press(k);
+        } else if (!(btn & bit) && (dub.btn & bit)) {
+            dub.btn &= ~bit;
+            button_release(k);
+        }
+    }
+    for (k = 0; k < 16u; k++) {          /* white keys: 1-8 mutes, 9-16 throws (P0.2) */
+        uint32_t bit = 1u << WK[k];
+        if ((keys & bit) && !(dub.keys & bit)) {
+            dub.vel[WK[k]] = (uint8_t)touch_vel(WK[k]);
+            dub.last_key = WK[k];
+            if (k < NCH)
+                mute_press(k, now);
+            else
+                app_say("THROW", CH_NAME[k - NCH]);
+        } else if (!(keys & bit) && (dub.keys & bit) && k < NCH) {
+            mute_release(k, now);
+        }
+    }
+    for (k = 0; k < 11u; k++) {          /* black keys: the effects, to come */
+        uint32_t bit = 1u << BK[k];
+        if ((keys & bit) && !(dub.keys & bit)) {
+            dub.vel[BK[k]] = (uint8_t)touch_vel(BK[k]);
+            dub.last_key = BK[k];
+            app_say(BLACK_NAME[k], "");
+        }
+    }
+    for (k = 0; k < NE; k++)
+        if ((e = plat_enc((int)k)) != 0)
+            encoder(k, e);
+    if (keys != dub.keys)
+        dub.dirty_strips = 1;
+    dub.keys = keys;
+}
+
+/* ----------------------------------------------------------------- lights --- */
+/* one LED language (spec 2.7): bright = on / playing, dim = available / muted, slow blink = cued */
+static uint32_t blink_on(void) { return (plat_ms() / BLINK_MS) & 1u; }
+
+static void lights(void)
+{
+    uint32_t ch, bright = 0, dim = 0, bb = dub.btn, k;
+    for (ch = 0; ch < NCH; ch++) {
+        uint32_t bit = 1u << WK[ch];
+        if (cued(ch))
+            bright |= blink_on() ? bit : 0u;
+        else if (audible(ch))
+            bright |= bit;
+        else
+            dim |= bit;
+    }
+    for (k = NCH; k < 16u; k++)
+        dim |= 1u << WK[k];
+    for (k = 0; k < 11u; k++)
+        dim |= 1u << BK[k];
+    if (eng_playing())
+        bb |= LED_PLAY_GREEN;
+    if (set_dirty)
+        bb |= 1u << B_SAVE;
+    plat_lights(bb, bright | dub.keys, 0, dim, 1);
+}
+
+#ifdef PLAT_HOST
+static int led_state(uint32_t ch)        /* 0 off, 1 dim, 2 bright, 3 blinking (cued) */
+{
+    if (cued(ch))
+        return 3;
+    return audible(ch) ? 2 : 1;
+}
+#endif
+
+/* ----------------------------------------------------------------- screen --- */
+/* four regions, each drawn only when it changes (spec 5.3): header 0-23, strips 26-121, centre 124-199, footer
+ * 202-239 */
+#define HDR_Y 0
+#define HDR_H 24
+#define STRIP_Y 26
+#define STRIP_H 96
+#define CENTRE_Y 124
+#define CENTRE_H 76
+#define FOOT_Y 202
+#define FOOT_H 38
+
+static void play_glyph(int32_t x, int32_t y, int playing, uint16_t c)
+{
+    int32_t i;
+    if (playing)                         /* a triangle */
+        for (i = 0; i < 11; i++)
+            cv_rect(x, y + i, (i <= 5 ? i : 10 - i) + 1, 1, c);
+    else
+        cv_rect(x, y + 1, 9, 9, c);      /* a square */
+}
+
+static void draw_header(void)
+{
+    char t[24], n[12];
+    uint32_t b = eng_beat();
+    int32_t x;
+    cv_begin(240, HDR_H, C_BLACK);
+    if (plat_ms() < msg.until) {         /* a message, for a moment */
+        x = cv_text(6, 4, &FONT_B, msg.text[0], C_WHITE);
+        cv_text(x + 8, 4, &FONT_B, msg.text[1], C_HI);
+    } else {
+        tempo_text(t);
+        x = cv_text(6, 4, &FONT_B, t, C_WHITE);
+        x = cv_text(x + 3, 8, &FONT_XS, "BPM", C_GRAY);
+        play_glyph(x + 8, 7, eng_playing(), eng_playing() ? C_HI : C_GRAY);
+        t[0] = 0;
+        text_cat(t, "BAR ");
+        int_text(eng_playing() ? (int32_t)(b / 4u + 1u) : 1, n);
+        text_cat(t, n);
+        text_cat(t, ".");
+        int_text(eng_playing() ? (int32_t)(b % 4u + 1u) : 1, n);
+        text_cat(t, n);
+        cv_text(x + 24, 4, &FONT_B, t, eng_playing() ? C_HI : C_GRAY);
+        t[0] = 0;
+        text_cat(t, "Q ");
+        text_cat(t, quant_name(ctl_get(P_QUANT)));
+        cv_text(234 - text_w(&FONT_XS, t), 8, &FONT_XS, t, C_AMB);
+    }
+    cv_rect(0, HDR_H - 1, 240, 1, C_LINE);
+    cv_blit(0, HDR_Y);
+}
+
+static void hatch(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)   /* diagonal lines: solo-muted */
+{
+    int32_t i, j;
+    for (j = 0; j < h; j++)
+        for (i = 0; i < w; i++)
+            if (((i + j) & 3) == 0)
+                cv_rect(x + i, y + j, 1, 1, c);
+}
+
+static void outline(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
+{
+    cv_rect(x, y, w, 1, c);
+    cv_rect(x, y + h - 1, w, 1, c);
+    cv_rect(x, y, 1, h, c);
+    cv_rect(x + w - 1, y, 1, h, c);
+}
+
+static int32_t meter_px(float pk, int32_t h)     /* -48 .. 0 dBFS over the box's height */
+{
+    float db;
+    if (pk < 0.004f)
+        return 0;
+    db = 20.0f * fm_log2f(pk) * 0.30103f;
+    return (int32_t)((db + 48.0f) * (float)h / 48.0f);
+}
+
+static void draw_strips(void)
+{
+    uint32_t ch;
+    int solo_any = any_solo(1);
+    cv_begin(240, STRIP_H, C_BLACK);
+    for (ch = 0; ch < NCH; ch++) {
+        int32_t x = 1 + (int32_t)ch * 30, bx = x + 5, by = 32, bw = 18, bh = 52;
+        int on = audible(ch), soloed = eng_param(P_CH(ch, CHF_SOLO)) != 0;
+        char num[2] = {(char)('1' + ch), 0};
+        cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, on ? C_WHITE : C_GRAY);
+        cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
+        if (on) {                        /* filled = playing; the meter brighter over it */
+            int32_t m = meter_px(eng_ch_peak(ch), bh);
+            cv_rect(bx, by, bw, bh, C_LINE);
+            if (m > 0)
+                cv_rect(bx, by + bh - (m > bh ? bh : m), bw, m > bh ? bh : m, C_HI);
+        } else if (solo_any && !soloed && !eng_param(P_CH(ch, CHF_MUTE))) {
+            hatch(bx, by, bw, bh, C_DIM);    /* hatched = solo-muted */
+            outline(bx, by, bw, bh, C_DIM);
+        } else {
+            outline(bx, by, bw, bh, C_GRAY);   /* outlined = muted */
+        }
+        if (cued(ch) && blink_on())
+            outline(bx - 2, by - 2, bw + 4, bh + 4, C_WHITE);
+        if (soloed)
+            cv_text(x + (28 - text_w(&FONT_XS, "S")) / 2, by + bh + 2, &FONT_XS, "S", C_AMB);
+        if ((int32_t)ch == dub.focus)
+            cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
+    }
+    cv_blit(0, STRIP_Y);
+}
+
+static void draw_centre(void)
+{
+    char t[24], n[12];
+    uint32_t m = cued_mask(), ch;
+    cv_begin(240, CENTRE_H, C_BLACK);
+    if (m && eng_playing()) {            /* what is cued, and when it lands */
+        int32_t x = cv_text(6, 4, &FONT_XS, "CUED", C_GRAY) + 8;
+        for (ch = 0; ch < NCH; ch++)
+            if (m >> ch & 1u) {
+                n[0] = (char)('1' + ch);
+                n[1] = 0;
+                x = cv_text(x, 4, &FONT_XS, n, C_WHITE) + 6;
+            }
+        cv_text(6, 22, &FONT_XS, "LANDS IN", C_GRAY);
+        lands_text(lands_in(), t);
+        cv_text(6, 36, &FONT_L, t, C_AMB);
+    } else if (!eng_playing()) {
+        cv_text(6, 4, &FONT_XS, "STOPPED: MUTES ACT AT ONCE", C_DIM);
+        cv_text(6, 22, &FONT_XS, "PLAY STARTS AT BAR 1", C_DIM);
+    } else {
+        cv_text(6, 4, &FONT_XS, "NEXT LINE", C_DIM);
+        lands_text(lands_in(), t);
+        cv_text(6, 22, &FONT_B, t, C_GRAY);
+    }
+    cv_rect(0, 0, 240, 1, C_LINE);
+    cv_blit(0, CENTRE_Y);
+}
+
+static void draw_footer(void)
+{
+    uint32_t i;
+    cv_begin(240, FOOT_H, C_BLACK);
+    cv_rect(0, 0, 240, 1, C_LINE);
+    for (i = 0; i < 4u; i++) {           /* the knobs' places: the echo's, from P0.3 */
+        int32_t x = 6 + (int32_t)i * 59;
+        cv_text(x, 6, &FONT_XS, KNOB_LABEL[i], C_DIM);
+        cv_text(x, 20, &FONT_XS, "--", C_LINE);
+    }
+    cv_blit(0, FOOT_Y);
+}
+
+void dub_draw(void)
+{
+    uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
+    int32_t li = lands_in();
+    int up = now < msg.until;
+    if (msg.changed || up != dub.msg_up) {
+        msg.changed = 0;
+        dub.msg_up = (uint8_t)up;
+        dub.dirty_hdr = 1;
+    }
+    if (b != dub.last_beat) {
+        dub.last_beat = b;
+        dub.dirty_hdr = 1;
+    }
+    if (cm != dub.last_cued || li != dub.last_lands) {
+        dub.last_cued = cm;
+        dub.last_lands = li;
+        dub.dirty_centre = dub.dirty_strips = 1;
+    }
+    if (cm && blink != dub.last_blink)
+        dub.dirty_strips = 1;
+    dub.last_blink = blink;
+    if (now - dub.last_meter_t >= 50u) { /* the meters at 20 Hz */
+        dub.last_meter_t = now;
+        dub.dirty_strips = 1;
+    }
+    if (dub.dirty_hdr) {
+        dub.dirty_hdr = 0;
+        draw_header();
+    }
+    if (dub.dirty_strips) {
+        dub.dirty_strips = 0;
+        draw_strips();
+    }
+    if (dub.dirty_centre) {
+        dub.dirty_centre = 0;
+        draw_centre();
+    }
+    if (dub.dirty_foot) {
+        dub.dirty_foot = 0;
+        draw_footer();
+    }
+    lights();
+}
+
+void dub_init(void)
+{
+    dub.dirty_hdr = dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 1;
+    dub.last_lands = -1;
+}
+
+/* a screen reader that has just started listening (or asks) hears the whole page */
+void dub_speak(void)
+{
+    char t[160], n[16];
+    uint32_t ch;
+    int first;
+    if (!ann_on() || !ann_where())
+        return;
+    t[0] = 0;
+    text_cat(t, APP_NAME ". ");
+    tempo_text(n);
+    text_cat(t, n);
+    text_cat(t, " BPM. ");
+    text_cat(t, eng_playing() ? "PLAYING" : "STOPPED");
+    text_cat(t, ". QUANTISE ");
+    text_cat(t, quant_name(ctl_get(P_QUANT)));
+    for (first = 1, ch = 0; ch < NCH; ch++)
+        if (eng_param(P_CH(ch, CHF_MUTE))) {
+            text_cat(t, first ? ". MUTED " : ", ");
+            text_cat(t, CH_NAME[ch]);
+            first = 0;
+        }
+    for (first = 1, ch = 0; ch < NCH; ch++)
+        if (eng_param(P_CH(ch, CHF_SOLO))) {
+            text_cat(t, first ? ". SOLO " : ", ");
+            text_cat(t, CH_NAME[ch]);
+            first = 0;
+        }
+    ann_say(t, 0, ANN_NOW);
+}
+
+#ifdef PLAT_HOST
+static int dub_expect(const char *what, int *got)
+{
+    if (!strncmp(what, "led_w", 5))      /* led_wN: white key N's (1-8): 1 dim, 2 bright, 3 blinking (cued) */
+        *got = led_state((uint32_t)(atoi(what + 5) - 1) % NCH);
+    else if (!strcmp(what, "vel"))       /* the last key's velocity */
+        *got = dub.vel[dub.last_key];
+    else if (!strcmp(what, "focus"))
+        *got = dub.focus + 1;
+    else if (!strcmp(what, "lands"))     /* beats to the next line */
+        *got = lands_in();
+    else if (!strncmp(what, "turns", 5)) /* turnsN: encoder N's count (plat.h EN_*) */
+        *got = dub.turns[atoi(what + 5) % NE];
+    else
+        return 0;
+    return 1;
+}
+#endif

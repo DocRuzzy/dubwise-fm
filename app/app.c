@@ -1,60 +1,47 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 Charles Vestal */
-/* The template app: every control on the screen as it arrives, by the name the app knows it by (plat.h B_*, EN_*,
- * the keys), and a few of them doing something: the keys play a voice and go out over USB-MIDI (MIDI in plays it
- * too), OCT- / OCT+ set the octave, PRESET the wave, MASTER the volume, SAVE stores the settings; the keys are
- * played with velocity and pressure (lib/touch.h), shown on them. One of each thing the platform offers, kept short. Part of the unity build (device/unity.c, host/plat_host.c), after the platform:
- * gfx.c and announce.c are in scope. */
+/* Dubwise FM's side of the contract with the platform (app.h), started from fm1-base's template: the boot, the
+ * settings, MIDI in, the audio render (the engine's, engine/), the messages and the screen reader. The pages are
+ * their own files (GPL-3.0-only): dub.c, the DUB page. Part of the unity build (device/unity.c, host/plat_host.c),
+ * after the platform: gfx.c and announce.c are in scope. */
 #include "fastmath.h"
 #include "engine/engine.h"
 #include "engine/control.h"
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x44554231u            /* "DUB1": the settings record; another magic (the template's) loads defaults */
+#define SET_MAGIC 0x44554232u            /* "DUB2": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
-    int8_t octave;                       /* -2 .. +2 */
-    uint8_t wave;                        /* 0 sine, 1 triangle */
-    uint8_t rsv[2];
+    int16_t tempo;                       /* P_TEMPO: BPM x 10 */
+    uint8_t quant;                       /* P_QUANT */
+    uint8_t wave;                        /* the test voice's (MIDI in, on the bass channel): 0 sine, 1 triangle */
 } settings_t;
 static settings_t set;
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
 
-static const char *const WAVE_NAME[] = {"SINE", "TRIANGLE"};
-/* the controls by their names in plat.h, in its order */
-static const char *const BTN_NAME[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ",
-                                         "PLAY", "REC", "OCT-", "OCT+"};
-static const char *const ENC_NAME[NE] = {"SELECT", "ALGO", "PRESET", "K1", "K2", "K3", "K4"};
-
-/* ------------------------------------------------------------------ voice --- */
-/* the key voice lives in the engine (engine/engine.c), on the bass channel; the keys and MIDI in play it */
-static void note_on(int32_t note, uint32_t vel) { eng_note_on(note, vel); }
-static void note_off(int32_t note) { eng_note_off(note); }
-
-static volatile uint32_t midi_last, midi_last_port, midi_count;   /* the last message in (shown), and how many */
-static void midi_in(void)                    /* audio interrupt: the packets that came in */
+/* ------------------------------------------------------------------- MIDI --- */
+/* MIDI in plays the test voice on the bass channel (engine/engine.c), until the voices of P0.5 */
+static volatile uint32_t midi_count;     /* messages in (clock and active sensing left out) */
+static void midi_in(void)                /* audio interrupt: the packets that came in */
 {
     uint32_t pkt;
     int port;
     while (plat_midi_in(&pkt, &port)) {
         uint32_t st = (pkt >> 8) & 0xFFu, d1 = (pkt >> 16) & 0x7Fu, d2 = pkt >> 24;
-        if (st != 0xF8u && st != 0xFEu) {    /* (clock and active sensing would flood the screen) */
-            midi_last = pkt;
-            midi_last_port = (uint32_t)port;
+        if (st != 0xF8u && st != 0xFEu)
             midi_count++;
-        }
         if ((st & 0xF0u) == 0x90u && d2)
-            note_on((int32_t)d1, d2);
+            eng_note_on((int32_t)d1, d2);
         else if ((st & 0xF0u) == 0x80u || (st & 0xF0u) == 0x90u)
-            note_off((int32_t)d1);
+            eng_note_off((int32_t)d1);
     }
 }
 
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     midi_in();
-    eng_render(lr, n, master_q12);           /* the commands queued, the channels, the mix (engine/engine.c) */
+    eng_render(lr, n, master_q12);       /* the commands queued, the channels, the mix (engine/engine.c) */
 }
 
 void app_panic(void) { eng_panic(); }
@@ -63,32 +50,37 @@ void app_panic(void) { eng_panic(); }
 static void settings_defaults(void)
 {
     set.magic = SET_MAGIC;
-    set.octave = 0;
+    set.tempo = (int16_t)param_desc(P_TEMPO)->def;
+    set.quant = (uint8_t)param_desc(P_QUANT)->def;
     set.wave = 0;
+}
+
+static void settings_save(void)
+{
+    set.tempo = (int16_t)ctl_get(P_TEMPO);
+    set.quant = (uint8_t)ctl_get(P_QUANT);
+    set.wave = (uint8_t)ctl_get(P_VOICE(CH_BASS, VF_WAVE));
+    if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0) {
+        set_dirty = 0;
+        app_say("SAVED", "");
+    } else {
+        app_say("SAVE", "FAILED");
+    }
 }
 
 void app_init(void)
 {
-    eng_init();                              /* every parameter at its default, on both sides of the queue */
+    eng_init();                          /* every parameter at its default, on both sides of the queue */
     ctl_init();
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC
-        || set.octave < -2 || set.octave > 2 || set.wave > 1u)
+        || set.tempo != param_clamp(P_TEMPO, set.tempo) || set.quant >= QUANT_N || set.wave > 1u)
         settings_defaults();
+    ctl_set(P_TEMPO, set.tempo);
+    ctl_set(P_QUANT, set.quant);
     ctl_set(P_VOICE(CH_BASS, VF_WAVE), set.wave);
 }
 
-/* --------------------------------------------------------------------- UI --- */
-static struct {
-    char msg[2][24];                     /* a short message over the header */
-    uint32_t msg_until;
-    uint32_t keys, btn;                  /* held at the last input */
-    uint8_t vel[NKEYS], prs[NKEYS];      /* each key's last velocity, and its pressure while held */
-    int32_t last_key;                    /* the key pressed last: its numbers in the header */
-    int32_t turns[NE];                   /* detents since boot, per encoder */
-    uint32_t turned_at[NE];              /* when each was last turned: it shows lit for a moment */
-    uint8_t redraw;
-} ui;
-
+/* ---------------------------------------------------------------- helpers --- */
 static void text_cat(char *d, const char *s)
 {
     while (*d)
@@ -113,294 +105,54 @@ static void int_text(int32_t v, char *b)     /* signed, no padding */
     *b = 0;
 }
 
+/* ---------------------------------------------------------------- message --- */
+static struct {
+    char text[2][24];                    /* a short message over the header */
+    uint32_t until;
+    uint8_t changed;
+} msg;
+
 void app_say(const char *a, const char *b)
 {
     uint32_t i;
     char t[48];
     for (i = 0; i < 23u && a && a[i]; i++)
-        ui.msg[0][i] = a[i];
-    ui.msg[0][i] = 0;
+        msg.text[0][i] = a[i];
+    msg.text[0][i] = 0;
     for (i = 0; i < 23u && b && b[i]; i++)
-        ui.msg[1][i] = b[i];
-    ui.msg[1][i] = 0;
-    ui.msg_until = plat_ms() + 1300u;
-    ui.redraw = 1;
-    if (ann_on()) {                          /* and to a screen reader (announce.c, fm1-reader) */
+        msg.text[1][i] = b[i];
+    msg.text[1][i] = 0;
+    msg.until = plat_ms() + 1300u;
+    msg.changed = 1;
+    if (ann_on()) {                      /* and to a screen reader (announce.c, fm1-reader) */
         t[0] = 0;
-        text_cat(t, ui.msg[0]);
-        if (ui.msg[1][0]) {
+        text_cat(t, msg.text[0]);
+        if (msg.text[1][0]) {
             text_cat(t, " ");
-            text_cat(t, ui.msg[1]);
+            text_cat(t, msg.text[1]);
         }
         ann_say(t, 0, ANN_NOW);
     }
 }
 
-static void octave_text(char *t)
-{
-    t[0] = set.octave < 0 ? '-' : '+';
-    t[1] = (char)('0' + (set.octave < 0 ? -set.octave : set.octave));
-    t[2] = 0;
-}
-
-/* a screen reader that has just started listening (or asks) hears the whole screen */
-static void speak(void)
-{
-    char t[96], o[4];
-    if (ann_on() && ann_where()) {
-        octave_text(o);
-        t[0] = 0;
-        text_cat(t, APP_NAME ". OCTAVE ");
-        text_cat(t, o);
-        text_cat(t, ". WAVE ");
-        text_cat(t, WAVE_NAME[set.wave]);
-        if (midi_count) {                    /* the last MIDI message in, as the screen shows it */
-            static const char *const PORT[NPORTS] = {"USB", "BLE", "TRS"};
-            static const char HEX[] = "0123456789ABCDEF";
-            uint32_t m = midi_last, b;
-            char h[10];
-            for (b = 0; b < 3u; b++) {
-                uint32_t v = (m >> (8u + 8u * b)) & 0xFFu;
-                h[3 * b] = HEX[v >> 4];
-                h[3 * b + 1] = HEX[v & 15u];
-                h[3 * b + 2] = b < 2u ? ' ' : 0;
-            }
-            text_cat(t, ". MIDI IN ");
-            text_cat(t, midi_last_port < NPORTS ? PORT[midi_last_port] : "");
-            text_cat(t, " ");
-            text_cat(t, h);
-        }
-        ann_say(t, 0, ANN_NOW);
-    }
-    ann_tick(plat_ms());
-}
-
-static void note_name(int32_t note, char *b)
-{
-    static const char *const N[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    char o[12];
-    b[0] = 0;
-    text_cat(b, N[note % 12]);
-    int_text(note / 12 - 1, o);
-    text_cat(b, o);
-}
-
-static void octave_step(int32_t d)
-{
-    int32_t o = clamp(set.octave + d, -2, 2);
-    char t[4];
-    if (o == set.octave)
-        return;
-    eng_note_off(eng_note());                /* a key held across the change would not find its note off */
-    set.octave = (int8_t)o;
-    set_dirty = 1;
-    octave_text(t);
-    app_say("OCTAVE", t);
-}
-
-static void input(void)
-{
-    uint32_t keys, btn = plat_buttons(), k;
-    int32_t e;
-    touch_poll();                            /* the sensed keys' presses, velocities and pressure */
-    keys = touch_keys();
-    for (k = 0; k < NKEYS; k++) {            /* key 0 is F3 (MIDI 53) */
-        uint32_t bit = 1u << k, v;
-        int32_t note = 53 + (int32_t)k + 12 * set.octave;
-        if ((keys & bit) && !(ui.keys & bit)) {
-            v = touch_vel(k);
-            ui.vel[k] = (uint8_t)v;
-            ui.prs[k] = 0;
-            ui.last_key = (int32_t)k;
-            note_on(note, v);
-            plat_midi_send(0x09u | 0x90u << 8 | (uint32_t)note << 16 | v << 24, TO_USB);
-        } else if (!(keys & bit) && (ui.keys & bit)) {
-            ui.prs[k] = 0;
-            note_off(note);
-            plat_midi_send(0x08u | 0x80u << 8 | (uint32_t)note << 16, TO_USB);
-        } else if ((keys & bit) && touch_pressure(k) != ui.prs[k]) {   /* pressure: poly aftertouch */
-            ui.prs[k] = touch_pressure(k);
-            ui.redraw = 1;
-            plat_midi_send(0x0Au | 0xA0u << 8 | (uint32_t)note << 16 | (uint32_t)ui.prs[k] << 24, TO_USB);
-        }
-    }
-    for (k = 0; k < NB; k++) {               /* a button pressed: its name, and what it does here */
-        uint32_t bit = 1u << k;
-        if (!(btn & bit) || (ui.btn & bit))
-            continue;
-        if (k == B_OCTDN)
-            octave_step(-1);
-        else if (k == B_OCTUP)
-            octave_step(1);
-        else if (k == B_SAVE) {
-            if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0) {
-                set_dirty = 0;
-                app_say("SAVED", "");
-            } else {
-                app_say("SAVE", "FAILED");
-            }
-        } else {
-            app_say("BUTTON", BTN_NAME[k]);
-        }
-    }
-    for (k = 0; k < NE; k++) {               /* an encoder turned: its count; PRESET also changes the wave */
-        char t[12];
-        if ((e = plat_enc((int)k)) == 0)
-            continue;
-        ui.turns[k] += e;
-        ui.turned_at[k] = plat_ms();
-        ui.redraw = 1;
-        if (k == EN_PRESET) {
-            set.wave ^= 1u;
-            set_dirty = 1;
-            ctl_set(P_VOICE(CH_BASS, VF_WAVE), set.wave);
-            app_say("WAVE", WAVE_NAME[set.wave]);
-        } else {
-            int_text(ui.turns[k], t);
-            app_say(ENC_NAME[k], t);
-        }
-    }
-    if (keys != ui.keys || btn != ui.btn)
-        ui.redraw = 1;
-    ui.keys = keys;
-    ui.btn = btn;
-    plat_glow(1);                            /* the unlit buttons glow, readable in the dark */
-    plat_leds(btn | (set_dirty ? 1u << B_SAVE : 0u), keys);
-}
-
-void app_input_only(void) { input(); }
-
-static void cell(int32_t x, int32_t y, int32_t w, const char *s, int on)   /* a labelled box, lit when on */
-{
-    cv_rect(x, y, w, 18, on ? C_HI : C_LINE);
-    cv_text(x + (w - text_w(&FONT_XS, s)) / 2, y + 2, &FONT_XS, s, on ? C_BLACK : C_GRAY);
-}
-
-static void key_cell(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t k, uint16_t off)
-{
-    int32_t v, p;
-    cv_rect(x, y, w, h, off);
-    if (!(ui.keys >> k & 1u))
-        return;
-    v = (ui.vel[k] * h + 126) / 127;
-    p = (ui.prs[k] * h + 126) / 127;
-    cv_rect(x, y + h - v, w, v, C_HI);
-    if (p)
-        cv_rect(x + 2, y + h - p, w - 4, p, C_WHITE);
-}
-
-static void draw(void)
-{
-    char t[24];
-    int32_t note = eng_note();
-    uint32_t i, now = plat_ms(), pct = plat_master() * 100u / 4096u;
-    static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
-    /* the header: the name and the note, or a message for a moment */
-    cv_begin(240, 32, C_BLACK);
-    if (now < ui.msg_until) {
-        int32_t x = cv_text(10, 6, &FONT_B, ui.msg[0], C_WHITE);
-        cv_text(x + 8, 6, &FONT_B, ui.msg[1], C_HI);
-    } else {
-        cv_text(10, 6, &FONT_B, APP_NAME, C_WHITE);
-        if (note >= 0) {                     /* the note, and the last key's velocity and pressure */
-            int32_t x;
-            note_name(note, t);
-            x = 230 - text_w(&FONT_B, t);
-            cv_text(x, 6, &FONT_B, t, C_HI);
-            if (ui.keys >> ui.last_key & 1u) {
-                char n[24] = "V ";
-                int_text(ui.vel[ui.last_key], t);
-                text_cat(n, t);
-                text_cat(n, "  P ");
-                int_text(ui.prs[ui.last_key], t);
-                text_cat(n, t);
-                cv_text(x - 12 - text_w(&FONT_XS, n), 10, &FONT_XS, n, C_GRAY);
-            }
-        }
-    }
-    cv_blit(0, 0);
-    /* the buttons, 4 to a row, lit while held; the encoders and their counts, lit for a moment after a turn */
-    cv_begin(240, 144, C_BLACK);
-    for (i = 0; i < NB; i++)
-        cell(4 + (int32_t)(i % 4u) * 58, (int32_t)(i / 4u) * 21, 56, BTN_NAME[i], (ui.btn >> i) & 1u);
-    for (i = 0; i < NE; i++) {
-        int32_t x = 4 + (int32_t)(i % 4u) * 58, y = 88 + (int32_t)(i / 4u) * 28;
-        int lit = ui.turned_at[i] && now - ui.turned_at[i] < 300u;
-        cv_text(x, y, &FONT_XS, ENC_NAME[i], lit ? C_HI : C_GRAY);
-        int_text(ui.turns[i], t);
-        cv_text(x, y + 13, &FONT_XS, t, lit ? C_WHITE : C_DIM);
-    }
-    cv_blit(0, 36);
-    /* the keys, black above white: a held key fills to its velocity (amber), its pressure over that (white) */
-    cv_begin(240, 60, C_BLACK);
-    for (i = 0; i < 16u; i++)
-        key_cell(4 + (int32_t)i * 14, 14, 13, 14, WK[i], C_DIM);
-    for (i = 0; i < 11u; i++) {
-        static const uint8_t AT[11] = {0, 1, 2, 4, 5, 7, 8, 9, 11, 12, 14};   /* the white key each one follows */
-        key_cell(4 + (int32_t)AT[i] * 14 + 8, 0, 11, 12, BK[i], C_LINE);
-    }
-    octave_text(t);
-    cv_text(4, 36, &FONT_XS, "OCT", C_GRAY);
-    cv_text(30, 36, &FONT_XS, t, C_HI);
-    cv_text(64, 36, &FONT_XS, "PRESET", C_GRAY);
-    cv_text(112, 36, &FONT_XS, WAVE_NAME[set.wave], C_HI);
-    if (midi_count) {                        /* the last MIDI message in, and where from */
-        static const char *const PORT[NPORTS] = {"USB", "BLE", "TRS"};
-        static const char HEX[] = "0123456789ABCDEF";
-        uint32_t m = midi_last, b;
-        char h[12];
-        for (b = 0; b < 3u; b++) {
-            uint32_t v = (m >> (8u + 8u * b)) & 0xFFu;
-            h[3 * b] = HEX[v >> 4];
-            h[3 * b + 1] = HEX[v & 15u];
-            h[3 * b + 2] = b < 2u ? ' ' : 0;
-        }
-        cv_text(4, 48, &FONT_XS, "MIDI IN", C_GRAY);
-        cv_text(52, 48, &FONT_XS, midi_last_port < NPORTS ? PORT[midi_last_port] : "", C_HI);
-        cv_text(82, 48, &FONT_XS, h, C_WHITE);
-    }
-    cv_text(178, 36, &FONT_XS, "VOL", C_GRAY);
-    int_text((int32_t)pct, t);
-    text_cat(t, "%");
-    cv_text(204, 36, &FONT_XS, t, C_HI);
-    cv_blit(0, 180);
-}
+#include "dub.c"                         /* the DUB page (GPL-3.0-only) */
 
 void app_ui_init(void)
 {
-    touch_on(1);                             /* velocity and pressure: the keys' readings on */
+    touch_on(1);                         /* velocity and pressure: the keys' readings on */
     lcd_fill(0, 0, 240, 240, C_BLACK);
-    ui.redraw = 1;
+    dub_init();
 }
+
+void app_input_only(void) { dub_input(); }
 
 void app_frame(void)
 {
-    static uint32_t last_pct, lit_until, last_midi;
-    uint32_t i, now = plat_ms(), pct = plat_master() * 100u / 4096u;
-    input();
-    ctl_flush();                             /* parameters the full queue refused: their latest values */
-    speak();
-    for (i = 0; i < NE; i++)                 /* an encoder's light goes out */
-        if (ui.turned_at[i] && now - ui.turned_at[i] < 400u && now > lit_until)
-            lit_until = ui.turned_at[i] + 300u;
-    if (lit_until && now >= lit_until) {
-        lit_until = 0;
-        ui.redraw = 1;
-    }
-    if (midi_count != last_midi) {
-        last_midi = midi_count;
-        ui.redraw = 1;
-    }
-    if (pct != last_pct || (ui.msg_until && now >= ui.msg_until)) {
-        last_pct = pct;
-        if (now >= ui.msg_until)
-            ui.msg_until = 0;
-        ui.redraw = 1;
-    }
-    if (ui.redraw) {
-        ui.redraw = 0;
-        draw();
-    }
+    dub_input();
+    ctl_flush();                         /* parameters the full queue refused: their latest values */
+    dub_speak();
+    ann_tick(plat_ms());
+    dub_draw();
 }
 
 #ifdef PLAT_HOST
@@ -408,13 +160,14 @@ static int host_fails;
 static int peak_db(float pk) { return pk > 1e-6f ? (int)floorf(20.0f * log10f(pk) + 0.5f) : -120; }
 
 /* the simulator's commands (app.h APP_HOST_CMD), through the same queue as the UI:
- *   param NAME VALUE      set a parameter (ch1.mute, v4.wave, dev.tones ...: params.c)
- *   flood NAME FROM TO    set it to FROM, FROM+1 .. TO, all at once (more than the queue holds: overflow) */
+ *   param NAME VALUE      set a parameter (ch1.mute, v4.wave, tempo, dev.tones ...: engine/params.c)
+ *   flood NAME FROM TO    set it to FROM, FROM+1 .. TO, all at once (more than the queue holds: overflow)
+ *   cue NAME VALUE BEATS  set it at the next multiple of BEATS beats (launch quantise) */
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     int id;
     (void)d;
-    if (strcmp(cmd, "param") && strcmp(cmd, "flood"))
+    if (strcmp(cmd, "param") && strcmp(cmd, "flood") && strcmp(cmd, "cue"))
         return 0;
     if ((id = param_find(a)) < 0) {
         printf("FAIL: no parameter %s\n", a);
@@ -423,6 +176,8 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     }
     if (!strcmp(cmd, "param"))
         ctl_set((uint32_t)id, atoi(b));
+    else if (!strcmp(cmd, "cue"))
+        ctl_cue((uint32_t)id, atoi(b), (uint32_t)atoi(c));
     else {
         int v, from = atoi(b), to = atoi(c);
         for (v = from; v <= to; v++)
@@ -434,18 +189,14 @@ int app_host_fails(void) { return host_fails; }
 
 int app_expect(const char *what, int *got)
 {
-    if (!strcmp(what, "octave"))
-        *got = set.octave;
-    else if (!strcmp(what, "wave"))
-        *got = set.wave;
+    if (!strcmp(what, "wave"))
+        *got = ctl_get(P_VOICE(CH_BASS, VF_WAVE));
     else if (!strcmp(what, "note"))
         *got = eng_note();
     else if (!strcmp(what, "dirty"))
         *got = set_dirty;
-    else if (!strcmp(what, "vel"))           /* the last key's velocity and pressure */
-        *got = ui.vel[ui.last_key];
-    else if (!strcmp(what, "prs"))
-        *got = ui.prs[ui.last_key];
+    else if (!strcmp(what, "midi_in"))
+        *got = (int)midi_count;
     else if (!strncmp(what, "eng.", 4) || !strncmp(what, "ui.", 3)) {   /* a parameter, as applied / as asked */
         int id = param_find(what + (what[0] == 'e' ? 4 : 3));
         if (id < 0)
@@ -467,10 +218,18 @@ int app_expect(const char *what, int *got)
         *got = (int)ctl_stats.pending;
     else if (!strcmp(what, "q_applied"))
         *got = (int)eng_cmds();
-    else if (!strncmp(what, "turns", 5))    /* turnsN: encoder N's count (plat.h EN_*) */
-        *got = ui.turns[atoi(what + 5) % NE];
+    else if (!strcmp(what, "t_fire"))        /* the transport: the sample the last cue landed on (since the start) */
+        *got = (int)eng_fire_at();
+    else if (!strcmp(what, "t_fires"))
+        *got = (int)eng_fires();
+    else if (!strcmp(what, "t_cues"))
+        *got = (int)eng_cues();
+    else if (!strcmp(what, "t_beat"))
+        *got = (int)eng_beat();
+    else if (!strcmp(what, "t_playing"))
+        *got = eng_playing();
     else
-        return 0;
+        return dub_expect(what, got);        /* the page's own (dub.c) */
     return 1;
 }
 #endif

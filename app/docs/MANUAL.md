@@ -1,13 +1,13 @@
 # DUBWISE
 
-DUBWISE (Dubwise FM) will be a reggae/dub groovebox for the M-VAVE FM-1, where the mixing desk is the instrument.
-This early build (roadmap P0.0) is still fm1-base's template with the radio taken out. As you use a control, its
-name shows on the screen. The keys play a simple voice with velocity and pressure, and a few controls do
-something: they set the octave, the wave and the volume, and save your settings. MIDI goes out over USB. It
-installs, updates, runs in the browser and speaks to a screen reader. There's no Bluetooth: the RAM it would take
-goes to the dub bus.
+DUBWISE (Dubwise FM) is a reggae/dub groovebox for the M-VAVE FM-1 in the making, where the mixing desk is the
+instrument. This early build has the desk's first move: the DUB page, where the white keys mute and solo the eight
+channels, and every change can wait for the next beat or bar line so it lands on time.
 
-![The DUBWISE screen at rest: the name at the top, the 14 buttons in four rows, the seven knobs with their counts, the keys, then OCT +0, PRESET SINE, VOL 50%](img/screen-ready.png "DUBWISE at rest")
+There are no drum or bass voices yet. Press GLO to put a test tone on every channel so you can hear the mutes. MIDI
+in plays a test voice on the bass channel. There's no Bluetooth: the RAM it would take goes to the dub bus.
+
+![The DUB page, stopped: 75.0 BPM, BAR 1.1, Q 1 BAR in the header; eight channel strips, all playing](img/screen-ready.png "The DUB page at rest")
 
 ---
 
@@ -40,15 +40,14 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 
 ## 2. The screen
 
-![DUBWISE while a key is held: C4 in the header with V 90 P 64, FX lit among the buttons, K3 at 3, the key filled on the keyboard](img/screen-playing.png "A key held, FX pressed, K3 turned")
+![The DUB page playing: bar 2.3; HAT muted (outlined), BASS soloed (S) so the rest are hatched; ORGN cued, landing in 1 bar](img/screen-playing.png "Playing, with a mute, a solo and a cue")
 
 | Part | What it shows |
 | --- | --- |
-| Header | The name. While you play a key, it shows the note, the velocity it landed at (V) and how hard you're pressing it (P). After a change, a message shows here for a moment. |
-| Buttons | All 14, by their names. A button lights while you hold it. |
-| Knobs | The seven encoders, each with a count of its turns. A knob lights for a moment as you turn it. |
-| Keys | The 27 keys, black above white. A held key fills up to its velocity, and white over that shows its pressure. |
-| Bottom line | The octave, the wave (on PRESET) and the volume (MASTER). |
+| Header | The tempo, playing (triangle) or stopped (square), the bar and beat, and the quantise setting (Q). After a change, a message shows here for a moment. |
+| Channel strips | The eight channels: 1 KICK, 2 SNR (snare), 3 HAT, 4 BASS, 5 SKNK (skank), 6 ORGN (organ), 7 LEAD, 8 VOX. A filled box is playing, with its level brighter over it. An outlined box is muted. A hatched box is muted by someone else's solo. S marks a solo. A strip that blinks white has a change waiting. A line under a strip marks the focus. |
+| Centre | What's waiting (CUED) and when it lands: NEXT BEAT, 1 BAR, 2 BARS and so on. |
+| Bottom line | The four knobs' places: echo time, feedback, echo and spring. They arrive with the echo. |
 
 ---
 
@@ -56,28 +55,35 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 
 | Control | What it does |
 | --- | --- |
-| Keys | Play the voice, louder the harder they land. Each key also sends its note with its velocity over USB, on channel 1. Press a held key harder to send aftertouch. The last key you pressed is the one that sounds. |
-| OCT− · OCT+ | Set the octave, from −2 to +2. |
-| PRESET | Picks the wave: sine or triangle. |
+| White keys 1–8 | Mute or unmute channels 1–8. A tap toggles. Hold a key to flip the channel only while you hold it. Tap twice quickly to solo it. Solos add up: solo two channels and you hear both. A muted channel stays muted when you solo it. |
+| HOME + white key 1–8 | Solo, without the double tap. |
+| OCT− · OCT+ | The quantise setting: BEAT, 1, 2, 4, 8, 16 or 32 bars. While playing, a mute or solo waits for the next line of that setting and lands on it, a hair (10 ms) early so it catches the downbeat. Its key blinks until then. |
+| PLAY | Start and stop (when you let go). Starting counts from bar 1. Stopping makes anything waiting happen at once. Hold PLAY while you press a white key to make that change now instead of on the line. |
+| HOME + SELECT | Tempo, 1 BPM a click. |
+| ALGORITHM | Moves the focus between the channels. |
+| PRESET | Picks the test voice's wave: sine or triangle. |
+| GLO | Test tones on every channel, on or off, so you can hear the desk until the voices arrive. |
 | MASTER | Sets the volume. |
-| SAVE | Saves the octave and the wave. SAVE lights while there's something to save. |
-| Every other button and knob | Shows its name on the screen, and does nothing else. This is where you wire up your own firmware. |
+| SAVE | Saves the tempo, the quantise setting and the wave. SAVE lights while there's something to save. |
+| White keys 9–16, black keys, the four knobs | Show their names. Throws, the echo, the spring and the rest come next. |
+
+The keys light by one rule: bright is playing, dim is muted or not in use yet, and a slow blink means waiting.
 
 ---
 
 ## 4. Saving
 
-Press SAVE to keep the octave and the wave. They come back the next time the FM-1 starts. SAVE stays lit while
-there are changes to save.
+Press SAVE to keep the tempo, the quantise setting and the wave. They come back the next time the FM-1 starts. The
+mutes and solos aren't saved: scenes will do that.
 
-![After OCT+ and PRESET: OCT +1 and PRESET TRIANGLE, SAVE waiting](img/screen-settings.png "OCT+ and PRESET changed, not saved yet")
+![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")
 
 ---
 
 ## 5. MIDI and audio
 
-MIDI comes in over USB and the TRS jack. A note on any channel plays the voice, and a note off releases it. The
-keys send notes with their velocity, and poly aftertouch, out over USB. DUBWISE has no Bluetooth.
+MIDI comes in over USB and the TRS jack. A note on any channel plays the test voice on the bass channel, and a
+note off releases it. DUBWISE has no Bluetooth.
 
 The keys sense how hard you play them, with no change to the FM-1. The 20 lowest keys
 (F3 to C5) give velocity and pressure. The top seven give velocity only.

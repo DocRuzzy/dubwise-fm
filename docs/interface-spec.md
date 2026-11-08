@@ -72,6 +72,14 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 | OCT− / OCT+ | Launch quantise |
 | REC | Arm song capture |
 
+#### 4.1.1 As built in P0.1 (2026-11-08)
+- **Tap / hold / double tap on a mute key.** The press cues the toggle at once (no wait to tell a tap from a hold). A hold (≥ 300 ms) cues the mute back on release. A second press within 300 ms of a tap's release cues the first toggle back and cues the solo toggle. All of them use the current quantise, so a double tap inside one quantum never flickers the mute.
+- **Solo:** additive; a muted channel stays muted when soloed (mute wins); solo-muted strips are hatched.
+- **Quantise:** BEAT / 1 / 2 / 4 / 8 / 16 / 32 bars from the transport's start (4/4). A cue fires `P_LEAD` = 10 ms before the line (spec: "fired slightly early"; it also covers the 2.9 ms gain ramp). A cue made inside that window fires at once. While stopped, everything acts at once; STOP fires anything waiting.
+- **PLAY** toggles on release; held with a key it is "now" for that key and does not stop the transport.
+- **Tempo** on HOME + SELECT (1 BPM a click), as in 4.6. **GLO** toggles test tones on every channel until SETUP and the voices exist.
+- Not yet: hold-to-focus knobs, throws (P0.2), black-key effects, the echo panel and Big Knob in the centre.
+
 ### 4.2 ARRANGE page
 - **White 1–16:** recall scene, quantised. **SAVE held + white key:** store.
 - **Scene scope** (KNOB 4 at store time):

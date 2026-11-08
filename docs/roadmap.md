@@ -95,6 +95,12 @@ So the dub bus starts with ~70 KB of `.data+.bss` and ~266 KB of pool free.
 | 0.7 | Host scenario tests + WAV analysis + per-part CPU profiling | — | |
 | 0.8 | **Key / scale / chord lock** | spec 4.5 | Off / Scale / Chord. Out-of-set keys are silent, never remapped. Reggae-oriented scale list. Key LEDs show the allowed set. HOME + ARP toggles. An input filter only. UI cost only |
 
+**P0.1 status (2026-11-08):** built and host-tested (`app/dub.c`, the transport and cues in `app/engine/engine.c`;
+decisions in interface-spec 4.1.1). The transport is an exact integer beat clock (a beat = 26,460,000 / (BPM × 10)
+samples, no drift); a cue splits the audio block and lands on its sample (`app/tests/quantise.txt` checks exact
+samples at 75, 76 and 180 BPM). Cost: `.data+.bss` +968 B (32-entry cue list, a quantum per pending parameter),
+image +6.2 KB (the page); CPU only while a cue waits (the transport stepped per sample). Device check still to do.
+
 **Exit test:** drills C1 and C4 drills 1–2 on the device, plus a first-timer runway test (can someone land a drop on bar 17 without counting?).
 
 ## P1 — Signature tone
