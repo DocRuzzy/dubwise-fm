@@ -4,7 +4,9 @@ A reggae/dub groovebox firmware for the **M-VAVE FM-1**, where the mixing desk i
 
 Everything is driven by the player: nothing is generative. A phrase counter and a countdown "runway" show when the next 8/16/32-bar boundary is coming, so drops land on the one.
 
-**Status: pre-alpha (P0.0).** The app is still fm1-base's template. See `docs/roadmap.md`.
+A SpIllt Beats release, by DocRuzzy.
+
+**Status: pre-alpha.** The P0 foundation is built and host-tested (desk, quantised mutes and solo, tape echo, throws, FM kick / rim / hats / bass, step sequencer with riddim templates, runway, key lock); P1 is in progress. Not yet tried on a real FM-1. See `docs/roadmap.md` and the manual in `app/docs/MANUAL.md`.
 
 ## Layout
 | Path | What |

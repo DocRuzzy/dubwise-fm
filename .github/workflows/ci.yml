@@ -1,5 +1,5 @@
 # Host-simulator tests on every push and PR (no JieLi toolchain needed).
-# Device packages and signed releases: see release.yml.disabled (enable at the first release).
+# Device packages and signed releases: release.yml (a tag vX.Y). The browser version: pages.yml (main).
 name: host tests
 on:
   push:

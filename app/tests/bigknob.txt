@@ -1,0 +1,53 @@
+# The Big Knob (P1.1; C3): a stepped 3rd-order Butterworth high-pass, 18 dB/oct: |H| = r^3 / sqrt(1 + r^6), r the
+# frequency over the cutoff. Channel 1's test tone is 110 Hz at -20 dBFS: through 70 Hz -0.3 dB, through 100 Hz
+# -1.9 dB, through 500 Hz -39.5 dB. SELECT turns it, a detent a step, at once.
+wait 600
+listen
+param dev.tones 1
+param ch1.solo 1
+wait 50
+expect out_db >-21
+expect out_db <-19
+turn SELECT 1
+wait 50
+said BIG KNOB 70 HZ
+expect eng.hpf 1
+expect out_db >-21
+turn SELECT 1
+wait 50
+said BIG KNOB 100 HZ
+expect out_db >-23
+expect out_db <-21
+turn SELECT 3
+wait 80
+expect eng.hpf 5
+expect out_db >-62
+expect out_db <-57
+# the steps up and down at once, the "evaporation" (C3 drill), on the whole mix: clicky by design, never unstable
+param ch1.solo 0
+wav knob.wav
+param hpf 0
+wait 100
+param hpf 3
+wait 100
+param hpf 6
+wait 100
+param hpf 10
+wait 100
+param hpf 1
+wait 100
+param hpf 0
+wait 100
+wavstop
+# on the echo's return only (SETUP: BIG KNOB ON): the dry tone untouched, the return thinned
+param hpf 0
+param ch1.solo 1
+param ch1.echo 127
+wait 1500
+expect echo_ret_db >-30
+param hpf.on 1
+param hpf 8
+wait 1500
+expect out_db >-21
+expect echo_ret_db <-60
+#wav knob.wav peak<-1 dc<-50

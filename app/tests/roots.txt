@@ -1,0 +1,67 @@
+# ROOTS NAMES (hidden; SETUP: black 11 three times in 2 s): the reader names a tool by the hand or house tied to it.
+# The page labels stay plain. Off again: the plain names.
+wait 600
+listen
+tap GLO
+wait 30
+tapkey b10
+wait 100
+tapkey b10
+wait 100
+tapkey b10
+wait 50
+said ROOTS NAMES ON
+expect ui.roots 1
+tap HOME
+wait 30
+turn SELECT 1
+wait 30
+said KING TUBBY KNOB
+turn SELECT -1
+key b5 down
+wait 50
+said SHAKA SIREN A
+key b5 up
+wait 50
+# the FX page: DRIVE (6th), WIDTH's ping-pong (8th), BI-PHASE (9th)
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+said FX ON-U DRIVE
+tap FX
+tap FX
+wait 30
+turn K3 1
+wait 30
+said MAD PROFESSOR PING-PONG ON
+tap FX
+wait 30
+said FX BLACK ARK PHASE
+# the riddims (STEPS, KNOB 4): STEPPERS, FLYERS
+tap SEQ
+wait 30
+turn K4 2
+wait 30
+said RIDDIM CHANNEL ONE STEPPERS
+turn K4 1
+wait 30
+said RIDDIM BUNNY LEE FLYERS
+# off again
+tap GLO
+wait 30
+tapkey b10
+wait 100
+tapkey b10
+wait 100
+tapkey b10
+wait 50
+said ROOTS NAMES OFF
+tap HOME
+wait 30
+turn SELECT 1
+wait 30
+said BIG KNOB

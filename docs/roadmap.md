@@ -48,59 +48,97 @@ Companion docs in this folder:
 4. **Guard tiers** Studio → Four-track → Seven-inch: automatic step-down plus user lock. PERF page.
 5. **Plumbing:** one parameter ID space, a queue with overflow resend, per-module modulation state, and an ISR that never touches flash, allocates or waits.
 
+### Plumbing as built (2026-11-08, `app/engine/`)
+- **Parameter IDs** (`params.h`): 16-bit, fixed ranges, append-only (scenes and songs store IDs). `0x000` global,
+  `0x040` channel strips (8 × 16 fields), `0x0C0` bus modules (echo, spring, HPF, phaser, master), `0x100` voices
+  (8 × 32 fields). Values are int16 (every range fits). Commands carry an opcode (`CMD_SET`), separate from IDs.
+- **Queue** (`cmdq.h`): 256-entry lock-free SPSC ring, main loop → audio interrupt, compile-time size check. Drained
+  whole at the start of each block, so UI input lands within one block (≤ 5.8 ms). Sequencer events will carry
+  sample offsets instead (P0.6).
+- **Overflow** (`control.c`): a refused set marks the parameter pending; `ctl_flush` (every frame) sends its *latest*
+  value. While anything is pending, new sets join the pending set (ID order), so an old value never lands after a
+  newer one. Host test: 291 sets at once, final values applied.
+- **Desk** (`engine.c`): 8 mono strips mixed in fixed channel order (bit-identical on one or two cores). Each strip
+  owns its gain ramps (2.9 ms linear): no clicks on mute, solo or level.
+  - **Solo** is additive. A soloed channel that is muted stays muted. Solo-muted behaves as muted.
+  - **Sends** to echo and spring are post-fader and post-mute. Throws (P0.2) will be pre-fader.
+  - Fader law: gain (v/100)², 100 = unity, 127 = +4 dB. Send law: (v/127)².
+- **Cost** (device link, guard tier: all, it is the floor): `.data+.bss` +8,744 B (two 1 KB value tables, the 2 KB
+  queue, four 1 KB block buffers), image +1,980 B. CPU: ~0.07 % of a block on the host for 8 active channels with
+  sends, so roughly 5 % of one core on the device by the ×80 rule (an upper bound; constant-gain fast path not
+  reflected on the host). To be measured on the device with P0.7's per-part profiling.
+
 ---
 
 ## P0 — Foundation
+
+**P0.0 status (2026-11-08):** host tests pass; Bluetooth removed; `id_prefix` = `FM-1_382` (first `FM-1_57`, but thefirmwarehub.com's catalog has spellbox on `FM-1_57\d`; 382 is "DUB" on a keypad, and a release's 9 digits match no identity on the hub). Listing on the hub (thefirmwarehub.com/submit): `fmhub.json` in the root, a GitHub release with the `.fwsc`, tested on a real FM-1 (from V15 and from another firmware, and removable), then a mail to the hub. Device link
+(JieLi toolchain 20260730.1, AC79 SDK V1.2.1), template with Bluetooth → without:
+
+| | With BLE | No radio | Limit |
+|---|---|---|---|
+| Image | 225,716 B | 87,492 B | ~581 KB slot |
+| RAM code `.ram_text` | 9,164 B | 4,964 B | 32,768 B |
+| RAM `.data+.bss` | 76,420 B | 27,828 B | 98,304 B |
+| Pool | 93,960 B | 69,384 B | 344,064 B (8 KB kept spare) |
+
+So the dub bus starts with ~70 KB of `.data+.bss` and ~266 KB of pool free.
 | # | Feature | Ref | Build notes |
 |---|---|---|---|
 | 0.0 | **Repo from the fm1-base template** | — | Template app runs in the host simulator and emulator. Strip Bluetooth. Claim an `id_prefix`. CI runs the host tests |
 | 0.1 | Quantised mutes + solo | C1, spec 4.1 | Launch quantise Beat/1/2/4/8/16/32. Double-tap solo (additive) |
-| 0.2 | Momentary throws with per-channel destination | C4, C10, spec 4.1 | Echo / Spring / Both. Hold or latch. Pre-fader. Lifts loop gain |
-| 0.3 | Dub tape echo | C4, B5 | 11 kHz int16, two heads (T, 2T), T60 feedback + capped throw gain, in-loop band-pass + 5 all-passes + saturation, return limiter, time slew |
-| 0.4 | Riddim templates + choke | D1 | One drop, rockers, steppers, flyers, as editable steps |
-| 0.5 | Core voices | D3, C11 | FM bass, kick, rim, hats |
-| 0.6 | Phrase counter, cycle bar and runway | spec 5.4 | Shared launch quantiser. Countdown in the last 4 bars, beat pulses in the last bar, "ONE" flash. Cued actions land on the boundary |
-| 0.7 | Host scenario tests + WAV analysis + per-part CPU profiling | — | |
-| 0.8 | **Key / scale / chord lock** | spec 4.5 | Off / Scale / Chord. Out-of-set keys are silent, never remapped. Reggae-oriented scale list. Key LEDs show the allowed set. HOME + ARP toggles. An input filter only. UI cost only |
+| 0.2 | Momentary throws with per-channel destination | C4, C10, spec 4.1 | Echo / Spring / Both. Hold or latch. Pre-fader. Lifts loop gain. **Done (2026-11-08):** `CHF_THROW`, `CHF_THROW_DEST` (per-channel defaults, spec 3); a throw adds a full pre-fader, pre-mute send onto the bus(es) through the strip's send ramps (no extra per-sample cost); an echo throw lifts the loop halfway to unity (cap 0.95) and brings in the 2T head at ≥ 0.35. White 9–16 hold / double-tap latch; hold + K1 sets the destination (until the MIXER page). Not quantised: a throw catches a word. Cost: ~0 CPU, 16 B RAM |
+| 0.3 | Dub tape echo | C4, B5 | 11 kHz int16, two heads (T, 2T), T60 feedback + capped throw gain, in-loop band-pass + 5 all-passes + saturation, return limiter, time slew **Done (2026-11-08)**, `app/engine/echo.c`: 18,432-sample int16 line in the pool (T ≤ 0.81 s; at slow tempos the longest division that fits); loop HP ~80 Hz + tone LP + five short all-passes (7/13/23/37/53, g 0.3; DUB-1's 37–441 at g 0.5 delayed a bass repeat ~270 ms a pass, measured 657 ms for 600, so they were shortened and their delay taken off the loop's read: 601 ms now) + tanh; outputs read the raw line (first repeat clean); push g = 1.15 (the loop filters lose ~5 % at best), freeze loops the tape unfiltered; return limiter −6 dBFS; 180 ms time slew. Denormal-flushed (a decayed loop cost 30× on the host). Cost: pool +38 KB (line + all-pass state), CPU ≈ 3 % of a device block (all tiers). Tests: repeat time measured in the audio (605.6 ms for 600), 20 s of push bounded, freeze holds, limiter acts |
+| 0.4 | Riddim templates + choke | D1 | One drop, rockers, steppers, flyers, as editable steps. **Done (2026-11-08):** `app/engine/riddim.c` (templates as D1 grids) and the sequencer in `engine.c`: 8 × 64 sixteenth steps (level off/ghost/normal/accent, note), per-channel length; steps fire on their sample (the render goes event to event: the next sixteenth or cue, computed, no per-sample stepping); bass released after a step (staccato). Templates are ordinary steps, cued to the bar line. STEPS page (`app/steps.c`); patterns in `OBJ_PATTERN`. Tests: step 9 at sample 70,560 (75 BPM) and 69,632 (76 BPM); a 512-step reload through the queue's resend. Swing, probability and REC keyboard entry are still to do |
+| 0.5 | Core voices | D3, C11 | FM bass, kick, rim, hats. **Done (2026-11-08)**, `app/engine/voices.c`: kick (swept sine + 1:1 click burst), rim (FM 1:1.41 + 1:3.5, noise burst, HP 300 Hz), hats (4 squares 1/1.48/2.27/3.6 + noise, HP 7 kHz, closed chokes open), bass (2-op FM 1:1 / 2:1, index decay to near-sine, sub, sustain, 2× LP). All at 44.1 kHz for now: the four together and the echo measure ~12 % of a device block (×80), so the planned 22 kHz voices are kept as a guard-tier lever, not needed yet. MIDI: ch 10 GM drums, others the bass. SOUND view on EDIT; sounds in `OBJ_SOUND`. Tests: pitch by zero crossings (kick 48 Hz for 50, bass 54.7 for 55), highs share, DC, mono low end |
+| 0.6 | Phrase counter, cycle bar and runway | spec 5.4 | Shared launch quantiser. Countdown in the last 4 bars, beat pulses in the last bar, "ONE" flash. Cued actions land on the boundary **Done (2026-11-08):** header cycle bar + n/len, amber on the runway; big countdown numeral; last-bar border pulses (and optional key flash); green ONE flash and border; reader counts; quantise CYCLE (cues land on the one: tested at sample 1,128,519 for an 8-bar cycle); optional audible tick (engine blip on runway beats). SETUP page (GLO, `app/setup.c`): cycle, runway, keys, numerals, tick, reduced motion, cue lead, test tones. Cost: UI only, plus a blip generator (~0 CPU) |
+| 0.7 | Host scenario tests + WAV analysis + per-part CPU profiling | — | **Done (2026-11-08).** `tests/wavstat.py` (peak, RMS, DC, click, low-band side, head/tail/growth) from `#wav` lines in scenarios; engine profiler on `plat_ticks24` (per channel, mix, echo, spring, out; avg and max), `perf` command, `perf_pct` bound. The profiler runs on the device too (for the PERF page, 1.9) |
+| 0.8 | **Key / scale / chord lock** | spec 4.5 | Off / Scale / Chord. Out-of-set keys are silent, never remapped. Reggae-oriented scale list. Key LEDs show the allowed set. HOME + ARP toggles. An input filter only. UI cost only **Done (2026-11-08):** 9 scales, 7 chord qualities (bit tables checked against the interval lists), a 16-bar chord lane (default Am Dm Am Em) that the lock follows bar by bar; KEY & CHORDS page (`app/keys.c`), HOME + ARP, LOCK / CHD chip; the keyboard (REC on the bass's STEPS page: record at the nearest sixteenth playing, cursor entry stopped); K2 step notes skip disallowed ones; LOCK MIDI IN (SETUP) filters MIDI in the audio interrupt. The chord lane is ready for the skank and organ (1.6) |
+
+**P0.1 status (2026-11-08):** built and host-tested (`app/dub.c`, the transport and cues in `app/engine/engine.c`;
+decisions in interface-spec 4.1.1). The transport is an exact integer beat clock (a beat = 26,460,000 / (BPM × 10)
+samples, no drift); a cue splits the audio block and lands on its sample (`app/tests/quantise.txt` checks exact
+samples at 75, 76 and 180 BPM). Cost: `.data+.bss` +968 B (32-entry cue list, a quantum per pending parameter),
+image +6.2 KB (the page); CPU only while a cue waits (the transport stepped per sample). Device check still to do.
 
 **Exit test:** drills C1 and C4 drills 1–2 on the device, plus a first-timer runway test (can someone land a drop on bar 17 without counting?).
 
 ## P1 — Signature tone
 | # | Feature | Ref | Notes |
 |---|---|---|---|
-| 1.1 | Stepped Big Knob HPF | C3 | 3rd-order, 10 steps + off, no smoothing; on master and echo return |
-| 1.2 | Spring + crash | C5 | Black 1 crash. Held during a throw, it adds the spring |
-| 1.3 | Return cross-sends | B5 | Echo ↔ spring, loop-gain clamped |
-| 1.4 | Tape-dive control | C4 drill 3 | |
-| 1.5 | Echo Width | C8 | 8–16 ms right offset |
-| 1.6 | Skank + organ bubble | D2, D3 | Follow the chord lane |
-| 1.7 | Scenes: desk or desk + patterns | C2, spec 4.2 | Scope chosen at store time, P badge |
-| 1.8 | Song per-bar list + live capture + section markers | spec 4.2 | The runway follows section boundaries in song mode |
-| 1.9 | Guard tiers v1 + PERF page | principles §5 | |
+| 1.1 | Stepped Big Knob HPF | C3 | 3rd-order, 10 steps + off, no smoothing; on master and echo return. **Done (2026-11-08)**, `app/engine/bigknob.c`: TPT one-pole + SVF (Q 1) high-pass = 3rd-order Butterworth, coefficients jump per detent (stable); 70 Hz–7.5 kHz; on the mix or the echo return (SETUP). SELECT on any page but SETUP. Tested against \|H\| = r³/√(1+r⁶) (−0.3, −1.9, −39.5 dB at 110 Hz through 70, 100, 500 Hz). Cost ≈ 15 flops a sample, all tiers |
+| 1.2 | Spring + crash | C5 | Black 1 crash. Held during a throw, it adds the spring. **Done (2026-11-08)**, `app/engine/spring.c`: two springs at 22.05 kHz, delay loops 37/43 ms through 12 stretched all-passes (z⁻², a 0.62: the dispersive chirp) and a damping LP (2–7 kHz), input HP ~200 Hz; DECAY 0.5–6 s (loop feedback; the damping shortens it in the highs); crash = 6 ms noise burst + thump into both. Mono return for now (stereo with P1.5). FX page (FX: ECHO, SPRING banks). Pool +8 KB; CPU ≈ 5.5 % of a device block while it sounds (×80), ~0.3 % idle: the spring and the echo go idle when nothing goes in and nothing is left in them (the echo only once its whole tape reads zero, so a gap between repeats never stops it) |
+| 1.3 | Return cross-sends | B5 | Echo ↔ spring, loop-gain clamped. **Done (2026-11-08):** echo→spring in the same block, spring→echo a block late (5.8 ms); the test found a runaway (full sends, longest feedback: 0 dBFS, +30 dB) because each effect is itself resonant (peaks ≈ 1/(1−g)); now the sends' product ≤ 0.5·(1−g_echo)·(1−g_spring) (g_echo counted up to 0.9) plus a −6 dBFS limiter on the spring's return: the same case decays 33 dB in 15 s. FX page CROSS bank. Cost ≈ 0 |
+| 1.4 | Tape-dive control | C4 drill 3 | **Done (2026-11-08):** black 4 held: the echo's time glides to DEPTH × T (×1–2, clamped to the tape) over DIVE TIME (0.1–3 s), and back on release at the same pace; FX page TAPE bank. Uses the echo's own slew (no added cost) |
+| 1.5 | Echo Width | C8 | 8–16 ms right offset. **Done (2026-11-08):** stereo returns (the dry path mono): the echo's right side reads the tape 8–16 ms later; the spring's two springs left and right; in both only the difference reaches the sides, high-passed at 150 Hz, 24 dB/oct (one pole at 120 Hz let a 55 Hz bass leak to −60 dBFS side; now −85). Big Knob as a left/right pair. FX page WIDTH bank. Cost ≈ 1 % (a third tap, the side filters, the second Big Knob) |
+| 1.6 | Skank + organ bubble | D2, D3 | Follow the chord lane. **Done (2026-11-08)**, `app/engine/chordv.c`: skank 3 × 2-op FM (1:1 / 1:3, index gone in 30 ms, 60–200 ms, band-pass), organ 3 × partials 1–4 + key click, short gate. Their steps hold a voicing (LO / MD / HI); the notes are the chord lane's chord at that bar (`chord_notes`). Templates: skank on 2 and 4, bubble low on the off-beat eighths, high on the sixteenth after. Skank to the spring by default. Cost ≈ 1 % each while playing (×80) |
+| 1.7 | Scenes: desk or desk + patterns | C2, spec 4.2 | Scope chosen at store time, P badge. **Done (2026-11-08)**, `app/engine/scenes.c`, `app/arrange.c`: 16 scenes (desk: 8 × level/mute/solo/sends/dest + HPF + returns; P: + patterns and lengths) in one table in the pool (~18 KB) shared by the UI (stores) and the engine (recalls at the line: one `CMD_SCENE`, not 500 steps). ARRANGE page (HOME twice); SAVE + white stores (SAVE now acts on release); PRESET on DUB cues the next. Flash: desks in one object, patterns three scenes an object, only the changed written. Tested: a recall on sample 141,120 |
+| 1.8 | Song per-bar list + live capture + section markers | spec 4.2 | The runway follows section boundaries in song mode **Done (2026-11-08)**, `app/engine/song.c`: 192 bars (512 since the 2026-11 review) × {mutes, solos, Big Knob, scene, section marker} (6 B), shared by the engine (captures at each line while REC; plays each bar at its line, ONCE / LOOP) and the UI (markers, length, undo copy). A pass from bar 1 sets the song's length. Cues now fire before a line's step (a scene there is in place for it). Found by the chord test: the globals had grown into the chord lane's IDs (0x010); the lane moved to 0x020 with a compile-time check. Motion (throws, sweeps inside a bar) is 2.7 |
+| 1.9 | Guard tiers v1 + PERF page | principles §5 | **Done (2026-11-08):** the load (the profiler's per-part ticks against the device's block) steps the tier down over 75 % (8 blocks) and up under 45 % (2 s); or locked (SETUP). Four-track: mono returns, a 6-all-pass spring. Seven-inch: also 2 skank voices, organ partials 1+2, no bass sub, no echo diffusers, heavier tape drive (1.8). Header badge 4T / 7IN and a word on each change; PERF page (per-part bars, total against the lines). Tested with `dev.load` (the host never runs that hot) |
 
 **Exit test:** drills C3 and C5, and a Tubby-style emulation.
 
 ## P2 — Colour, lead voices, live input
 | # | Feature | Ref | Notes |
 |---|---|---|---|
-| 2.1 | Siren | D3, C9 | |
-| 2.2 | Melodica, brass | D2, D3 | |
-| 2.3 | Single phaser | C6 | |
-| 2.4 | Tape drive | C7 | |
-| 2.5 | Snare-keyed spring gate | C13 | |
-| 2.6 | Vox/FX one-shots from flash | C9, C10 | |
-| 2.7 | Motion recording | — | |
-| 2.8 | Live in (USB audio) on ch 8 | spec §8 | Tap USB audio-in before the post-app mix (fm1-base change, upstream MPL-2.0). Mono, mutable and throwable |
-| 2.9 | Velocity-scaled throws (`APP_TOUCH`) | spec 4.1 | Once velocity is proven reliable |
+| 2.1 | Siren | D3, C9 | **Done (2026-11-08)**, `app/engine/fxv.c`, channel 8: siren A (square LFO, two tones), B (rising ramp); black 6 / 7 held, velocity; PITCH / RATE / DEPTH / WAVE on the SOUND view; channel 8 to the echo by default. Measured: A's mean pitch 679 Hz for 683 expected |
+| 2.2 | Melodica, brass | D2, D3 | **Done (2026-11-08)**, channel 7 (`voices.c` render_lead): melodica (2 carriers +6 cents, self-fed modulator, breath attack, 4.5 Hz vibrato after 300 ms) or brass (index with loudness, a 1-semitone scoop, a 12 ms doubling for the section); steps hold notes (two steps long), REC keyboard two octaves over the bass, MIDI channel 2; echo send 60 by default. Measured: melodica A4 at 440.8 Hz |
+| 2.3 | Single phaser | C6 | **Done (2026-11-08)**, `app/engine/phaser.c`: 6 all-passes, LFO 0.1–18 Hz sine / square over 200 Hz–4 kHz, feedback, 50 % mix; an insert on the hats, the skank, the echo return or the mix (both sides one sweep; state cleared when it moves, so no stereo leaks in); off from Four-track down. Measured on a steady tone: 20.5 dB of movement, 0.1 off. wavstat `mod` |
+| 2.4 | Tape drive | C7 | **Done (2026-11-08)**, `app/engine/tape.c`: tanh after up to +14 dB, back by the same (unity for quiet sounds: drive, not volume; the first try boosted a quiet bass 13.5 dB), a ~12 kHz roll-off, parallel blend; on the bass or the mix (both sides one curve). FX page DRIVE bank. wavstat `crest` |
+| 2.5 | Snare-keyed spring gate | C13 | **Done (2026-11-08):** any rim / snare hit (sequencer, MIDI, keyboard) opens the spring's return for HOLD (10–400 ms, ~1 ms in), then it closes over RELEASE (5–300 ms); FX page GATE bank. Measured on a spring wash: 161 dB of movement gated (silent between snares), 15 off (the spring's own beating) |
+| 2.6 | Vox/FX one-shots from flash | C9, C10 | **Done (2026-11-08)**, `fxv.c`, channel 8: HEY, HORN, LASER (original, synthesized by `tools/make_oneshots.py`; no recorded samples), 8-bit µ-law at 22,050 Hz (32.4 KB in flash), copied into the pool at boot so the render reads RAM only; black 8–10 tap to play to the end, velocity sets the level; through channel 8's echo send, so a shot repeats like a thrown word. Doubled to 44.1 kHz by a 4-point half-sample interpolator (straight lines left corners on the LASER's 3 kHz sweep, wavstat `click` −29); a 10 ms fade at each end of the data. Cost: pool +32.4 KB (166 KB of 344 used), RAM code none; CPU about 1.2 % of a device block with all three at once; all tiers |
+| 2.7 | Motion recording | prior art 11 | **Done (2026-11-08)**, `app/engine/motion.c`: while the song captures, every desk move the engine takes (any parameter from the strips up: throws, mutes, freeze / push / dive, the crash, every knob) is written into the bar at its tick (480 a beat); played back with the song, splitting the render at each move (sample-exact). Punch-in by parameter (a touched parameter's motion goes from the touch to the bar's end; a throw held over a line keeps replacing); a hand overrides a parameter's motion to the bar's end; stop lets go of what motion held. A knob keeps one value a sixteenth. Since the 2026-11 review: one shared pool of 8,192 moves in chunks of 8, chained per bar (up to 128 a bar; more counted, dropped), saved in 13 sectors. The screen follows (an engine→UI ring; a hand in the last 8 frames wins). SAVE + REC clears. Saved in the data area at 0xB0000 (10 sectors, header written last), not a store object (3,840 B each). Cost: pool +36.9 KB (203 of 344 KB), RAM +1 KB, CPU ≈0 (the command part 0.43 % of a device block with motion playing); all tiers. Not in the song's undo copy (too big) |
+| 2.8 | Live in (USB audio) on ch 8 | spec §8 | **App side done (2026-11-08); waiting on upstream.** The engine takes the computer's audio for each block (`eng_live_in`), as mono on channel 8 after a ~20 Hz DC block, at VX_LIVE (0 off, 100 unity, square law), so it's mutable, throwable and captured as motion. **Upstream:** fm1-base needs `usb_audio_out_app` / `plat_usb_play_in` (the computer's audio handed to `app_render`, not mixed in after it): see `docs/upstream/usb-audio-to-app.md` and its patch, which builds for the device and the host and passes `livein.txt`. To be submitted as an fm1-base PR (MPL-2.0). `app/fm1.toml` already sets the key, and today's base ignores it. Host test: a stand-in tone (`livein HZ DB`). Cost: CPU ≈0 (one pass per block when LIVE is up); RAM +2 KB in the platform once the option is on; all tiers |
+| 2.9 | Velocity-scaled throws (`APP_TOUCH`) | spec 4.1 | **Done (2026-11-08):** a new strip field, CHF_THROW_AMT (0–127, default 127, so stored scenes and songs throw as before), is set from the key's velocity as each throw starts: 48 + 79·vel/127, linear in gain (the softest −8.4 dB, the hardest full; no reading: full). The throw's sends scale by it. SETUP: THROW VELOCITY (on by default; off: always full), the 14th row (rows now 9 px). Captured as motion beside the throw. Measured: velocity 20 → amount 60, echo bus −27 dB vs −20 dB at 127. **Still to verify on the device:** how even the velocity is across the throw keys (spec §1) |
 
 ## P3 — Wishlist
 | # | Feature | Notes |
 |---|---|---|
-| 3.1 | Ping-pong echo | Cheap version on the existing 2T heads; full version with two cross-fed lines |
-| 3.2 | Dual Bi-Phase | |
-| 3.3 | Reverse samples | |
-| 3.4 | Dub-techno mode | |
-| 3.5 | Spin-back / rewind | |
+| 3.1 | Ping-pong echo | **Done (2026-11-08), the cheap version:** the same line with the loop read from 2T (gain g², so repeats still fall by g each); odd repeats off T on the left, even off 2T × g on the right. The sides differ only above ~150 Hz (the width's 24 dB/oct side high-pass), and the lows sit 0.75× on both, so the low end stays mono. FX WIDTH bank, K3 PING-PONG; Studio tier only (stereo returns). Measured: repeats 9 dB to their side, alternating (new wavstat metric `pp`); side_lo −120 dB. Cost: no RAM, CPU ≈0 (the 2T head was already read). The full version with two cross-fed lines isn't needed for this |
+| 3.2 | Dual Bi-Phase | **Done (2026-11-08)**, `phaser.c`: a second six-stage phaser (B). P_PH_MODE SINGLE / CASCADE (A then B, B at its own P_PH_RATE2: twelve stages, two sweeps crossing) / STEREO (the Bi-Phase's reverse sync: the right on A's sweep turned over; on the echo's return only, elsewhere CASCADE, so the dry path stays mono). FX page's ninth bank, BI-PHASE. Found doing it: the FX page stepped choices by two (ping-pong, mode); now every small-range parameter steps by one. The all-pass loop now keeps its state in registers and glides the coefficient without a divide per sample (12 % → 12 % on the mix by the host estimate: the host compiler had done most of it). Cost by the ×80 rule, phaser on the whole mix: single ≈10 % of a device block, cascade ≈20 % (Studio tier only; the guard drops it under load). Measured: cascade mod 37 dB vs single 20 (550 Hz tone); STEREO on the echo's return side −48 dB, the lows centred |
+| 3.3 | Reverse samples | **Done (2026-11-08):** HOME + black 8–10 plays a one-shot from its end to its start (CMD_NOTE codes 24+, the player reading its RAM copy backwards with the same 4-point interpolation). The data's 10 ms end fade becomes its fade-in; its start is its attack, so the reversed end is click-free (measured click −41 dB). Measured: HEY reversed rises from −59 to −29 dB over 400 ms. Cost: none |
+| 3.4 | UK steppers mode (was "dub-techno mode") | **Done (2026-11-08), renamed and reworked the same day:** dub techno is DUB-1's ground (prior art), and Dubwise stays reggae and dub, so 3.4 became the mastery guide's other groovebox branch, UK sound-system steppers. A fifth riddim template, UK STEPPERS (kick on every beat, snare on 3 only for the half-time walk, off-beat hats with sixteenth ghosts, a rolling sub line, the skank chopping every off-beat, no bubble; templates now carry their own skank and organ lines), and SETUP's UK STEPPERS, which loads a desk, not a song: 140 BPM (unverified against records: a starting point), A minor, the sub through the tape drive, the rim into the echo, the skank into the spring, mono returns. Measured over 34 s with a throw, the siren, a mute and a push: peak −1.8 dBFS, side_lo −90 dB. Kept from the first version: the demo song now clears the motion (another song's moves would have played over it) |
+| 3.5 | Spin-back / rewind | **Done (2026-11-08):** HOME + PLAY. The output's last 1.6 s is kept (11,025 Hz mono int16, 4 samples averaged: 35 KB in the pool); a spin plays it backwards at 1× rising to 2.6× over 0.8 s, fading over its last 250 ms; then the voices, echo, spring and phaser are wiped, a beat's silence, and the transport starts again from bar 1 if it was playing ("come again"). Not captured as motion (a song that rewinds itself would never end). Stop code factored into `transport_stop()`. Found doing it: black 5 (drop to wet) and black 11 (drum and bass), in spec 4.1 since P0, only announced their names. Now built, held: wet drops every dry strip and keeps the sends; D&B mutes skank / organ / lead / vox, sends included; both captured as motion and let go at stop. Cost: pool +35 KB (239 of 344 KB), CPU ≈0 |
 
 ## Open questions
 1. Panel and black-key groupings, and velocity reliability, on the device.

@@ -1,0 +1,102 @@
+# Motion (P2.7; prior art 11): what the hands do inside a bar, captured with the song (REC) and played back with
+# it. At 75 BPM a beat is 800 ms, a bar 3.2 s. Punch-in by parameter: a later pass that moves only the echo's
+# feedback keeps the throw. SAVE + REC clears the motion; SAVE keeps it over a restart.
+wait 600
+listen
+# pass 1: a throw of the kick on bar 1's third beat (held 400 ms), the feedback to 80 at 1 s: 4 moves (the throw's
+# amount from its velocity, P2.9, then the press, the release; the feedback)
+tap REC
+wait 30
+tap PLAY
+wait 1000
+param echo.fb 80
+wait 700
+key w8 down
+wait 400
+key w8 up
+wait 3000
+tap PLAY
+wait 30
+tap REC
+wait 30
+expect mot_bar1 4
+expect mot_bar2 0
+expect mot_drops 0
+# back to where it started by hand; played once, the moves land where they were made
+param echo.fb 45
+key w8 down
+wait 30
+key w8 up
+param song 1
+wait 30
+tap PLAY
+wait 600
+expect eng.echo.fb 45
+wait 500
+expect eng.echo.fb 80
+wait 700
+expect eng.ch1.throw 1
+expect ui.ch1.throw 1
+wait 450
+expect eng.ch1.throw 0
+expect ui.ch1.throw 0
+tap PLAY
+wait 30
+# pass 2 (song mode still on): only the feedback, to 30 at 0.5 s; the throw from pass 1 still plays
+param echo.fb 45
+tap REC
+wait 30
+tap PLAY
+wait 500
+param echo.fb 30
+wait 1300
+expect eng.ch1.throw 1
+wait 1500
+tap PLAY
+wait 30
+tap REC
+wait 30
+expect mot_bar1 4
+# played: 30 from 0.5 s on (the 80 at 1 s punched out), the throw as before
+param echo.fb 45
+wait 30
+tap PLAY
+wait 700
+expect eng.echo.fb 30
+wait 500
+expect eng.echo.fb 30
+# stopped inside the throw: it is let go
+wait 600
+expect eng.ch1.throw 1
+tap PLAY
+wait 30
+expect eng.ch1.throw 0
+expect ui.ch1.throw 0
+# a hand on the feedback overrides its motion for the rest of the bar
+param echo.fb 45
+wait 30
+tap PLAY
+wait 300
+param echo.fb 60
+wait 600
+expect eng.echo.fb 60
+tap PLAY
+wait 30
+# kept over a restart
+tap SAVE
+wait 100
+reboot
+wait 600
+expect mot_bar1 4
+tap HOME
+wait 50
+shot motion-arrange.png
+# cleared
+press SAVE
+wait 30
+tap REC
+wait 30
+release SAVE
+wait 30
+said MOTION CLEARED
+expect mot_total 0

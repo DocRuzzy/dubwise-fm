@@ -1,16 +1,38 @@
-# The manual's screenshots (template/docs/img): tools/build.py template --host, then
-#   template/build/host/template_host template/tests/screens.txt template/docs/img
+# The manual's screenshots (app/docs/img): ./build.sh --host, then
+#   app/build/host/dubwise_host app/tests/screens.txt app/docs/img
 wait 900
+param dev.tones 1
+param ch3.echo 90
+param echo.fb 50
+wait 200
 shot screen-ready.png
-key 7 down 90 50
-press FX
-turn K3 3
+tap PLAY
+wait 100
+tapkey w2
+wait 400
+press HOME
+tapkey w3
+release HOME
+wait 3300
+tapkey w5
 wait 1400
 shot screen-playing.png
-release FX
-key 7 up
-tap OCT+
+tap PLAY
 wait 30
 turn PRESET 1
-wait 30
+tap OCT+
+wait 1500
 shot screen-settings.png
+# a mute key held: the knobs are its strip
+key w2 down
+wait 400
+shot screen-focus.png
+key w2 up
+# the STEPS page, the bass, playing
+tap HOME
+tap SEQ
+wait 50
+tapkey b3
+tap PLAY
+wait 1500
+shot screen-steps.png

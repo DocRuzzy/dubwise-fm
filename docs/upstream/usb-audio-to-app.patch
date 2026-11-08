@@ -1,0 +1,127 @@
+diff --git a/device/main_fm1.c b/device/main_fm1.c
+index b0e181c..9b5068a 100644
+--- a/device/main_fm1.c
++++ b/device/main_fm1.c
+@@ -52,6 +52,22 @@ int plat_bta_streams(void) { return bta_streamed; }
+ #else
+ int plat_bta_streams(void) { return 0; }
+ #endif
++#if FELUCCA_UAC_OUT && FM1B_UAC_OUT_APP
++static int32_t play_in[2u * REND_FRAMES];             /* the computer's audio for this render (plat_usb_play_in) */
++static uint32_t play_in_n;
++const int32_t *plat_usb_play_in(uint32_t *frames)
++{
++    *frames = play_in_n;
++    return play_in_n ? play_in : 0;
++}
++#else
++const int32_t *plat_usb_play_in(uint32_t *frames)
++{
++    *frames = 0;
++    return 0;
++}
++#endif
++
+ static void render_block(int32_t *o)                /* ALNK0: one half, measured */
+ {
+     uint32_t t0 = fm1_ticks(), us, budget = HALF_FRAMES * 1000000u / FS;
+@@ -80,7 +96,17 @@ static void render_block(int32_t *o)                /* ALNK0: one half, measured
+                     o[2u * k + i] = 0;
+ #endif
+             } else {
++#if FELUCCA_UAC_OUT && FM1B_UAC_OUT_APP
++                uint32_t i;
++                for (i = 0; i < 2u * REND_FRAMES; i++)
++                    play_in[i] = 0;
++                uac_play(play_in, REND_FRAMES, usb_play_q12);   /* (it reads the ring at level 0 too: in step) */
++                play_in_n = REND_FRAMES;
++#endif
+                 app_render(o + 2u * k, REND_FRAMES, full ? 4096u : gain);
++#if FELUCCA_UAC_OUT && FM1B_UAC_OUT_APP
++                play_in_n = 0;
++#endif
+             }
+             if (radio_quiet)
+                 continue;
+diff --git a/device/uac_mix.h b/device/uac_mix.h
+index 7753fd5..7d550cf 100644
+--- a/device/uac_mix.h
++++ b/device/uac_mix.h
+@@ -8,6 +8,8 @@
+  *      rate tracking stays locked and turning it up again starts in step;
+  *   3. with USB AUDIO full (plat_usb_audio_full; the render came at 4096), MASTER for the speaker after the tap, over
+  *      both: the computer's audio was added at plat_usb_play_gain's level alone, MASTER here.
++ * With FM1B_UAC_OUT_APP, step 2 is the app's: render_block reads the computer's audio before app_render
++ * (plat_usb_play_in) and nothing is added here.
+  * The includer has uac_tap and uac_play (bsp/chip/usb.c) when FELUCCA_UAC / FELUCCA_UAC_OUT are on. */
+ #ifndef FM1B_UAC_MIX_H
+ #define FM1B_UAC_MIX_H
+@@ -21,7 +23,7 @@ static inline void uac_mix(int32_t *o, uint32_t n, uint32_t gain, uint32_t maste
+ #if FELUCCA_UAC
+     uac_tap(o, n);                                  /* the USB audio input: the app's output, before the computer's */
+ #endif
+-#if FELUCCA_UAC_OUT
++#if FELUCCA_UAC_OUT && !FM1B_UAC_OUT_APP
+     uac_play(o, n, full ? play_q12 : (master * master >> 12) * play_q12 >> 12);   /* the computer's audio, at MASTER */
+ #else
+     (void)master, (void)play_q12;
+diff --git a/host/plat_host.c b/host/plat_host.c
+index abb40bc..4ef9763 100644
+--- a/host/plat_host.c
++++ b/host/plat_host.c
+@@ -1318,6 +1318,11 @@ static int uac_full;                            /* plat_usb_audio_full: the rend
+ void plat_usb_audio_full(int on) { uac_full = on != 0; }
+ static uint32_t usb_play_q12 = 4096u;            /* plat_usb_play_gain: no USB audio on the host; kept for a test */
+ void plat_usb_play_gain(uint32_t q12) { usb_play_q12 = q12 > 4096u ? 4096u : q12; }
++const int32_t *plat_usb_play_in(uint32_t *frames)   /* no computer on the host: none (an app tests its own input) */
++{
++    *frames = 0;
++    return 0;
++}
+ #if FM1B_UAC_CH > 2
+ static int16_t usb_ch[APP_BLOCK][FM1B_UAC_CH];      /* plat_usb_ch: the block's frames (1 and 2 the master, after it) */
+ int16_t *plat_usb_ch(uint32_t off, uint32_t *run)
+diff --git a/include/plat.h b/include/plat.h
+index 55e94c5..6b1f2d6 100644
+--- a/include/plat.h
++++ b/include/plat.h
+@@ -445,6 +445,15 @@ void plat_usb_audio_full(int on);
+  * before the computer's audio is mixed in, whatever this is: recording the FM-1 never records the computer's own
+  * playback (device/uac_mix.h). Without usb_audio_out, nothing */
+ void plat_usb_play_gain(uint32_t q12);
++/* the computer's audio as the app's input (fm1.toml usb_audio_out_app = true: FM1B_UAC_OUT_APP): in app_render, the
++ * computer's audio for the block being rendered, *frames stereo frames (L, R interleaved, int32, full scale 1 << 23),
++ * resampled to the render's clock and at plat_usb_play_gain's level (not MASTER's: the app's mix sets it). The
++ * platform then does not add it to the output itself: the app mixes it (a channel it can mute, send, record). Valid
++ * until app_render returns. NULL (*frames 0) without the option or while no computer plays (silence until it does) */
++#ifndef FM1B_UAC_OUT_APP
++#define FM1B_UAC_OUT_APP 0
++#endif
++const int32_t *plat_usb_play_in(uint32_t *frames);
+ /* the app's own channels of the USB audio input (fm1.toml usb_audio_channels = N, 4..10, even: FM1B_UAC_CH): channels 3..N,
+  * PLAT_USB_CH of them, beside the master on 1 and 2, as 16-bit samples (32767: the master's full scale, the render's
+  * 1 << 22 at 4096). In app_render, the frame off frames into the block being rendered: its channels at p[0] ..
+diff --git a/tools/build.py b/tools/build.py
+index a74366d..286cd5e 100755
+--- a/tools/build.py
++++ b/tools/build.py
+@@ -69,6 +69,8 @@ APP_DIR holds the app (app.h, app.c, its sources) and its fm1.toml:
+                              app keeps its own stand-in there (without FM1B_BT_AUDIO)
+   usb_audio_in = true        the FM-1 recordable over USB (FM1B_UAC; the default: true)
+   usb_audio_out = true       a computer plays through the FM-1 over USB (FM1B_UAC_OUT; the default: true)
++  usb_audio_out_app = true   the computer's audio handed to app_render (plat_usb_play_in) instead of mixed in after it
++                             (FM1B_UAC_OUT_APP; needs usb_audio_out; the default: false)
+   usb_audio_channels = 10    the USB audio input's channels, 4, 6, 8 or 10 (the default 2: the master alone): the master on 1 and
+                              2, the app's own on 3..N (FM1B_UAC_CH: plat_usb_ch in plat.h; felucca-bsp FELUCCA_UAC_CH).
+                              44.1 kHz only; the ring takes 2 N bytes a frame (768 frames with FM1B_UAC_DEEP: 15 KB at 10)
+@@ -801,6 +803,10 @@ def build_app():
+     for key, flag in (("usb_audio_in", "FM1B_UAC"), ("usb_audio_out", "FM1B_UAC_OUT")):
+         if key in CONF and flag not in os.environ:
+             flags.append(f"-D{flag}={int(bool(CONF[key]))}")
++    if CONF.get("usb_audio_out_app"):
++        if not CONF.get("usb_audio_out", True):
++            raise SystemExit("fm1.toml: usb_audio_out_app needs usb_audio_out")
++        flags.append("-DFM1B_UAC_OUT_APP=1")
+     if CONF.get("usb_audio_first"):
+         flags.append("-DFELUCCA_UAC_AS_FIRST=1")
+     midi_last = CONF.get("usb_midi_last", True)   # (the bsp leaves it out without the USB audio input)

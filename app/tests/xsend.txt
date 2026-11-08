@@ -1,0 +1,52 @@
+# Return cross-sends (P1.3; routing B5): the echo's return into the spring, the spring's return into the echo. Two
+# together make a loop: their product is capped (0.5), so even both at full with the longest feedback stays bounded.
+wait 600
+# the echo into the spring: a bass note to the echo only; nothing in the spring until the cross-send
+param ch4.echo 127
+midi 90 2D 64
+wait 100
+midi 80 2D 00
+wait 550
+expect echo_ret_db >-60
+expect spring_ret_db -120
+wait 150
+param xs.e2s 127
+midi 90 2D 64
+wait 100
+midi 80 2D 00
+wait 700
+expect spring_ret_db >-60
+param xs.e2s 0
+param ch4.echo 0
+wait 4000
+# the spring into the echo: a crash, nothing sent to the echo; it repeats only with the cross-send
+param echo.fb 0
+key b0 down
+wait 50
+key b0 up
+wait 700
+expect echo_ret_db -120
+wait 4000
+param xs.s2e 127
+key b0 down
+wait 50
+key b0 up
+wait 650
+expect echo_ret_db >-60
+# both at full, the longest echo and spring: the loop is capped, nothing runs away
+param xs.e2s 127
+param echo.fb 100
+param spring.decay 127
+wav xsend-loop.wav
+key b0 down
+wait 50
+key b0 up
+wait 15000
+wavstop
+# the FX page's third bank
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 4
+#wav xsend-loop.wav peak<-1 dc<-40 tail2<-20

@@ -1,0 +1,52 @@
+# The core voices (P0.5): MIDI channel 10 plays the drums by General MIDI note (36 kick, 37 rim, 42 / 46 closed /
+# open hat), any other channel the bass. Each is recorded alone and checked: level, DC, the low end mono, the pitch
+# (zero crossings), and how much of it is highs.
+wait 600
+# kick: a sine swept down to TUNE (default 42 -> 40 + 30 x 42/127 = 49.9 Hz)
+wav kick.wav
+midi 99 24 7F
+wait 600
+wavstop
+# rim: inharmonic FM and a noise burst, short
+wav rim.wav
+midi 99 25 64
+wait 400
+wavstop
+# hats: closed, then open; a closed hit chokes the open one
+wav hat-closed.wav
+midi 99 2A 64
+wait 300
+wavstop
+midi 99 2E 64
+wait 120
+expect ch3_db >-50
+wait 200
+expect ch3_db >-80
+midi 99 2E 64
+wait 120
+midi 99 2A 64
+wait 200
+expect ch3_db -120
+# bass: A1 (55 Hz), held, then let go: it rings out in 60 ms
+wav bass.wav
+midi 90 21 64
+wait 500
+expect note 33
+midi 80 21 00
+wait 100
+expect note -1
+wavstop
+wait 200
+expect ch4_db -120
+# all of them at once, and their cost
+midi 99 24 7F
+midi 99 25 64
+midi 99 2E 64
+midi 90 21 64
+wait 40
+perf
+midi 80 21 00
+#wav kick.wav peak<-1 dc<-40 click<-30 zc_hz>45 zc_hz<56 hf<-40 side_lo<-150
+#wav rim.wav peak<-1 dc<-40 tail<-60 hf>-25
+#wav hat-closed.wav peak<-1 dc<-40 hf>-10 tail<-60 peak>-30
+#wav bass.wav peak<-1 dc<-40 zc_hz>50 zc_hz<62 hf<-40 side_lo<-150

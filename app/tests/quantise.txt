@@ -1,0 +1,79 @@
+# Launch quantise (P0.1): a cued change lands on its exact sample. The transport counts a beat as 26460000 /
+# (BPM x 10) samples in integers; a cue fires at the next multiple of its beats, P_LEAD ms early (441 samples per
+# 10 ms). t_fire is the sample (since PLAY) the last cue landed on. Run by tests/run_tests.sh.
+wait 600
+param dev.tones 1
+# stopped: no clock, so a cue lands at once
+cue ch2.mute 1 4
+wait 20
+expect eng.ch2.mute 1
+expect t_cues 0
+param ch2.mute 0
+# 75 BPM (a beat is 35280 samples), 1 bar, 10 ms early: 4 x 35280 - 441
+param play 1
+wait 100
+expect t_playing 1
+cue ch1.mute 1 4
+wait 20
+expect t_cues 1
+expect eng.ch1.mute 0
+expect ui.ch1.mute 1
+wait 3300
+expect eng.ch1.mute 1
+expect t_fire 140679
+expect ch1_db -120
+# 76 BPM (a beat is 34815.79 samples), no lead: the first sample at or past beat 4 is 139264
+param play 0
+param lead 0
+param tempo 760
+wait 20
+param play 1
+wait 100
+cue ch1.mute 0 4
+wait 3300
+expect eng.ch1.mute 0
+expect t_fire 139264
+# the next beat, 10 ms early, at 76 BPM: ceil((26460000 - 441 x 760) / 760) = 34375
+param play 0
+param lead 10
+wait 20
+param play 1
+wait 100
+cue ch1.mute 1 1
+wait 900
+expect eng.ch1.mute 1
+expect t_fire 34375
+# 8 bars at 180 BPM (a beat is 14700 samples), 10 ms early: 31 x 14700 + 26460000 / 1800 - 441
+param play 0
+param tempo 1800
+wait 20
+param play 1
+wait 100
+cue ch3.mute 1 32
+wait 10000
+expect eng.ch3.mute 0
+wait 800
+expect eng.ch3.mute 1
+expect t_fire 469959
+# two cues for one line land together, in the order they came: the last wins
+param play 0
+param ch3.mute 0
+param tempo 750
+wait 20
+param play 1
+wait 100
+cue ch4.solo 1 4
+cue ch4.solo 0 4
+wait 20
+expect t_cues 2
+wait 3300
+expect t_cues 0
+expect eng.ch4.solo 0
+# STOP with a cue waiting: it lands at once
+cue ch5.mute 1 128
+wait 20
+expect t_cues 1
+param play 0
+wait 20
+expect t_cues 0
+expect eng.ch5.mute 1

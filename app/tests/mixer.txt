@@ -1,0 +1,111 @@
+# The engine's plumbing (engine/): one parameter space, the command queue and its overflow resend, and the
+# eight-channel desk (level, mute, additive solo, echo and spring sends). dev.tones puts a -20 dBFS sine on every
+# channel; chN_db is the channel's post-fader peak, echo_db / spring_db the send buses'. Run by tests/run_tests.sh.
+wait 600
+expect q_pending 0
+# every channel at unity (the skank's spring send, on by default, off for these checks)
+param dev.tones 1
+param ch5.spring 0
+param ch8.echo 0
+param ch7.echo 0
+wait 30
+expect eng.dev.tones 1
+expect ch1_db >-22
+expect ch1_db <-18
+expect ch4_db >-22
+expect ch8_db >-22
+expect ch8_db <-18
+# a fader: 50 is -12 dB from unity (gain (v/100)^2)
+param ch5.level 50
+wait 30
+expect ch5_db >-34
+expect ch5_db <-30
+param ch5.level 100
+# mute: silent after its 3 ms ramp, the rest untouched
+param ch1.mute 1
+wait 30
+expect eng.ch1.mute 1
+expect ch1_db -120
+expect ch2_db >-22
+# solo is additive: two soloed, the rest solo-muted
+param ch2.solo 1
+param ch3.solo 1
+wait 30
+expect ch2_db >-22
+expect ch3_db >-22
+expect ch4_db -120
+expect ch8_db -120
+# a soloed channel that is muted stays muted
+param ch1.solo 1
+wait 30
+expect ch1_db -120
+param ch1.solo 0
+param ch2.solo 0
+param ch3.solo 0
+param ch1.mute 0
+wait 30
+expect ch1_db >-22
+expect ch4_db >-22
+# sends: post-fader and post-mute, onto their own buses
+expect echo_db -120
+expect spring_db -120
+param ch6.echo 127
+wait 30
+expect echo_db >-22
+expect spring_db -120
+param ch6.mute 1
+wait 30
+expect echo_db -120
+param ch6.mute 0
+param ch6.echo 0
+param ch7.spring 127
+wait 30
+expect spring_db >-22
+expect echo_db -120
+param ch7.spring 0
+# mutes, solos and faders never click: every change ramps (the 8 tones' own curvature is at most about -46 dBFS)
+wav desk.wav
+wait 50
+param ch1.mute 1
+param ch4.mute 1
+wait 50
+param ch2.solo 1
+wait 50
+param ch2.solo 0
+param ch1.mute 0
+param ch5.level 0
+wait 50
+param ch5.level 127
+param ch4.mute 0
+wait 50
+param ch5.level 100
+wait 50
+wavstop
+#wav desk.wav peak<-1 dc<-50 click<-40
+# the cost: every channel playing and sending (P0.7: printed for the log; a loose bound, the host's speed varies)
+param ch1.echo 100
+param ch2.spring 100
+wait 500
+perf
+expect perf_pct <80
+param ch1.echo 0
+param ch2.spring 0
+# the queue: 291 sets at once (more than its 256), the parameter's latest value wins
+flood ch8.level -200 90
+expect q_pending 1
+expect q_refused >0
+expect ui.ch8.level 90
+# another parameter set while one is pending waits its turn (ID order), never jumps ahead with an old value
+param ch1.level 70
+expect q_pending 2
+wait 50
+expect q_pending 0
+expect eng.ch8.level 90
+expect eng.ch1.level 70
+expect q_resent >1
+# everything sent was applied
+wait 20
+peakreset
+param dev.tones 0
+wait 30
+expect ch1_db -120

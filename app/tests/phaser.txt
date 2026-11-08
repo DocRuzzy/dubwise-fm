@@ -1,0 +1,39 @@
+# The phaser (P2.3; C6): six all-passes swept by an LFO, half and half with the dry: notches moving through the
+# sound. On a steady tone (channel 5's test tone, 550 Hz, the phaser on the skank) the level swings as the notches
+# pass (mod); off, it is steady. On the whole mix both sides take the same sweep: no stereo added. Off from the
+# Four-track tier down.
+wait 600
+param ch5.spring 0
+wait 30
+param dev.tones 1
+param ch5.solo 1
+param ph.rate 50
+wait 100
+wav ph-off.wav
+wait 1500
+wavstop
+param ph.on 2
+wav ph-skank.wav
+wait 3000
+wavstop
+param ph.on 4
+wav ph-mix.wav
+wait 3000
+wavstop
+param tier.lock 2
+wav ph-four.wav
+wait 1500
+wavstop
+param tier.lock 0
+# the FX page's PHASER bank
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 4
+#wav ph-off.wav mod<1 side<-150
+#wav ph-skank.wav mod>6 peak<-1 dc<-50
+#wav ph-mix.wav mod>6 side<-150
+#wav ph-four.wav mod<1

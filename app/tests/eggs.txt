@@ -1,0 +1,76 @@
+# The easter eggs: the rewind's three calls in turn; the dub-plate section words (HOME + black 1-4 on ARRANGE);
+# 72.0 BPM's first bar lights the cycle bar red, gold and green; the saver, an hour on its own, says the sound
+# system is still running.
+wait 600
+listen
+# the selector's calls (stopped: a spin-back alone)
+press HOME
+wait 20
+tap PLAY
+wait 20
+release HOME
+said REWIND COME AGAIN
+wait 2500
+press HOME
+wait 20
+tap PLAY
+wait 20
+release HOME
+said PULL UP SELECTA
+wait 2500
+press HOME
+wait 20
+tap PLAY
+wait 20
+release HOME
+said WHEEL UP
+wait 2500
+# the dub-plate words: HOME + black 1 .. 4 on ARRANGE (stopped: at the cursor's bar)
+tap HOME
+wait 30
+said ARRANGE PAGE
+press HOME
+wait 20
+tapkey b0
+wait 20
+release HOME
+said MARKER VERSION AT BAR 1
+expect song_mark1 12
+expect page 5
+turn K1 1
+press HOME
+wait 20
+tapkey b3
+wait 20
+release HOME
+said MARKER RUB-A-DUB AT BAR 2
+expect song_mark2 15
+tapkey b0
+wait 20
+said MARKER INTRO AT BAR 2
+tap HOME
+wait 30
+# 72.0 BPM: the first bar in red, gold and green, then the usual
+param tempo 720
+wait 30
+tap PLAY
+wait 1600
+expect roots 1
+shot roots.png
+wait 2200
+expect roots 0
+tap PLAY
+wait 30
+expect roots 0
+# the saver, an hour on its own
+param saver 1
+wait 61000
+expect saver 1
+idle 3600000
+wait 300
+said SOUND SYSTEM STILL RUNNING
+shot saver-hour.png
+key w0 down
+wait 30
+key w0 up
+expect saver 0

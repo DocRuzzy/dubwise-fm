@@ -1,0 +1,74 @@
+# The demo song, RIGHTEOUS DUB (demo.c): loaded from SETUP (DEMO SONG, KNOB 2), played through once (72 BPM: a bar
+# is 3.33 s; 32 bars, 1 min 47 s). Its own moves are the song's motion (throws, crashes, a freeze, an echo swell, the
+# Big Knob climbing, a dub push, a tape dive, the drop to wet); a few live ones go on top (a siren in the DROP, a HEY).
+# The recording, demo.wav, is the thing to listen to.
+wait 600
+listen
+master 3400
+tap GLO
+wait 30
+turn K1 -2
+wait 30
+said DEMO SONG
+turn K2 1
+wait 100
+said RIGHTEOUS DUB LOADED: PRESS PLAY
+expect ui.tempo 720
+expect ui.song 1
+expect ui.song.len 32
+expect mot_total 40
+expect mot_bar20 4
+tap HOME
+wait 300
+wav demo.wav
+tap PLAY
+wait 3373
+# INTRO: drum and bass
+expect eng.ch7.mute 1
+expect eng.ch5.mute 1
+wait 8433
+expect eng.ch2.throw 1
+wait 4900
+# VERSE: the band and the melodica
+expect eng.ch7.mute 0
+expect eng.ch5.mute 0
+wait 23533
+# VERSION: the melodica out
+expect eng.ch7.mute 1
+wait 12800
+# the freeze into the DUB
+expect eng.echo.freeze 1
+wait 633
+# DUB: drum and bass
+expect eng.echo.freeze 0
+expect eng.ch5.mute 1
+wait 12500
+# the Big Knob climbed
+expect eng.hpf 8
+wait 833
+# DROP: the bass out; the Big Knob back
+expect eng.hpf 0
+expect eng.ch4.mute 1
+# siren A, live
+key b5 down 90
+wait 3033
+key b5 up
+wait 2467
+expect eng.echo.push 1
+wait 5033
+expect eng.echo.dive 1
+wait 3000
+# VERSE again; a HEY, live
+expect eng.ch4.mute 0
+tapkey b7
+wait 22000
+# the drop to wet
+expect eng.wet 1
+wait 4667
+# the end: stopped, the wet let go
+expect t_playing 0
+expect ui.play 0
+expect eng.wet 0
+wait 4000
+wavstop
+#wav demo.wav peak<-0.5 dc<-50 side_lo<-60 seconds>110

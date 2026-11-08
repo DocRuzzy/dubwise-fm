@@ -1,0 +1,49 @@
+# The lead (P2.2; D2, D3) on channel 7: melodica (detuned reeds, a self-fed modulator, vibrato after 300 ms) or
+# brass (index with loudness, a scoop up, a 12 ms doubling). MIDI channel 2 plays it; so does the REC keyboard on
+# the STEPS page; a sequenced note holds two steps.
+wait 600
+listen
+param ch7.echo 0
+# melodica: A4
+wav melodica.wav
+midi 91 45 64
+wait 700
+expect ch7_db >-40
+midi 81 45 00
+wait 800
+expect ch7_db <-80
+wavstop
+# brass (bright by design: its harmonics add zero crossings, so only a floor on zc_hz)
+param v7.inst 1
+wav brass.wav
+midi 91 45 64
+wait 700
+midi 81 45 00
+wait 800
+wavstop
+param v7.inst 0
+# the keyboard on the lead (REC on its STEPS page), two octaves over the bass's: key 4 is A3
+tap SEQ
+tapkey b6
+wait 30
+said STEPS LEAD
+tap REC
+wait 30
+said KEYBOARD ON
+key 4 down
+wait 50
+expect note7_1 57
+key 4 up
+tap REC
+# a sequenced note: two steps long (at 75 BPM, 400 ms)
+tap HOME
+param ch7.len 16
+wait 30
+tap PLAY
+wait 150
+expect ch7_db >-50
+wait 450
+expect ch7_db <-60
+tap PLAY
+#wav melodica.wav peak<-1 dc<-50 zc_hz>420 zc_hz<480 click<-30
+#wav brass.wav peak<-1 dc<-50 zc_hz>380 click<-30

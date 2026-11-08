@@ -1,0 +1,118 @@
+# The DUB page, P0.1: quantised mutes and solo from the white keys (docs/interface-spec.md 4.1). Test tones on
+# every channel stand in for the voices. led_wN: 1 dim (muted), 2 bright (playing), 3 blinking (cued). Run by tests/run_tests.sh.
+wait 600
+listen
+wait 50
+# test tones on every channel (SETUP's last item: setup.txt)
+param dev.tones 1
+wait 30
+expect eng.dev.tones 1
+# stopped: no clock, so a tap mutes at once; another tap unmutes
+tapkey w0
+wait 400
+said MUTE KICK
+expect eng.ch1.mute 1
+expect led_w1 1
+expect led_w2 2
+expect ch1_db -120
+tapkey w0
+wait 400
+said UNMUTE KICK
+expect eng.ch1.mute 0
+expect led_w1 2
+# playing at 75 BPM, quantise 1 bar: a tap is cued, its key blinks, and it lands on the bar
+tap PLAY
+wait 100
+said PLAY
+expect t_playing 1
+tapkey w1
+wait 400
+expect ui.ch2.mute 1
+expect eng.ch2.mute 0
+expect led_w2 3
+expect lands >1
+shot dub-cued.png
+wait 3000
+expect eng.ch2.mute 1
+expect led_w2 1
+# PLAY held with a key: that key acts now, and PLAY's release does not stop the transport
+press PLAY
+tapkey w1
+wait 30
+expect eng.ch2.mute 0
+release PLAY
+wait 30
+expect t_playing 1
+# a double tap solos (additive) and leaves the mute as it was
+tapkey w2
+wait 100
+tapkey w2
+wait 50
+said SOLO HATS
+wait 3300
+expect eng.ch3.solo 1
+expect eng.ch3.mute 0
+expect led_w3 2
+expect led_w4 1
+expect ch4_db -120
+# HOME + white: solo too
+press HOME
+tapkey w4
+wait 30
+release HOME
+wait 3300
+expect eng.ch5.solo 1
+expect eng.ch5.mute 0
+expect ch5_db >-22
+expect ch4_db -120
+shot dub-solo.png
+# solos off again, now (PLAY held)
+press PLAY
+press HOME
+tapkey w2
+wait 30
+tapkey w4
+wait 30
+release HOME
+release PLAY
+wait 30
+expect eng.ch3.solo 0
+expect eng.ch5.solo 0
+expect ch4_db >-22
+# a hold: muted while held, back on release, both on the line (quantise BEAT keeps it short)
+tap OCT-
+wait 30
+expect ui.quant 0
+key w5 down
+wait 1000
+expect eng.ch6.mute 1
+key w5 up
+wait 1000
+expect eng.ch6.mute 0
+# the quantise setting ends at its ends
+tap OCT-
+wait 30
+expect ui.quant 0
+# ALGORITHM moves the focus
+turn ALGO 2
+wait 30
+expect focus 3
+# STOP with a cue waiting: it lands at once (quantise at its far end, CYCLE)
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+wait 30
+expect ui.quant 7
+tapkey w7
+wait 400
+expect led_w8 3
+tap PLAY
+wait 50
+expect t_playing 0
+expect eng.ch8.mute 1
+expect led_w8 1
+shot dub-stopped.png

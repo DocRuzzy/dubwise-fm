@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: MPL-2.0
-# The template's words for a screen reader (fm1-reader): the text on the screen <TAB> what to say.
-# url: https://charlesvestal.github.io/fm1-base/words/
-TEMPLATE	template
-K1 OCTAVE	knob 1, octave
-K2 WAVE	knob 2, wave
+# Dubwise FM's words for a screen reader (fm1-reader): the text on the screen <TAB> what to say.
+# url: https://docruzzy.github.io/dubwise-fm/words/
+DUBWISE	dub wise
+SNR	snare
+HAT	hats
+SKNK	skank
+ORGN	organ
+BPM	B P M
+FB	feedback
+SPRG	spring
+Q	quantise

@@ -1,0 +1,184 @@
+# Capacity (2026-11 review): the song up to 512 bars; motion in one shared pool (8,192 moves, a bar up to 128), so a
+# busy bar keeps everything: here bar 1 takes 80 throw presses and releases (the old fixed 32 a bar would drop 48).
+wait 600
+param song.len 600
+wait 30
+expect ui.song.len 512
+param song.len 16
+tap REC
+wait 30
+tap PLAY
+wait 100
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+param ch1.throw 1
+wait 35
+param ch1.throw 0
+wait 35
+wait 1000
+tap PLAY
+wait 30
+tap REC
+wait 30
+expect mot_bar1 80
+expect mot_drops 0
+tap SAVE
+wait 100
+reboot
+wait 600
+expect mot_bar1 80
+expect ui.song.len 2

@@ -1,51 +1,68 @@
-# The template in the host simulator: tools/build.py template --host, then
-#   template/build/host/template_host template/tests/basic.txt template/build/host
+# Dubwise FM in the host simulator: tests/run_tests.sh, or ./build.sh --host, then
+#   app/build/host/dubwise_host app/tests/basic.txt app/build/host
+# The platform's basics: MIDI in plays the test voice, settings persist, the screen reader, MASTER, velocity.
 wait 600
 shot boot.png
-key 7 down
-wait 50
-expect note 60
-expect midi_out 1
-shot key.png
-key 7 up
-wait 50
-expect note -1
-tap OCT+
-wait 30
-expect octave 1
-expect dirty 1
-turn PRESET 1
-wait 30
-expect wave 1
-turn K3 3
-wait 300
-expect turns5 3
-press FX
-wait 30
-shot controls.png
-release FX
-tap SAVE
-wait 30
-expect dirty 0
-expect store_writes 1
-reboot
-wait 600
-expect octave 1
-expect wave 1
+expect ble 0
+# MIDI in plays the bass (any channel but 10)
 midi 90 3C 64
 wait 30
 expect note 60
+expect midi_out 0
 wav note.wav
 wait 200
 wavstop
 expect peak_db_min -30
 midi 80 3C 00
+wait 50
+expect note -1
+# EDIT: the SOUND view of the focused channel (the kick); OCT+: quantise; HOME + SELECT: tempo; SAVE keeps them
+tap EDIT
+wait 30
+turn K1 3
+wait 30
+expect ui.v1.tune 45
+expect dirty 1
+tap EDIT
+tap EDIT
+wait 30
+tap OCT+
+wait 30
+expect ui.quant 2
+press HOME
+spin SELECT 3
+wait 30
+release HOME
+wait 30
+expect ui.tempo 780
+tap SAVE
+wait 30
+expect dirty 0
+expect store_writes 4
+reboot
+wait 600
+expect ui.v1.tune 45
+expect ui.quant 2
+expect eng.tempo 780
+# the screen reader hears the page, then each change
 listen
 wait 100
-said TEMPLATE. OCTAVE +1. WAVE TRIANGLE
+said DUBWISE. 78.0 BPM. STOPPED. QUANTISE 2 BARS
 tap ARP
 wait 30
-said BUTTON ARP
+said KEY AND LOCK
+tap HOME
+wait 30
+said DUB PAGE
+tap REC
+wait 30
+said SONG CAPTURE ON
+tap REC
+wait 30
+said SONG CAPTURE OFF
+tap OCT-
+wait 30
+said QUANTISE 1 BAR
 # MASTER turned while a note plays: the gain glides, so no sample jumps further than the wave itself does
 midi 90 45 64
 wait 100
@@ -58,102 +75,25 @@ master 4096
 wait 50
 wavstop
 midi 80 45 00
-# velocity and pressure (lib/touch.c): a key landing at 40 plays at about 40; pressed 80 % more, it has pressure
-key 7 down 40
+# velocity (lib/touch.c): a key landing at 40 reads about 40 (a throw key: velocity-scaled throws are P2.9)
+key w12 down 40
 wait 60
 expect vel >30
 expect vel <50
-key 7 up
+key w12 up
 wait 50
-key 7 down 100 80
-wait 600
-expect prs >40
-shot touch.png
-key 7 up
-wait 50
-# REC held a second: Bluetooth off (and saved: off after a restart too), then on again
-listen
-wait 1200
-press REC
-wait 1100
-release REC
-wait 50
-said BLUETOOTH OFF
-expect ble 0
-tap SAVE
-wait 30
-reboot
-wait 1200
-expect ble 0
-press REC
-wait 1100
-release REC
-wait 1200
-said BLUETOOTH ON
-expect ble 2
-# REC: look for Bluetooth MIDI devices, connect to the one found, let it go (lib/btdev)
-tap REC
-said BLE SCANNING
-wait 700
-said DEVICE BLE MIDI
-tap REC
-said CONNECTING BLE MIDI
-wait 500
-said DEVICE CONNECTED
-expect ble_dev 4
-tap REC
-said BLE DISCONNECTED
-wait 100
-expect ble_dev 0
-unsaid LOST
 # each port's messages counted (plat_midi_count): this is the fifth from USB in this script
 midi USB 90 40 50
 wait 20
 expect midi_in_usb 5
 midi USB 80 40 00
-# Bluetooth's two links, the computer's and the device's: TO_BLE goes to both, each with its own room; their MIDI
-# comes in on PORT_BLE, and plat_midi_in_from says which link (MIDI thru sends it to every other)
-ble connect
-tap REC
-wait 700
-tap REC
-wait 500
-expect ble_dev 4
-expect room_ble 64
-expect room_ble_dev 64
-out
-key 7 down
-wait 50
-key 7 up
-wait 50
-expect_out BLE 80 48 00
-expect_out BLE-DEV 80 48 00
-midi BLE-DEV 90 3C 64
-wait 20
-expect note 60
-expect midi_in_from 8
-midi BLE 80 3C 00
-wait 20
-expect note -1
-expect midi_in_from 2
-midi TRS 90 3C 64
-wait 20
-expect midi_in_from 0
-midi USB 80 3C 00
-wait 20
-expect midi_in_from 1
-# the computer gone: the device's link alone
-ble disconnect
-expect room_ble 0
-expect room_ble_dev 64
-out
-key 7 down
-wait 50
-key 7 up
-wait 50
-expect_out BLE-DEV 80 48 00
-expect_no_out BLE 80 48 00
-tap REC
-wait 100
-expect ble_dev 0
-expect room_ble_dev 0
+#wav note.wav peak<-1 dc<-60 click<-50
+#wav master.wav peak<-1 click<-50
+# the echo knobs persist too
+turn K2 3
+wait 30
+tap SAVE
+wait 30
+reboot
+wait 600
+expect eng.echo.fb 48

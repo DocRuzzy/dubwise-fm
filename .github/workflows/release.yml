@@ -3,6 +3,7 @@
 # provenance, so the FM-1 Firmware Hub shows them as built from source. From fm1-base's template, as LOOM-8's;
 # after X0X's (charlesvestal/fm1-x0x#25, by Kerem Kilic) and Melodee's (keremimo/melodee 4f5fb6d).
 #
+# Dubwise FM: enabled from the template (2026-11-08); tag vX.Y to release (FM-1_382XXYYZZ).
 # For a firmware laid out as fm1-base's template expects (the app in app/, fm1-base in base/ with felucca-bsp in
 # base/bsp/, ./build.sh running base/tools/build.py app, tests/run_tests.sh). Move this file to the repository's
 # root, as .github/workflows/release.yml. The lines a firmware changes are marked "# <- yours":
@@ -23,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: template-release-${{ github.ref }}             # <- yours
+  group: dubwise-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -36,7 +37,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TITLE: TEMPLATE                                  # <- yours
+          TITLE: DUBWISE
         run: |
           set -euo pipefail
           if [[ "$GITHUB_REF" != refs/tags/* ]]; then exit 0; fi
@@ -65,7 +66,7 @@ jobs:
       tests-block: true
       build: |
         set -euo pipefail
-        pkg=template                                       # <- yours
+        pkg=dubwise
         # the builder checks out without submodules: fm1-base (base/) and its felucca-bsp (base/bsp/), at the
         # commits this one links
         git submodule update --init --recursive
@@ -103,7 +104,7 @@ jobs:
         # <- yours: any other assets, into build/release-assets/
       test: |
         set -euo pipefail
-        pkg=template                                       # <- yours
+        pkg=dubwise
         [ -f "app/build/$pkg.fwsc" ]
         # <- yours: anything the tests need beside this repository, fetched at fixed commits
         sh tests/run_tests.sh

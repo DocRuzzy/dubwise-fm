@@ -1,0 +1,134 @@
+# The key / scale / chord lock (P0.8; spec 4.5): out-of-set keys are silent, never remapped. The keyboard is REC on
+# the STEPS page (the bass), 27 keys from F at KEY's octave (-2: key 0 is F1, key 4 A1). Sets as bits, bit 0 = C:
+# all 4095; A natural minor (A B C D E F G) 2741; Am (A C E) 529; D major (D F# A) 580.
+wait 600
+listen
+# ARP: the KEY & CHORDS page; KNOB 3 the lock
+tap ARP
+wait 30
+said KEY AND LOCK
+expect page 3
+expect lock_mask 4095
+turn K3 1
+wait 30
+said LOCK ON A NATURAL MINOR
+expect lock_mask 2741
+# the header's chip
+shot keys-lock.png
+# the keyboard: REC on the bass's STEPS page; an allowed key plays and is entered at the cursor (stopped)
+tap SEQ
+tapkey b3
+wait 30
+tap REC
+wait 30
+said KEYBOARD ON
+expect kb 1
+key 1 down
+wait 30
+expect note -1
+expect recorded 0
+key 1 up
+key 4 down
+wait 30
+expect note 33
+said NOTE A1 STEP 1
+expect note4_1 33
+key 4 up
+wait 100
+expect note -1
+key 6 down
+wait 30
+key 6 up
+expect note4_2 35
+expect recorded 2
+# chord lock: only the chord's tones (bar 1 of the lane: Am)
+tap ARP
+wait 30
+turn K3 1
+wait 30
+said CHORD LOCK A MINOR
+expect lock_mask 529
+tap SEQ
+wait 30
+key 7 down
+wait 30
+expect note 36
+key 7 up
+wait 50
+key 9 down
+wait 30
+expect note -1
+key 9 up
+# HOME + ARP from any page: off, and back to the mode it was
+press HOME
+tap ARP
+release HOME
+wait 30
+said LOCK OFF
+expect lock_mask 4095
+press HOME
+tap ARP
+release HOME
+wait 30
+said CHORD LOCK
+expect ui.lock 2
+# the keyboard off; KNOB 2 on a step skips notes the lock does not allow (scale lock: A to B, over A#)
+tap REC
+wait 30
+expect kb 0
+tap ARP
+wait 30
+turn K3 -1
+wait 30
+expect ui.lock 1
+tap SEQ
+tapkey w0
+wait 30
+tapkey w0
+wait 30
+expect note4_1 33
+turn K2 1
+wait 30
+expect note4_1 35
+# the chord lane (ARP again): bar 2 to D major; playing in bar 2, chord lock follows it
+tap ARP
+wait 30
+tap ARP
+wait 30
+said KEY CHORD LANE
+expect keys_bank 1
+turn K1 1
+turn K3 1
+wait 30
+said CHORD D MAJOR
+expect ui.chord2 17
+shot keys-lane.png
+turn K3 0
+tap HOME
+wait 30
+param lock 2
+tap PLAY
+wait 3400
+expect lock_mask 580
+tap PLAY
+wait 30
+# MIDI in under the lock (SETUP: LOCK MIDI IN): scale lock, A minor; F#2 silent, A2 plays
+param lock 1
+param lock.midi 1
+wait 30
+midi 90 2A 64
+wait 30
+expect note -1
+midi 80 2A 00
+midi 90 2D 64
+wait 30
+expect note 45
+midi 80 2D 00
+# saved
+tap SAVE
+wait 30
+reboot
+wait 600
+expect ui.chord2 17
+expect ui.lock 1
+expect ui.lock.midi 1

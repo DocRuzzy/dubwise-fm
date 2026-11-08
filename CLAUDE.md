@@ -11,7 +11,9 @@ Dubwise FM is an open-source (GPL-3.0-only) firmware that turns the M-VAVE FM-1 
 
 ## Layout
 - `app/`: our firmware, started from fm1-base's `template/`. The app talks only to `plat.h`. Licensing is per file: files copied from the template keep their MPL-2.0 header (MPL is file-level, so modified copies stay MPL-2.0); new files are GPL-3.0-only with an SPDX header. The firmware as a whole is distributed under GPL-3.0-only.
-- **Current state (P0.0):** `app/` is still the unmodified template (name changed). It still has Bluetooth on (`ble = true`, `APP_BTDEV`, `template_ble_off`); removing the radio is part of P0.0.
+- **Current state (P0.0):** `app/` is fm1-base's template renamed to DUBWISE, with the radio removed (`ble = false`, no `APP_BTDEV`/`OBJ_BLE`). Velocity and pressure (`APP_TOUCH`) are kept. Our `id_prefix` is `FM-1_382` ("DUB" on a keypad; releases are `FM-1_382XXYYZZ`, 9 digits, matching no identity on thefirmwarehub.com). `fmhub.json` in the repo root is the hub's card.
+- **Engine plumbing** is in `app/engine/` (GPL-3.0-only): `params.h` (the one ID space; append only), `cmdq.h` (UI→engine queue), `control.c` (main-loop side, overflow resend), `engine.c` (audio side: 8-strip desk, compiled at -O2). The DUB page is `app/dub.c` (GPL-3.0-only); `app/app.c` is the platform glue (MPL-2.0, from the template). Host tests: `app/tests/dub.txt`, `app/tests/quantise.txt` (`cue` command; `t_fire`, `t_cues`, `led_wN` checks), `app/tests/mixer.txt` (`param`, `flood` commands; `eng.*`, `ui.*`, `chN_db`, `echo_db`, `q_*` checks).
+- A SessionStart hook (`.claude/hooks/session-start.sh`) checks out `base/` when `base/tools/build.py` is missing.
 - `base/`: fm1-base as a git submodule (MPL-2.0), pinned. It contains `bsp/` (felucca-bsp). **Don't edit files in the submodule.** If the platform needs a change, propose it as an upstream PR (MPL-2.0) and note it in `docs/roadmap.md`.
 - `docs/`: design docs (source of truth; keep them in sync with decisions).
 
@@ -20,6 +22,7 @@ Dubwise FM is an open-source (GPL-3.0-only) firmware that turns the M-VAVE FM-1 
 - Browser emulator: `./build.sh --web` (needs emscripten).
 - Device package: `./build.sh` (needs the JieLi Linux toolchain via `base/tools/get_toolchain.sh` and the AC79 SDK files; see fm1-base's README). Normally built by CI or locally, not in the cloud sandbox.
 - Prefer changes that can be checked in the host simulator: scenario scripts, WAV output, screenshots.
+- WAV checks: a scenario line `#wav FILE peak<-1 click<-40 ...` runs `tests/wavstat.py` after it (metrics: peak, rms, dc, click, side_lo, tail, head, growth). CPU: the `perf` command prints per-part cost (host µs and the device estimate by ×80); `expect perf_pct <N` bounds it.
 
 ## Hard rules (firmware)
 - AC79 dual-core at 360 MHz, single-precision FPU. **Floats only: no `double`, no double literals or libm double calls.** Use `1.0f`.

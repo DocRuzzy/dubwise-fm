@@ -1,0 +1,54 @@
+# The dual Bi-Phase (P3.2; C6, mastery drill: "Bi-Phase cascaded, slow sine on the full mix; Rev sync for stereo
+# motion"). A second six-stage phaser: CASCADE runs the two in series, B at its own RATE 2 (deeper, two sweeps
+# crossing); STEREO (reverse sync) sweeps the right against the left, on the echo's return only (a return may be
+# stereo; the dry path stays mono, so on the mix STEREO falls back to CASCADE). Channel 5's test tone (550 Hz).
+wait 600
+listen
+param ch5.spring 0
+param ch5.echo 0
+wait 30
+param dev.tones 1
+param ch5.solo 1
+param ph.rate 50
+param ph.on 2
+wav bp-single.wav
+wait 3000
+wavstop
+param ph.mode 1
+wav bp-cascade.wav
+wait 3000
+wavstop
+# STEREO on the mix: cascade (mono)
+param ph.on 4
+param ph.mode 2
+wav bp-mix-stereo.wav
+wait 2000
+wavstop
+# STEREO on the echo's return: the sides apart
+param ch5.echo 127
+param echo.fb 60
+param ph.on 3
+wav bp-echo-stereo.wav
+wait 3000
+wavstop
+# the FX page's BI-PHASE bank (the ninth)
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+said FX BI-PHASE
+param ph.mode 0
+wait 30
+turn K1 1
+wait 30
+said MODE CASCADE
+#wav bp-single.wav mod>6 dc<-50
+#wav bp-cascade.wav mod>6 peak<-1 dc<-50
+#wav bp-mix-stereo.wav side<-150
+#wav bp-echo-stereo.wav side>-55 side_lo<-70 peak<-1

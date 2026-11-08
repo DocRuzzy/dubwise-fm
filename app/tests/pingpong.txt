@@ -1,0 +1,30 @@
+# Ping-pong echo (P3.1): the loop runs from the 2T head at g^2, so the odd repeats come off T (left) and the even
+# off 2T (right, one g down): every repeat in its turn, decaying as before. Only the sides' difference above ~150 Hz
+# is apart: the lows stay centred (side_lo). Studio tier only (stereo returns), as the width.
+wait 600
+listen
+param ch3.echo 127
+param echo.fb 70
+param ch5.spring 0
+param echo.pp 1
+wav pingpong.wav
+midi 99 2A 64
+wait 4000
+wavstop
+expect eng.echo.pp 1
+# the FX page's WIDTH bank, third knob
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+said FX WIDTH
+turn K3 -1
+wait 30
+said PING-PONG OFF
+expect eng.echo.pp 0
+#wav pingpong.wav pp>6 side_lo<-80 peak<-1 dc<-50

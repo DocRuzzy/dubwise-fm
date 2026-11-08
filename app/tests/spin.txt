@@ -1,0 +1,42 @@
+# Drop to wet and drum & bass (spec 4.1: black 5 and 11, held), and the spin-back (P3.5: HOME + PLAY). The default
+# riddim (ONE DROP at 75 BPM: a beat 800 ms) with its skank, the rim into the echo.
+wait 600
+listen
+param ch2.echo 100
+tap PLAY
+wait 3500
+# drum and bass: the skank and the organ out, the kick and bass on
+key b10 down
+wait 400
+said DRUM AND BASS
+expect eng.dnb 1
+expect ch5_db -120
+key b10 up
+wait 400
+expect eng.dnb 0
+# drop to wet: every channel's dry out, the echo still sounding
+key b4 down
+wait 300
+said DROP TO WET
+expect ch1_db -120
+expect ch4_db -120
+expect out_db >-70
+key b4 up
+wait 1500
+# the spin-back: the last 1.6 s backwards (0.8 s), a beat's silence, then from the top
+wav spin.wav
+wait 1000
+press HOME
+wait 20
+tap PLAY
+wait 20
+release HOME
+said REWIND COME AGAIN
+wait 100
+expect t_playing 0
+expect ui.play 1
+wait 1700
+expect t_playing 1
+wait 1700
+wavstop
+#wav spin.wav peak<-1 dc<-45

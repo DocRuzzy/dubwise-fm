@@ -1,0 +1,83 @@
+# The sequencer and riddim templates (P0.4), and the STEPS page. At boot the drums and bass hold ONE DROP: kick and
+# rim on step 9 only. Steps land on their sample: at 75 BPM a sixteenth is 8820 samples, so step 9 is sample 70560.
+wait 600
+listen
+tap PLAY
+wait 1700
+expect t_playing 1
+expect hit1 70560
+expect hit2 70560
+expect seq_hits >4
+wait 3200
+expect hit1 211680
+# at 76 BPM a sixteenth is 8703.95 samples: step 9 is the first sample at or past 8 x that, 69632
+tap PLAY
+param tempo 760
+wait 30
+tap PLAY
+wait 1700
+expect hit1 69632
+tap PLAY
+param tempo 750
+wait 30
+# the STEPS page: SEQ; black 4 picks the bass; white 1 a step (normal); black 9 held + white 1: an accent
+tap SEQ
+wait 30
+said STEPS KICK
+expect page 1
+tapkey b3
+wait 30
+said STEPS BASS
+expect steps_ch 4
+expect step4_1 0
+tapkey w0
+wait 50
+said STEP 1 ON
+expect step4_1 2
+expect eng_step4_1 2
+key b8 down
+wait 30
+tapkey w0
+wait 30
+key b8 up
+wait 30
+expect step4_1 3
+# KNOB 2: its note, a semitone a click (33, A1, up 2: B1)
+turn K2 2
+wait 30
+said NOTE B1
+expect note4_1 35
+# KNOB 1: the length; OCT+: steps 17-32
+turn K1 -8
+wait 30
+expect ui.ch4.len 8
+tap OCT+
+wait 30
+said STEPS 17-32
+tap OCT-
+# KNOB 4: a template, on the next bar line (the UI shows it at once)
+tap PLAY
+wait 100
+turn K4 1
+wait 30
+said RIDDIM ROCKERS
+expect step1_1 3
+expect eng_step1_1 0
+wait 3300
+expect eng_step1_1 3
+tap PLAY
+wait 30
+# HOME: back to the DUB page
+tap HOME
+wait 30
+expect page 0
+# SAVE keeps the patterns: a restart reloads them (512 steps: more than the queue, sent over a few frames)
+tap SAVE
+wait 30
+reboot
+wait 800
+expect step1_1 3
+expect eng_step1_1 3
+expect ui.ch4.len 8
+expect eng_step4_9 0
+expect q_pending 0

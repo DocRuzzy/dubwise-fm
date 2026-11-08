@@ -8,16 +8,16 @@
 
 #define APP_NAME "DUBWISE"
 #define APP_SPLASH_RGB RGB(242, 120, 72)
+#define APP_SPLASH                         /* app_splash (saver.c): the echo rings, drawn at boot */
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 #define APP_TOUCH                        /* velocity and pressure from the keys (lib/touch.h) */
-#define APP_BTDEV                        /* Bluetooth MIDI devices (lib/btdev.h) */
-#define APP_BLE_AT_BOOT (!template_ble_off())   /* Bluetooth at power-on: as the player left it (REC held) */
-int template_ble_off(void);
+/* no radio (fm1.toml ble = false, roadmap P0.0): its RAM goes to the dub bus */
 
-/* the store: the app's objects, the panel calibration (the platform's) and Bluetooth's address and pairing among
- * them, and their flash offsets */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
-#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDE000u}
+/* the store: the app's objects and the panel calibration (the platform's), and their flash offsets */
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SOUND, OBJ_PATTERN, OBJ_SCENES, OBJ_SCNPAT0, OBJ_SCNPAT5 = OBJ_SCNPAT0 + 5,
+       OBJ_SONG, OBJ_NOBJ };
+#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u, 0xCA000u, 0xCC000u, 0xCE000u, 0xD0000u, 0xD2000u, \
+                       0xD4000u, 0xD6000u, 0xC8000u}
 
 /* the contract: the platform calls these */
 void app_init(void);                     /* boot: the engine, then the saved settings (or defaults) */
@@ -31,3 +31,7 @@ void app_say(const char *a, const char *b);   /* a short message on the screen a
 /* the host simulator's checks (host/plat_host.c "expect"): octave, wave, note (-1 none), dirty, turnsN */
 #define APP_HOST_EXPECT
 int app_expect(const char *what, int *got);
+#define APP_HOST_CMD                             /* param, flood: app.c */
+int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d);
+#define APP_HOST_FAILS
+int app_host_fails(void);

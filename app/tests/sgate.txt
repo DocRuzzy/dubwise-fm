@@ -1,0 +1,41 @@
+# The snare-keyed spring gate (P2.5; C13): each snare opens the spring's return for HOLD (default 133 ms), then it
+# closes over RELEASE: a spring wash chopped into a tail on every snare. Here channel 1's tone is latched into the
+# spring as a throw (pre-fader: its fader down, so only the spring is heard), soloed; ONE DROP's rim (beat 3,
+# 1.6 s into each 3.2 s bar at 75 BPM) keys the gate even unheard. (A spring on a steady tone moves some on its
+# own, ~15 dB: its resonances beating; gated it moves 40 dB and more.)
+wait 600
+param ch5.spring 0
+param ch7.echo 0
+param ch8.echo 0
+param dev.tones 1
+param ch1.level 0
+param ch1.dest 1
+param ch1.throw 1
+param ch1.solo 1
+wait 1500
+tap PLAY
+wav sgate-off.wav
+wait 3200
+wavstop
+param sgate 1
+wav sgate-on.wav
+wait 3200
+wavstop
+# mid-bar, the rim long gone: the gate shut
+wait 1000
+expect spring_ret_db <-80
+# just after the rim (bar 4, 1.6 s in at 9.6 + 1.6 = 11.2 s from PLAY): open
+wait 3850
+expect spring_ret_db >-40
+tap PLAY
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 4
+#wav sgate-off.wav mod<25
+#wav sgate-on.wav mod>40 peak<-1

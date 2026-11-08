@@ -72,6 +72,20 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 | OCT− / OCT+ | Launch quantise |
 | REC | Arm song capture |
 
+#### 4.1.1 As built in P0.1 (2026-11-08)
+- **Tap / hold / double tap on a mute key.** The press cues the toggle at once (no wait to tell a tap from a hold). A hold (≥ 300 ms) cues the mute back on release. A second press within 300 ms of a tap's release cues the first toggle back and cues the solo toggle. All of them use the current quantise, so a double tap inside one quantum never flickers the mute.
+- **Solo:** additive; a muted channel stays muted when soloed (mute wins); solo-muted strips are hatched.
+- **Quantise:** BEAT / 1 / 2 / 4 / 8 / 16 / 32 bars from the transport's start (4/4). A cue fires `P_LEAD` = 10 ms before the line (spec: "fired slightly early"; it also covers the 2.9 ms gain ramp). A cue made inside that window fires at once. While stopped, everything acts at once; STOP fires anything waiting.
+- **PLAY** toggles on release; held with a key it is "now" for that key and does not stop the transport.
+- **Tempo** on HOME + SELECT (1 BPM a click), as in 4.6. **GLO** toggles test tones on every channel until SETUP and the voices exist.
+- Throws (P0.2) are immediate, not quantised (a throw catches a word). Destination on hold + KNOB 1 until MIXER bank 3 exists.
+- Hold-to-focus (P0.3): a held mute key turns KNOB 1–3 into level / echo send / spring send; turning one cancels the key's momentary mute flip.
+- Not yet: the channel filter, the other black-key effects, the Big Knob in the centre.
+
+#### 4.1.2 As built in P0.6
+- Quantise gains **CYCLE** (after 32 bars): the next "one" of the cycle. Templates (STEPS) land on the bar line itself, not early.
+- GLO opens a first **SETUP** page (a list: KNOB 1 / SELECT moves, KNOB 2 / PRESET changes); test tones moved there.
+
 ### 4.2 ARRANGE page
 - **White 1–16:** recall scene, quantised. **SAVE held + white key:** store.
 - **Scene scope** (KNOB 4 at store time):
@@ -79,7 +93,7 @@ One colour per channel, always paired with its number and a shape cue (filled = 
   - **Desk + Patterns** = also each channel's pattern. Shown with a P badge.
 - **Black keys:** section markers at the current bar.
 - **KNOB 1–4:** song position · section length · loop · scene scope.
-- **REC + PLAY:** capture into the per-bar song. **HOME + REC:** undo.
+- **REC + PLAY:** capture into the per-bar song, with the motion inside each bar (throws, mutes, knob moves: P2.7). **HOME + REC:** undo (the bars, not the motion). **SAVE + REC:** clear the motion.
 
 ### 4.3 STEPS page
 - **White 1–16:** steps; OCT± page through 17–64.
@@ -164,12 +178,12 @@ Dirty regions only. Meters at 20–30 Hz, echo panel at ~20 Hz, runway border on
 
 ## 8. External audio input
 - **No analog input** exists in the BSP. fm1-base's USB audio from a host is mixed **after** the app.
-- **Plan (P2.8):** tap USB audio-in into channel 8 "Live in" (mono), so it can be muted, soloed and thrown into the echo and spring.
+- **P2.8:** USB audio from the computer feeds channel 8 "Live in" (mono) at VOX's LIVE level, so it can be muted, soloed and thrown into the echo and spring. The app side is done. It needs fm1-base's proposed `usb_audio_out_app` (`docs/upstream/usb-audio-to-app.md`).
   - Needs a small fm1-base change (upstream, MPL-2.0).
   - Cost: ~2–4 KB ring buffer plus jitter handling. Latency: a few ms plus one block.
 - **Out of scope:** USB host audio (host mode is MIDI only) and Bluetooth audio in.
 
 ## 9. Open questions
 1. Physical black-key grouping (2+3): regroup effects vs voices if needed.
-2. Velocity-scaled throws: confirm reliability first.
+2. Velocity-scaled throws (P2.9, built; SETUP: THROW VELOCITY, on by default): confirm velocity is even across the throw keys on the device.
 3. Prototype the DUB page and runway in the browser emulator; run a usability pass (C1, C4, C3, and a first-timer runway test).
