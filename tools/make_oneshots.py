@@ -3,8 +3,8 @@
 # Copyright (C) 2026 Dubwise FM contributors
 """The built-in one-shots (roadmap P2.6), synthesized here (original sounds, nothing sampled), written as 8-bit
 mu-law at 22,050 Hz into app/engine/oneshots_data.h. Re-run after a change:  python3 tools/make_oneshots.py
-  1 BIM    a vocal-like shout: a voiced "b" (a low murmur, then the lips' burst), an "ee" (three formants), closing
-           into an "m" (one low formant, a hum); a glottal pulse train throughout, the pitch falling
+  1 BIM    a deejay's shout: a voiced "b" (a low murmur, the lips' burst, the formants gliding up out of it), a
+           strained, shouted "ee", closing into an "m" (a hum); a sharp pulse train, the pitch up then down, saturated
   2 HORN   a sound-system horn stab: three detuned saws, an octave under, a fast attack, a short fall
   3 LASER  a sound-system zap: a sine swept down from 3 kHz with a fast vibrato, decaying
 """
@@ -40,35 +40,60 @@ def biquad_bp(x, f, q):
     return y
 
 
+def bp_glide(x, f_of, q):
+    """A band-pass whose centre moves (f_of(i) in Hz at sample i): a formant gliding, as the lips open."""
+    y, x1, x2, y1, y2 = [], 0.0, 0.0, 0.0, 0.0
+    for i, v in enumerate(x):
+        w = 2 * math.pi * f_of(i) / RATE
+        a = math.sin(w) / (2 * q)
+        a0, a1, a2 = 1 + a, -2 * math.cos(w), 1 - a
+        o = (a * v - a * x2 - a1 * y1 - a2 * y2) / a0
+        x2, x1, y2, y1 = x1, v, y1, o
+        y.append(o)
+    return y
+
+
 def bim():
-    n = int(0.40 * RATE)
-    t_open, t_m, xf = 0.025, 0.21, 0.035            # the lips open; the "m" closes them (a crossfade of xf)
+    """A deejay's BIM: the lips shut (a voiced murmur), burst open, the vowel's formants glide up out of the "b"
+    (F2 900 -> 2300 Hz: the cue that makes it a b), a strained, shouted "ee", then the lips shut again on an "m"."""
+    n = int(0.32 * RATE)
+    t_open, t_m, xf = 0.030, 0.19, 0.03
     src, ph = [], 0.0
     for i in range(n):
         t = i / RATE
-        f0 = 235.0 - 70.0 * t / 0.40                    # the pitch falls, a shout's
+        f0 = 280.0 + 60.0 * math.sin(math.pi * min(1.0, t / 0.12)) - 90.0 * max(0.0, t - 0.12) / 0.20   # up, then down
+        f0 *= 1.0 + 0.012 * (random.random() - 0.5)     # a little rasp (jitter)
         ph += f0 / RATE
         if ph >= 1.0:
             ph -= 1.0
-        g = (1.0 - ph) ** 3                             # a glottal-ish pulse
-        env = (0.18 if t < t_open else 1.0) * min(1.0, t / 0.008) * (1.0 - t / 0.40) ** 0.7
-        src.append((g - 0.25) * env + 0.015 * env * (random.random() - 0.5))
-    vowel = [0.0] * n                                   # "ee": F1 low, F2 and F3 high
-    for f, q, gain in ((280, 6, 1.0), (2250, 10, 0.55), (3000, 12, 0.3)):
-        for i, v in enumerate(biquad_bp(src, f, q)):
+        g = (1.0 - ph) ** 6                             # a sharp, strained pulse: many harmonics
+        if t < t_open:
+            env = 0.22 * min(1.0, t / 0.006)            # the closure: a quiet voice bar
+        else:
+            env = min(1.0, (t - t_open) / 0.004) * (1.0 - (t - t_open) / (0.32 - t_open)) ** 0.45
+        src.append((g - 0.14) * env + 0.03 * env * (random.random() - 0.5))
+    k0 = int(t_open * RATE)
+    glide = lambda lo, hi, dur: (lambda i: lo + (hi - lo) * min(1.0, max(0.0, (i - k0) / (dur * RATE))))
+    vowel = [0.0] * n                                   # shouted "ee": F1 up a little (a shout opens the jaw)
+    for f_of, q, gain in ((glide(220, 360, 0.030), 5, 1.0), (glide(900, 2300, 0.045), 8, 0.75),
+                          (glide(2200, 3000, 0.045), 10, 0.45), (lambda i: 3600, 12, 0.25)):
+        for i, v in enumerate(bp_glide(src, f_of, q)):
             vowel[i] += gain * v
-    nasal = [0.9 * v for v in biquad_bp(src, 250, 4)]   # "m": the lips shut, a low hum
+    nasal = [0.9 * v for v in biquad_bp(src, 250, 4)]   # "m": a low hum
+    murmur = biquad_bp(src, 180, 2)                     # the closure's voice bar: low only
     out = []
     for i in range(n):
         t = i / RATE
-        m = min(1.0, max(0.0, (t - t_m) / xf))           # vowel -> nasal
-        lead = 1.0 if t >= t_open else 0.0               # before the burst: only the murmur (the nasal path)
-        out.append(lead * (1.0 - m) * vowel[i] + (m if lead else 1.0) * nasal[i])
-    burst = biquad_bp([random.random() - 0.5 for _ in range(int(0.012 * RATE))], 900, 1.2)   # the lips' release
-    k0 = int(t_open * RATE)
+        if t < t_open:
+            out.append(0.8 * murmur[i])
+            continue
+        m = min(1.0, max(0.0, (t - t_m) / xf))
+        out.append((1.0 - m) * vowel[i] + m * nasal[i])
+    burst = biquad_bp([random.random() - 0.5 for _ in range(int(0.008 * RATE))], 700, 0.9)   # the lips: low-weighted
     for i, v in enumerate(burst):
-        out[k0 + i] += 1.6 * v * math.exp(-i / (0.003 * RATE))
-    return norm(out)
+        out[k0 + i] += 3.0 * v * math.exp(-i / (0.0025 * RATE))
+    peak = max(abs(v) for v in out) or 1.0
+    return norm([math.tanh(2.2 * v / peak) for v in out])   # tape-like saturation: dense, punchy
 
 
 def horn():
