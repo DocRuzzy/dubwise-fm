@@ -11,7 +11,7 @@ expect out_db <-19
 turn SELECT 1
 wait 50
 said BIG KNOB 70 HZ
-expect eng.hpf 1
+expect eng.hpf 4
 expect out_db >-21
 turn SELECT 1
 wait 50
@@ -20,7 +20,7 @@ expect out_db >-23
 expect out_db <-21
 turn SELECT 3
 wait 80
-expect eng.hpf 5
+expect eng.hpf 20
 expect out_db >-62
 expect out_db <-57
 # the steps up and down at once, the "evaporation" (C3 drill), on the whole mix: clicky by design, never unstable
@@ -28,13 +28,13 @@ param ch1.solo 0
 wav knob.wav
 param hpf 0
 wait 100
-param hpf 3
+param hpf 12
 wait 100
-param hpf 6
+param hpf 24
 wait 100
-param hpf 10
+param hpf 40
 wait 100
-param hpf 1
+param hpf 4
 wait 100
 param hpf 0
 wait 100
@@ -46,8 +46,48 @@ param ch1.echo 127
 wait 1500
 expect echo_ret_db >-30
 param hpf.on 1
-param hpf 8
+param hpf 32
 wait 1500
 expect out_db >-21
 expect echo_ret_db <-60
 #wav knob.wav peak<-1 dc<-50
+# BIG KNOB STEPS (SETUP): 10 (the Altec's, every 4th of a fine 40), 20, 40; off the setting's grid, a detent goes to it
+param hpf 0
+param hpf.on 0
+tap GLO
+wait 30
+turn K1 10
+wait 30
+said BIG KNOB STEPS 10 ALTEC
+turn K2 2
+wait 30
+said BIG KNOB STEPS 40
+tap HOME
+wait 30
+turn SELECT 1
+wait 30
+said BIG KNOB 42 HZ
+expect eng.hpf 1
+shot bigknob-40.png
+param hpf.res 1
+wait 30
+turn SELECT 1
+wait 30
+said BIG KNOB 50 HZ
+expect eng.hpf 2
+param hpf.res 0
+wait 30
+turn SELECT 1
+wait 30
+said BIG KNOB 70 HZ
+expect eng.hpf 4
+turn SELECT 5
+wait 30
+expect eng.hpf 24
+param hpf.res 2
+wait 30
+turn SELECT 1
+wait 30
+said BIG KNOB 1.2K
+expect eng.hpf 25
+param hpf.res 0

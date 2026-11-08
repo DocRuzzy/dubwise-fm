@@ -609,7 +609,9 @@ static void encoder(uint32_t k, int32_t e)
         tempo_text(t);
         app_say("TEMPO", t);
     } else if (k == EN_SELECT && dub.page != PAGE_SETUP) {   /* the Big Knob: a detent a step, at once */
-        ctl_set(P_HPF_STEP, ctl_get(P_HPF_STEP) + e);
+        int32_t s = hpf_detent(ctl_get(P_HPF_RES)), v = ctl_get(P_HPF_STEP);
+        v = e > 0 ? (v / s + e) * s : ((v + s - 1) / s + e) * s;   /* (off the setting's grid: to it first) */
+        ctl_set(P_HPF_STEP, v);
         dub.dirty_centre = 1;
         app_say(roots_name("BIG KNOB"), hpf_name(ctl_get(P_HPF_STEP)));
     } else if (k == EN_ALGO) {
@@ -1031,13 +1033,14 @@ static void draw_centre(void)
         cv_text(126, 22, &FONT_XS, "LANDS IN", C_GRAY);
         lands_text(lands_in(), t);
         cv_text(126, 38, &FONT_M, t, C_AMB);
-    } else {                             /* the Big Knob: its ten detents as an arc, lit to the step */
-        int32_t stp = eng_param(P_HPF_STEP), k;
+    } else {                             /* the Big Knob: its detents as an arc (10, 20 or 40), lit to the step */
+        int32_t stp = eng_param(P_HPF_STEP), k, s = hpf_detent(ctl_get(P_HPF_RES)), nd = HPF_STEPS / s;
+        int32_t dot = nd > 20 ? 3 : 5;
         cv_text(126, 4, &FONT_XS, ctl_get(P_HPF_ON) == HPF_ON_ECHO ? "BIG KNOB: ECHO" : "BIG KNOB", C_GRAY);
-        for (k = 1; k <= HPF_STEPS; k++) {
-            float a = 3.14159265f * (1.0f - (float)(k - 1) / (float)(HPF_STEPS - 1));   /* left to right */
+        for (k = 1; k <= nd; k++) {
+            float a = 3.14159265f * (1.0f - (float)(k - 1) / (float)(nd - 1));   /* left to right */
             int32_t x = 180 + (int32_t)(24.0f * fm_cosf(a)), y = 42 - (int32_t)(22.0f * fm_sinf(a));
-            cv_rect(x - 2, y - 2, 5, 5, k <= stp ? C_HI : C_LINE);
+            cv_rect(x - dot / 2, y - dot / 2, dot, dot, k * s <= stp ? C_HI : C_LINE);
         }
         cv_text(180 - text_w(&FONT_B, hpf_name(stp)) / 2, 44, &FONT_B, hpf_name(stp), stp ? C_WHITE : C_DIM);
         lands_text(lands_in(), t);

@@ -7,7 +7,7 @@ param dev.tones 1
 param ch1.mute 1
 param ch3.mute 1
 param ch2.echo 80
-param hpf 3
+param hpf 12
 wait 50
 tap HOME
 wait 30
@@ -39,7 +39,7 @@ said SCENE 1
 expect eng.ch1.mute 1
 expect eng.ch3.mute 1
 expect eng.ch2.echo 80
-expect eng.hpf 3
+expect eng.hpf 12
 expect scene 1
 # playing: on the bar line (quantise 1 bar), the strips cued till then
 tap PLAY

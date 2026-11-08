@@ -44,7 +44,7 @@ expect eng.echo.freeze 0
 expect eng.ch5.mute 1
 wait 12500
 # the Big Knob climbed
-expect eng.hpf 8
+expect eng.hpf 32
 wait 833
 # DROP: the bass out; the Big Knob back
 expect eng.hpf 0

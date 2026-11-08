@@ -49,7 +49,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | Header | The tempo, playing (triangle) or stopped (square), the cycle bar (a segment a bar, in fours, this bar filling beat by beat), the bar you're in out of the cycle (5/16), and the quantise setting (Q). It turns amber on the runway. After a change, a message shows here for a moment. |
 | Channel strips | The eight channels: 1 KICK, 2 SNR (snare), 3 HAT, 4 BASS, 5 SKNK (skank), 6 ORGN (organ), 7 LEAD, 8 VOX. A filled box is playing, with its level brighter over it. An outlined box is muted. A hatched box is muted by someone else's solo. S marks a solo. A strip that blinks white has a change waiting. A line under a strip marks the focus. Under each box, where a throw sends the channel: E (echo), S (spring) or ES (both). A thrown channel's number lights up. |
 | Centre, left | The echo: its time, and its repeats as they fall. They turn amber near endless feedback and red past it. A red line underneath shows the echo's limiter at work. |
-| Centre, right | The Big Knob: its ten steps as an arc, and where it is. While something waits, what's waiting (CUED) and when it lands: NEXT BEAT, 1 BAR, 2 BARS and so on. On the runway, the countdown. |
+| Centre, right | The Big Knob: its steps as an arc (10, 20 or 40: SETUP), and where it is. While something waits, what's waiting (CUED) and when it lands: NEXT BEAT, 1 BAR, 2 BARS and so on. On the runway, the countdown. |
 | Bottom line | The four knobs and their values: echo TIME, feedback (FB, how long the repeats take to die away), the ECHO return and the spring return (SPRG). While you hold a mute key, the held channel's LEVEL, ECHO send, spring send (SPRG) and filter. |
 
 ---
@@ -62,7 +62,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | HOME + white key 1–8 | Solo, without the double tap. |
 | OCT− · OCT+ | The quantise setting: BEAT, 1, 2, 4, 8, 16 or 32 bars, or CYCLE (the next "one"). While playing, a mute or solo waits for the next line of that setting and lands on it, a hair (10 ms) early so it catches the downbeat. Its key blinks until then. |
 | PLAY | Start and stop (when you let go). Starting counts from bar 1. Stopping makes anything waiting happen at once. Hold PLAY while you press a white key to make that change now instead of on the line. |
-| SELECT · BIG KNOB | The Big Knob: a steep high-pass filter in steps, like King Tubby's: OFF, 70, 100, 150, 250, 500 Hz, 1, 2, 3, 5, 7.5 kHz. Each click jumps straight to the next step, which is part of its sound. Sweep it up to make the mix "evaporate", snap it back on the one. On the whole mix, or only the echo's return (SETUP). |
+| SELECT · BIG KNOB | The Big Knob: a steep high-pass filter in steps, like King Tubby's: OFF, 70, 100, 150, 250, 500 Hz, 1, 2, 3, 5, 7.5 kHz. Each click jumps straight to the next step, which is part of its sound. Sweep it up to make the mix "evaporate", snap it back on the one. On the whole mix, or only the echo's return (SETUP). For finer steps between those, SETUP's BIG KNOB STEPS: 20 or 40. |
 | HOME + SELECT | Tempo, 1 BPM a click. |
 | ALGORITHM | Moves the focus between the channels. |
 | EDIT | The SOUND view: KNOB 1–4 edit the focused channel's voice, four settings at a time. Press EDIT again for the next four, then once more to go back to the echo's knobs. ALGORITHM picks the channel. |
@@ -117,6 +117,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | CUE LEAD | How early a quantised change lands before its line: 0–50 ms (10 by default, so it catches the downbeat). |
 | LOCK MIDI IN | The key lock filters MIDI notes coming in, too (off by default). |
 | BIG KNOB ON | Where the Big Knob sits: the whole MIX, or only the ECHO RETURN. |
+| BIG KNOB STEPS | 10 ALTEC (the default): the ten steps of King Tubby's filter, the stepped sound. 20 or 40: finer steps, the ten still among them (evenly between them in pitch, and down to 42 Hz under 70), for a smoother climb. A song or scene sounds the same whichever you choose. |
 | THROW VELOCITY | ON (the default): a throw is as big as the key was hit. OFF: every throw at full level. |
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |

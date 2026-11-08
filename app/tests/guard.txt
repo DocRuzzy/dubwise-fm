@@ -50,7 +50,7 @@ param tier.lock 0
 # SETUP: GUARD TIER, PERFORMANCE (the PERF page)
 tap GLO
 wait 30
-turn K1 11
+turn K1 12
 wait 30
 said GUARD TIER
 turn K2 1

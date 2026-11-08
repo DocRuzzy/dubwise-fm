@@ -75,7 +75,7 @@ static const demo_move_t DEMO_MOVES[] = {
     {16, 960, TH(CH_SNARE), 1}, {16, 1440, TH(CH_SNARE), 0},     /* a long one */
     {17, 0, P_ECHO_FB, 52}, {17, 480, P_ECHO_FB, 62}, {17, 960, P_ECHO_FB, 72}, {17, 1440, P_ECHO_FB, 80},   /* swell */
     {18, 0, P_ECHO_FB, 52},
-    {19, 0, P_HPF_STEP, 2}, {19, 480, P_HPF_STEP, 4}, {19, 960, P_HPF_STEP, 6}, {19, 1440, P_HPF_STEP, 8},  /* climb */
+    {19, 0, P_HPF_STEP, 8}, {19, 480, P_HPF_STEP, 16}, {19, 960, P_HPF_STEP, 24}, {19, 1440, P_HPF_STEP, 32},  /* climb */
     {20, 0, P_HPF_STEP, 0},
     {21, 960, TH(CH_SNARE), 1}, {21, 1200, TH(CH_SNARE), 0},
     {21, 1200, P_ECHO_PUSH, 1}, {22, 0, P_ECHO_PUSH, 0},          /* a dub push */
