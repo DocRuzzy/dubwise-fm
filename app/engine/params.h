@@ -70,6 +70,7 @@ enum {
     P_THROW_VEL,              /* 1: a throw as hard as the key was hit (P2.9; CHF_THROW_AMT), 0: always in full */
     P_SAVER,                  /* the screen saver: SAVER_OFF, SAVER_1 .. SAVER_15 (minutes untouched, stopped) */
     P_ROOTS,                  /* 1: ROOTS NAMES, the spoken homages (hidden: SETUP, black 11 three times) */
+    P_HPF_RES,                /* the Big Knob's steps a turn: HPF_RES_10 (the Altec's), HPF_RES_20, HPF_RES_40 */
     P_NGLOBAL,
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */
@@ -84,7 +85,8 @@ enum { SCALE_AEOLIAN, SCALE_DORIAN, SCALE_MIN_PENT, SCALE_MIN_BLUES, SCALE_IONIA
 enum { CHORD_MIN, CHORD_MAJ, CHORD_7, CHORD_M7, CHORD_MAJ7, CHORD_SUS4, CHORD_DIM, CHORD_N };
 enum { LOCK_OFF, LOCK_SCALE, LOCK_CHORD, LOCK_N };
 enum { TIER_STUDIO, TIER_FOUR, TIER_SEVEN, TIER_N };
-enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };   /* the guard tiers (design principles 5) */
+enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };
+enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };   /* a detent: 4, 2 or 1 fine steps */   /* the guard tiers (design principles 5) */
 const char *tier_name(int32_t t);                    /* "STUDIO", "FOUR-TRACK", "SEVEN-INCH" */
 const char *scale_name(int32_t s);                   /* "NATURAL MINOR" */
 const char *chord_name(int32_t q);                   /* "MINOR" */
@@ -116,7 +118,7 @@ enum {
     P_SPRING_TONE,            /* its damping: 2 .. 7 kHz */
     P_SPRING_KICK,            /* 0 -> 1: the tank struck (the crash) */
     P_SPRING_END,
-    P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..10 = HPF_HZ */
+    P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..40 = HPF_HZ (the Altec's on 4, 8 .. 40) */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */
     P_HPF_END,
     P_WET = 0x0E4,            /* 1: drop to wet (black 5, held): the dry desk out, the returns on (spec 4.1) */
@@ -152,9 +154,11 @@ enum { HPF_ON_MIX, HPF_ON_ECHO, HPF_ON_N };
 enum { PH_OFF, PH_HATS, PH_SKANK, PH_ECHO, PH_MIX, PH_N };
 enum { PHM_SINGLE, PHM_CASCADE, PHM_STEREO, PHM_N };   /* STEREO on the echo's return only; elsewhere CASCADE */
 enum { DRIVE_OFF, DRIVE_BASS, DRIVE_MIX, DRIVE_N };
-#define HPF_STEPS 10
+#define HPF_STEPS 40                             /* the fine grid; the Altec's ten on every 4th (HPF_ALTEC) */
+#define HPF_ALTEC 4
 float hpf_hz(int32_t step);                          /* a step's cutoff, Hz (0: off) */
 const char *hpf_name(int32_t step);                  /* "500 HZ", "1K", "OFF" */
+int32_t hpf_detent(int32_t res);                     /* fine steps a detent moves at HPF_RES_* (4, 2, 1) */
 uint32_t quant_beats(int32_t q);                     /* 1, 4, 8 .. 128 (4/4); QUANT_CYCLE: the UI's (cycle) */
 uint32_t cycle_bars(int32_t c);                      /* 8, 16, 32, 64 */
 uint32_t runway_bars(int32_t r);                     /* 1, 2, 4, 8 */

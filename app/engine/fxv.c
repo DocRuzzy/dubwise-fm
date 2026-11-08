@@ -8,7 +8,7 @@
 #include "plat.h"                                /* PLAT_POOL */
 #include "oneshots_data.h"
 
-#define SHOT_TOTAL (sizeof SHOT_HEY + sizeof SHOT_HORN + sizeof SHOT_LASER)
+#define SHOT_TOTAL (sizeof SHOT_BIM + sizeof SHOT_HORN + sizeof SHOT_LASER)
 static PLAT_POOL uint8_t shot_ram[SHOT_TOTAL];   /* the one-shots, in RAM: the render never reads the flash */
 static const uint8_t *shot_at[NSHOTS];
 static float ulaw[256];                          /* mu-law -> -1..1 */

@@ -1,11 +1,11 @@
-# The one-shots (P2.6; C9, C10) on channel 8: black 8 HEY, black 9 HORN, black 10 LASER. Each plays to its end
+# The one-shots (P2.6; C9, C10) on channel 8: black 8 BIM, black 9 HORN, black 10 LASER. Each plays to its end
 # from a tap; velocity sets the level. Channel 8 sends to the echo, so a one-shot repeats like a thrown word (the return, after the shot has ended).
 wait 600
 listen
-wav oneshot-hey.wav
+wav oneshot-bim.wav
 tapkey b7
 wait 50
-said ONE SHOT HEY
+said ONE SHOT BIM
 expect ch8_db >-40
 wait 650
 expect echo_ret_db >-50
@@ -25,7 +25,7 @@ said ONE SHOT LASER
 wait 1200
 expect ch8_db <-80
 wavstop
-# backwards (P3.3): HOME held, black 8: the HEY from its end to its start (it swells instead of dying)
+# backwards (P3.3): HOME held, black 8: the BIM from its end to its start (it swells instead of dying)
 param ch8.echo 0
 wav oneshot-rev.wav
 press HOME
@@ -33,11 +33,11 @@ wait 30
 tapkey b7
 wait 30
 release HOME
-said REVERSE HEY
+said REVERSE BIM
 expect page 0
 wait 600
 wavstop
 #wav oneshot-rev.wav peak<-1 dc<-45 click<-30
-#wav oneshot-hey.wav peak<-1 dc<-45 click<-30
+#wav oneshot-bim.wav peak<-1 dc<-45 click<-30
 #wav oneshot-horn.wav peak<-1 dc<-45 click<-30
 #wav oneshot-laser.wav peak<-1 dc<-45 click<-30

@@ -4,14 +4,14 @@
  * reduced motion and the test tones. KNOB 1 (or SELECT) moves through the list, KNOB 2 (or PRESET) changes the
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
-enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_SAVER, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_THROW_VEL,
+enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_SAVER, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_HPF_RES, SU_THROW_VEL,
        SU_TIER, SU_PERF, SU_TONES, SU_DEMO, SU_STEPPERS, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
-                                          "REDUCED MOTION", "SCREEN SAVER", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON",
+                                          "REDUCED MOTION", "SCREEN SAVER", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "BIG KNOB STEPS",
                                           "THROW VELOCITY", "GUARD TIER",
                                           "PERFORMANCE", "TEST TONES", "DEMO SONG", "UK STEPPERS"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_SAVER, P_LEAD,
-                                     P_LOCK_MIDI, P_HPF_ON, P_THROW_VEL, P_TIER_LOCK, 0, P_DEV_TONES, 0, 0};
+                                     P_LOCK_MIDI, P_HPF_ON, P_HPF_RES, P_THROW_VEL, P_TIER_LOCK, 0, P_DEV_TONES, 0, 0};
 static int32_t su_cur;
 static uint32_t su_sig;
 
@@ -24,6 +24,9 @@ static void su_value(uint32_t i, char *t)
         int_text((int32_t)(i == SU_CYCLE ? cycle_bars(v) : runway_bars(v)), n);
         text_cat(t, n);
         text_cat(t, v == 0 && i == SU_RUNWAY ? " BAR" : " BARS");
+    } else if (i == SU_HPF_RES) {
+        static const char *const R[HPF_RES_N] = {"10 ALTEC", "20", "40"};
+        text_cat(t, R[v >= 0 && v < HPF_RES_N ? v : 0]);
     } else if (i == SU_SAVER) {
         static const char *const S[SAVER_N] = {"OFF", "1 MIN", "5 MIN", "15 MIN"};
         text_cat(t, S[v >= 0 && v < SAVER_N ? v : 0]);

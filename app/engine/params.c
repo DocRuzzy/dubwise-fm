@@ -100,6 +100,7 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_THROW_VEL] = {"throw.vel", 0, 1, 1},
     [P_SAVER] = {"saver", 0, SAVER_N - 1, SAVER_5},
     [P_ROOTS] = {"roots", 0, 1, 0},
+    [P_HPF_RES] = {"hpf.res", 0, HPF_RES_N - 1, HPF_RES_10},
 };
 static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
@@ -176,16 +177,44 @@ const char *echo_div_name(int32_t d)
 }
 float echo_t60(int32_t fb) { return 0.1f * fm_exp2f((float)fb * 0.1f); }
 
-/* the Altec 9069B's steps, as the replicas and emulations list them (mastery guide B1, C3) */
-static const float HPF_HZ[HPF_STEPS + 1] = {0.0f, 70.0f, 100.0f, 150.0f, 250.0f, 500.0f, 1000.0f, 2000.0f, 3000.0f,
-                                            5000.0f, 7500.0f};
+/* the Altec 9069B's steps, as the replicas and emulations list them (mastery guide B1, C3), on every 4th of a fine
+ * grid; between them three more, evenly in pitch (and under 70 Hz from 35): SETUP's BIG KNOB STEPS chooses how many a
+ * detent moves. A step stored means one cutoff whatever that setting */
+static const float HPF_HZ[HPF_STEPS + 1] = {
+    0.0f, 41.6f, 49.5f, 58.9f, 70.0f, 76.5f, 83.7f, 91.5f, 100.0f, 110.7f, 122.5f, 135.5f, 150.0f, 170.4f, 193.6f,
+    220.0f, 250.0f, 297.3f, 353.6f, 420.4f, 500.0f, 594.6f, 707.1f, 840.9f, 1000.0f, 1189.2f, 1414.2f, 1681.8f,
+    2000.0f, 2213.4f, 2449.5f, 2710.8f, 3000.0f, 3408.7f, 3873.0f, 4400.6f, 5000.0f, 5533.4f, 6123.7f, 6777.0f, 7500.0f};
 float hpf_hz(int32_t step) { return step >= 0 && step <= HPF_STEPS ? HPF_HZ[step] : 0.0f; }
-const char *hpf_name(int32_t step)
+const char *hpf_name(int32_t step)                /* "70 HZ", "1.2K", "7.5K", "OFF" (main loop: one buffer) */
 {
-    static const char *const N[HPF_STEPS + 1] = {"OFF", "70 HZ", "100 HZ", "150 HZ", "250 HZ", "500 HZ", "1K", "2K",
-                                                 "3K", "5K", "7.5K"};
-    return step >= 0 && step <= HPF_STEPS ? N[step] : "";
+    static char t[12];
+    char d[8];
+    int32_t v, n = 0, i;
+    if (step <= 0 || step > HPF_STEPS)
+        return step == 0 ? "OFF" : "";
+    v = (int32_t)(HPF_HZ[step] + 0.5f);
+    if (v < 1000) {
+        for (i = 0; v || !i; v /= 10)
+            d[i++] = (char)('0' + v % 10);
+        while (i)
+            t[n++] = d[--i];
+        t[n++] = ' ', t[n++] = 'H', t[n++] = 'Z';
+    } else {
+        int32_t tenths = (v + 50) / 100;          /* kHz to one decimal */
+        int32_t k = tenths / 10;
+        for (i = 0; k || !i; k /= 10)
+            d[i++] = (char)('0' + k % 10);
+        while (i)
+            t[n++] = d[--i];
+        if (tenths % 10)
+            t[n++] = '.', t[n++] = (char)('0' + tenths % 10);
+        t[n++] = 'K';
+    }
+    t[n] = 0;
+    return t;
 }
+
+int32_t hpf_detent(int32_t res) { return res == HPF_RES_40 ? 1 : res == HPF_RES_20 ? 2 : HPF_ALTEC; }
 
 uint32_t quant_beats(int32_t q)
 {
