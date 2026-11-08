@@ -17,6 +17,8 @@ Metrics (dBFS unless noted; -200 for silence):
   head      RMS of the first 250 ms
   growth    tail - head in dB (feedback stability: a loop that runs away grows)
   seconds   the length (s)
+  repeat_ms the time from the first sound's onset to the next one (an echo's repeat): where a 5 ms envelope
+            rises past -40 dBFS, and again after it has fallen 6 dB under that (-1 if there is no second onset)
 """
 import math
 import struct
@@ -63,6 +65,25 @@ def lowpass(xs, rate, fc):            # two one-pole low-passes: about 12 dB/oct
     return out
 
 
+def repeat_ms(xs, rate):
+    a = 1.0 - math.exp(-1.0 / (0.005 * rate))
+    env, e = [], 0.0
+    for x in xs:
+        e += a * (abs(x) - e)
+        env.append(e)
+    thr = 10 ** (-40 / 20.0)
+    n = len(env)
+    on1 = next((i for i, v in enumerate(env) if v > thr), None)
+    if on1 is None:
+        return -1.0
+    i = on1
+    while i < n and env[i] > thr / 2:          # the first sound over (6 dB under the threshold) ..
+        i += 1
+    while i < n and env[i] <= thr:             # .. and the next one past it
+        i += 1
+    return (i - on1) * 1000.0 / rate if i < n else -1.0
+
+
 def metrics(path):
     rate, L, R = read(path)
     n = len(L)
@@ -80,6 +101,7 @@ def metrics(path):
         "head": head,
         "growth": tail - head,
         "seconds": n / rate,
+        "repeat_ms": repeat_ms(L, rate),
     }
 
 

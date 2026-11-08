@@ -12,8 +12,12 @@
  *   PRESET         the test voice's wave (MIDI in plays it on the bass channel; until P0.5)
  *   SAVE           tempo, quantise and wave
  *   GLO            test tones on every channel (until the SETUP page and the voices of P0.5)
+ *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
+ *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
+ *                  a knob keeps the key from flipping the mute
+ *   black 2 / 3    echo freeze / dub push, while held
  * Quantised actions blink their key until they land, and the centre says when. Not here yet: throws (white 9-16,
- * P0.2), the black keys' effects (P0.3, P1.x), the knobs (echo, P0.3), the runway (P0.6). */
+ * P0.2), the other black keys' effects (P1.x, P2.x), the channel filter, the runway (P0.6). */
 
 #define TAP_MS 300u                      /* shorter than this, a tap; two within it, a double tap */
 #define BLINK_MS 250u                    /* slow blink: cued */
@@ -25,7 +29,9 @@ static const char *const BLACK_NAME[11] = {"SPRING CRASH", "ECHO HOLD", "DUB PUS
 static const char *const BTN_NAME[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ",
                                          "PLAY", "REC", "OCT-", "OCT+"};
 static const char *const ENC_NAME[NE] = {"BIG KNOB", "FOCUS", "PRESET", "K1", "K2", "K3", "K4"};
-static const char *const KNOB_LABEL[4] = {"TIME", "FB", "ECHO", "SPRG"};   /* spec 4.1: the echo's, from P0.3 */
+static const char *const KNOB_LABEL[4] = {"TIME", "FB", "ECHO", "SPRG"};   /* spec 4.1 */
+static const char *const FOCUS_LABEL[4] = {"LEVEL", "ECHO", "SPRG", "FILT"};   /* a mute key held */
+#define C_RED RGB(232, 76, 60)
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
 
 static struct {
@@ -39,6 +45,7 @@ static struct {
     int32_t focus;                       /* ALGORITHM's channel */
     int32_t turns[NE];                   /* detents since boot, per encoder */
     uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
+    uint32_t foot_sig, centre_t;         /* what the footer shows (redrawn when it changes); the centre's last draw */
     uint32_t last_beat, last_cued, last_blink, last_meter_t;
     int32_t last_lands;
     uint8_t msg_up;
@@ -209,6 +216,100 @@ static void button_release(uint32_t k)
     }
 }
 
+static int32_t echo_div_ui(void)         /* the division the engine will use: the longest that fits (engine.c) */
+{
+    int32_t d = ctl_get(P_ECHO_TIME);
+    while (d > 0 && echo_div_beats(d) * 6615000.0f / (float)ctl_get(P_TEMPO) > ECHO_T_MAX)
+        d--;
+    return d;
+}
+
+static int32_t held_mute(void)          /* the mute key held (the lowest), -1 none: its strip is focused */
+{
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++)
+        if (dub.keys >> WK[ch] & 1u)
+            return (int32_t)ch;
+    return -1;
+}
+
+static void t60_text(char *t)            /* "4.2s", "HOLD", "PUSH", "INF" */
+{
+    float s = echo_t60(ctl_get(P_ECHO_FB));
+    int32_t d;
+    char n[12];
+    t[0] = 0;
+    if (ctl_get(P_ECHO_PUSH)) {
+        text_cat(t, "PUSH");
+        return;
+    }
+    if (ctl_get(P_ECHO_FREEZE)) {
+        text_cat(t, "HOLD");
+        return;
+    }
+    if (s >= 60.0f) {
+        text_cat(t, "INF");
+        return;
+    }
+    d = (int32_t)(s * 10.0f + 0.5f);
+    int_text(d / 10, n);
+    text_cat(t, n);
+    if (d < 100) {
+        n[0] = '.';
+        n[1] = (char)('0' + d % 10);
+        n[2] = 0;
+        text_cat(t, n);
+    }
+    text_cat(t, "s");
+}
+
+static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as the footer shows it */
+{
+    t[0] = 0;
+    if (ch >= 0) {
+        static const uint8_t F[3] = {CHF_LEVEL, CHF_ECHO_SEND, CHF_SPRING_SEND};
+        if (i < 3u)
+            int_text(ctl_get(P_CH(ch, F[i])), t);
+        else
+            text_cat(t, "--");           /* the channel filter: to come */
+    } else if (i == 0u)
+        text_cat(t, echo_div_name(echo_div_ui()));
+    else if (i == 1u)
+        t60_text(t);
+    else
+        int_text(ctl_get(i == 2u ? P_ECHO_RET : P_SPRING_RET), t);
+}
+
+static void knob(uint32_t i, int32_t e)  /* K1-K4 */
+{
+    int32_t ch = held_mute(), id = -1, step = 2;
+    char t[16];
+    if (ch >= 0) {                       /* hold-to-focus: the held channel's strip */
+        static const uint8_t F[3] = {CHF_LEVEL, CHF_ECHO_SEND, CHF_SPRING_SEND};
+        if (!dub.dbl[ch]) {              /* the hold is for editing: the mute stays as it was */
+            dub.dbl[ch] = 1;
+            ctl_cue(P_CH(ch, CHF_MUTE), dub.m0[ch], act_beats());
+        }
+        if (i < 3u)
+            id = P_CH(ch, F[i]);
+        else {
+            app_say("FILTER", "TO COME");
+            return;
+        }
+        step = i == 0u ? 1 : 2;
+    } else {
+        static const uint16_t ID[4] = {P_ECHO_TIME, P_ECHO_FB, P_ECHO_RET, P_SPRING_RET};
+        id = ID[i];
+        step = i < 2u ? 1 : 2;
+    }
+    ctl_set((uint32_t)id, ctl_get((uint32_t)id) + step * e);
+    if (ch < 0)
+        set_dirty = 1;
+    knob_value(i, ch, t);
+    app_say(ch >= 0 ? FOCUS_LABEL[i] : KNOB_LABEL[i], t);
+    dub.dirty_foot = 1;
+}
+
 static void encoder(uint32_t k, int32_t e)
 {
     char t[16];
@@ -229,6 +330,8 @@ static void encoder(uint32_t k, int32_t e)
         ctl_set(P_VOICE(CH_BASS, VF_WAVE), w);
         set_dirty = 1;
         app_say("WAVE", w ? "TRIANGLE" : "SINE");
+    } else if (k >= EN_K1 && k <= EN_K4) {
+        knob(k - EN_K1, e);
     } else {
         int_text(dub.turns[k], t);
         app_say(ENC_NAME[k], t);
@@ -264,12 +367,19 @@ void dub_input(void)
             mute_release(k, now);
         }
     }
-    for (k = 0; k < 11u; k++) {          /* black keys: the effects, to come */
+    for (k = 0; k < 11u; k++) {          /* black keys: 2 echo freeze, 3 dub push (while held); the rest to come */
         uint32_t bit = 1u << BK[k];
         if ((keys & bit) && !(dub.keys & bit)) {
             dub.vel[BK[k]] = (uint8_t)touch_vel(BK[k]);
             dub.last_key = BK[k];
+            if (k == 1u || k == 2u) {
+                ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 1);
+                dub.dirty_foot = dub.dirty_centre = 1;
+            }
             app_say(BLACK_NAME[k], "");
+        } else if (!(keys & bit) && (dub.keys & bit) && (k == 1u || k == 2u)) {
+            ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 0);
+            dub.dirty_foot = dub.dirty_centre = 1;
         }
     }
     for (k = 0; k < NE; k++)
@@ -427,45 +537,90 @@ static void draw_strips(void)
     cv_blit(0, STRIP_Y);
 }
 
+static void draw_echo(void)              /* the left half: the repeats as they fall (amber near unity, red past) */
+{
+    float g = eng_echo_g(), h = 1.0f, gr = eng_echo_gr();
+    uint16_t c = g >= 1.0f ? C_RED : g > 0.9f ? C_AMB : C_HI;
+    int32_t k, x = 6;
+    char t[16];
+    t[0] = 0;
+    text_cat(t, "ECHO ");
+    text_cat(t, echo_div_name(echo_div_ui()));
+    cv_text(6, 4, &FONT_XS, t, C_GRAY);
+    for (k = 0; k < 9; k++) {            /* the first repeat, then each one g of the last */
+        int32_t bh = (int32_t)(44.0f * (h > 1.0f ? 1.0f : h));
+        if (bh > 0)
+            cv_rect(x, 66 - bh, 8, bh, c);
+        else
+            cv_rect(x, 65, 8, 1, C_LINE);
+        x += 12;
+        h *= g;
+    }
+    if (gr < 0.99f) {                    /* the return limiter at work: its reduction, a bar under the repeats */
+        int32_t w = (int32_t)((1.0f - gr) * 220.0f);
+        cv_rect(6, 70, w > 108 ? 108 : w, 3, C_RED);
+    }
+}
+
 static void draw_centre(void)
 {
     char t[24], n[12];
     uint32_t m = cued_mask(), ch;
     cv_begin(240, CENTRE_H, C_BLACK);
+    draw_echo();
+    cv_rect(120, 4, 1, CENTRE_H - 8, C_LINE);
     if (m && eng_playing()) {            /* what is cued, and when it lands */
-        int32_t x = cv_text(6, 4, &FONT_XS, "CUED", C_GRAY) + 8;
+        int32_t x = cv_text(126, 4, &FONT_XS, "CUED", C_GRAY) + 8;
         for (ch = 0; ch < NCH; ch++)
             if (m >> ch & 1u) {
                 n[0] = (char)('1' + ch);
                 n[1] = 0;
-                x = cv_text(x, 4, &FONT_XS, n, C_WHITE) + 6;
+                x = cv_text(x, 4, &FONT_XS, n, C_WHITE) + 5;
             }
-        cv_text(6, 22, &FONT_XS, "LANDS IN", C_GRAY);
+        cv_text(126, 22, &FONT_XS, "LANDS IN", C_GRAY);
         lands_text(lands_in(), t);
-        cv_text(6, 36, &FONT_L, t, C_AMB);
+        cv_text(126, 38, &FONT_M, t, C_AMB);
     } else if (!eng_playing()) {
-        cv_text(6, 4, &FONT_XS, "STOPPED: MUTES ACT AT ONCE", C_DIM);
-        cv_text(6, 22, &FONT_XS, "PLAY STARTS AT BAR 1", C_DIM);
+        cv_text(126, 4, &FONT_XS, "STOPPED", C_DIM);
+        cv_text(126, 22, &FONT_XS, "MUTES ACT AT ONCE", C_DIM);
     } else {
-        cv_text(6, 4, &FONT_XS, "NEXT LINE", C_DIM);
+        cv_text(126, 4, &FONT_XS, "NEXT LINE", C_DIM);
         lands_text(lands_in(), t);
-        cv_text(6, 22, &FONT_B, t, C_GRAY);
+        cv_text(126, 22, &FONT_B, t, C_GRAY);
     }
     cv_rect(0, 0, 240, 1, C_LINE);
     cv_blit(0, CENTRE_Y);
 }
 
-static void draw_footer(void)
+static void draw_footer(void)            /* the four knobs: the echo's, or the held channel's strip */
 {
     uint32_t i;
+    int32_t ch = held_mute();
+    char t[16];
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);
-    for (i = 0; i < 4u; i++) {           /* the knobs' places: the echo's, from P0.3 */
+    for (i = 0; i < 4u; i++) {
         int32_t x = 6 + (int32_t)i * 59;
-        cv_text(x, 6, &FONT_XS, KNOB_LABEL[i], C_DIM);
-        cv_text(x, 20, &FONT_XS, "--", C_LINE);
+        cv_text(x, 4, &FONT_XS, ch >= 0 ? FOCUS_LABEL[i] : KNOB_LABEL[i], ch >= 0 ? C_AMB : C_GRAY);
+        knob_value(i, ch, t);
+        cv_text(x, 18, &FONT_B, t, i == 1u && ch < 0 && eng_echo_g() >= 1.0f ? C_RED : C_HI);
+    }
+    if (ch >= 0) {
+        cv_text(234 - text_w(&FONT_T, CH_NAME[ch]), 4, &FONT_T, CH_NAME[ch], C_AMB);
     }
     cv_blit(0, FOOT_Y);
+}
+
+static uint32_t foot_sig(void)           /* changes whenever what the footer shows does */
+{
+    uint32_t h = (uint32_t)(held_mute() + 1), i;
+    for (i = 0; i < 4u; i++) {
+        char t[16], *p;
+        knob_value(i, held_mute(), t);
+        for (p = t; *p; p++)
+            h = h * 31u + (uint8_t)*p;
+    }
+    return h;
 }
 
 void dub_draw(void)
@@ -494,6 +649,12 @@ void dub_draw(void)
         dub.last_meter_t = now;
         dub.dirty_strips = 1;
     }
+    if (now - dub.centre_t >= 100u)      /* the echo panel (its limiter) at 10 Hz */
+        dub.dirty_centre = 1;
+    if (foot_sig() != dub.foot_sig) {
+        dub.foot_sig = foot_sig();
+        dub.dirty_foot = 1;
+    }
     if (dub.dirty_hdr) {
         dub.dirty_hdr = 0;
         draw_header();
@@ -504,6 +665,7 @@ void dub_draw(void)
     }
     if (dub.dirty_centre) {
         dub.dirty_centre = 0;
+        dub.centre_t = now;
         draw_centre();
     }
     if (dub.dirty_foot) {

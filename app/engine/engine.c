@@ -4,6 +4,8 @@
 #include "engine.h"
 #include "fastmath.h"
 #include "plat.h"                                /* plat_ticks24: the profiler */
+#include "echo.h"
+#include "dsp.h"
 
 cmdq_t eng_q;
 
@@ -48,8 +50,10 @@ typedef struct {
 
 static int16_t ev[P_NIDS];                       /* the applied values (the main loop reads them back); 16 bits: pdesc_t */
 static strip_t strip[NCH];
-static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK];
-static volatile float echo_peak, spring_peak;
+static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], eret[ENG_BLOCK];
+static volatile float echo_peak, spring_peak, echo_ret_peak;
+static ramp_t echo_ret;                          /* the echo return's level */
+static volatile int32_t echo_div_now;            /* the division in use (the longest that fits, at this tempo) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
 
@@ -202,6 +206,35 @@ static void strips_update(void)                  /* the targets from the applied
     }
 }
 
+static float echo_line_t(int32_t d)              /* a division's time in line samples at this tempo */
+{
+    return echo_div_beats(d) * 6615000.0f / (float)ev[P_TEMPO];   /* beats x 60 / BPM x 11025 */
+}
+
+static void bus_update(void)                     /* the echo's settings from the applied values */
+{
+    echo_cfg_t c;
+    int32_t d = ev[P_ECHO_TIME];
+    float t, t60, tone_hz;
+    while (d > 0 && echo_line_t(d) > ECHO_T_MAX)  /* too long for the line at this tempo: the next shorter */
+        d--;
+    echo_div_now = d;
+    t = echo_line_t(d) - 1.0f;                   /* (the decimator and interpolator are about a line sample) */
+    c.t = t;
+    t60 = echo_t60(ev[P_ECHO_FB]);
+    c.g = fm_exp2f(-9.966f * (t / ECHO_RATE) / t60);   /* -60 dB after T60 */
+    c.freeze = ev[P_ECHO_FREEZE] != 0;
+    if (c.freeze)
+        c.g = 1.0f;
+    if (ev[P_ECHO_PUSH])
+        c.g = 1.15f;                             /* past unity (the loop's filters lose ~5 % at best), capped */
+    tone_hz = 800.0f * fm_exp2f((float)ev[P_ECHO_TONE] * (2.64f / 127.0f));
+    c.tone = 1.0f - fm_expf(-6.2831853f * tone_hz / ECHO_RATE);
+    c.head2 = send(ev[P_ECHO_HEAD2]);
+    echo_config(&c);
+    ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
+}
+
 static void drain(void)                          /* every queued command, at the start of the block */
 {
     cmd_t c;
@@ -238,6 +271,10 @@ void eng_init(void)
         s->peak = 0.0f;
     }
     strips_update();
+    echo_init();
+    echo_ret.g = echo_ret.target = 0.0f;
+    echo_ret.left = 0;
+    bus_update();
     cmds = 0;
     t_playing = 0;
     t_beat = t_phase = t_samples = 0;
@@ -347,14 +384,21 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         s->peak = pk;                            /* (the block's last part: a meter, not a measurement) */
         prof_mark(PART_MIX);
     }
-    for (i = 0; i < n; i++) {
-        float y;
-        ep = fm_maxf(ep, fm_fabsf(ebus[i]));
-        sp = fm_maxf(sp, fm_fabsf(sbus[i]));
-        gain_now += (gain - gain_now) * 0.004f;  /* ~5 ms: turning MASTER does not click */
-        y = dry[i] * gain_now;                   /* echo and spring returns join here (P0.3, P1.2) */
-        lr[2 * i] = (int32_t)y;
-        lr[2 * i + 1] = (int32_t)y;
+    echo_run(ebus, eret, n);
+    prof_mark(PART_ECHO);
+    {
+        float rp = 0.0f;
+        for (i = 0; i < n; i++) {
+            float y, r = ramp_next(&echo_ret) * eret[i];
+            ep = fm_maxf(ep, fm_fabsf(ebus[i]));
+            sp = fm_maxf(sp, fm_fabsf(sbus[i]));
+            rp = fm_maxf(rp, fm_fabsf(r));
+            gain_now = undenorm(gain_now + (gain - gain_now) * 0.004f);   /* ~5 ms: MASTER does not click */
+            y = (dry[i] + r) * gain_now;         /* mono dry and the echo's return (stereo returns: P1.5) */
+            lr[2 * i] = (int32_t)y;
+            lr[2 * i + 1] = (int32_t)y;
+        }
+        echo_ret_peak = rp;
     }
     echo_peak = ep;
     spring_peak = sp;
@@ -370,6 +414,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     prof_t = plat_ticks24();
     drain();
     strips_update();
+    bus_update();
     prof_mark(PART_CMD);
     if (t_playing && ncues) {                    /* a cue lands on its sample: the block is split there */
         for (i = 0; i < n; i++) {
@@ -381,6 +426,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 render_seg(lr + 2u * seg, i - seg, gain);
                 fire_due(0);
                 strips_update();
+                bus_update();
                 prof_mark(PART_CMD);
                 seg = i;
             }
@@ -405,6 +451,19 @@ float eng_ch_peak(uint32_t ch) { return ch < NCH ? strip[ch].peak : 0.0f; }
 float eng_echo_peak(void) { return echo_peak; }
 float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
+float eng_echo_ret_peak(void) { return echo_ret_peak; }
+float eng_echo_gr(void) { return echo_gr(); }
+int32_t eng_echo_div(void) { return echo_div_now; }
+float eng_echo_t(void) { return echo_t_now(); }
+float eng_echo_g(void)
+{
+    float t = echo_line_t(echo_div_now) - 1.0f;
+    if (ev[P_ECHO_PUSH])
+        return 1.15f;
+    if (ev[P_ECHO_FREEZE])
+        return 1.0f;
+    return fm_exp2f(-9.966f * (t / ECHO_RATE) / echo_t60(ev[P_ECHO_FB]));
+}
 int eng_playing(void) { return t_playing; }
 uint32_t eng_beat(void) { return t_beat; }
 uint32_t eng_fire_at(void) { return t_fire_at; }

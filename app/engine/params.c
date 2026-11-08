@@ -2,6 +2,7 @@
  * Copyright (C) 2026 Dubwise FM contributors */
 /* The parameters' ranges, defaults and names (params.h). Part of the unity build: app.c includes it. */
 #include "params.h"
+#include "fastmath.h"
 
 typedef char p_ch_fits[(CHF_N <= CH_STRIDE && P_CH_BASE + NCH * CH_STRIDE <= P_BUS_BASE) ? 1 : -1];
 typedef char p_voice_fits[(VF_N <= VOICE_STRIDE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
@@ -22,7 +23,31 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_QUANT] = {"quant", 0, QUANT_N - 1, QUANT_1},
     [P_LEAD] = {"lead", 0, 50, 10},                 /* ms (spec: launch quantise "fired slightly early") */
 };
+static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
+    [P_ECHO_TIME - P_ECHO_TIME] = {"echo.time", 0, ECHO_DIV_N - 1, ECHO_DIV_8D},
+    [P_ECHO_FB - P_ECHO_TIME] = {"echo.fb", 0, 100, 45},
+    [P_ECHO_RET - P_ECHO_TIME] = {"echo.ret", 0, 127, 100},
+    [P_ECHO_TONE - P_ECHO_TIME] = {"echo.tone", 0, 127, 70},
+    [P_ECHO_HEAD2 - P_ECHO_TIME] = {"echo.head2", 0, 127, 0},
+    [P_ECHO_FREEZE - P_ECHO_TIME] = {"echo.freeze", 0, 1, 0},
+    [P_ECHO_PUSH - P_ECHO_TIME] = {"echo.push", 0, 1, 0},
+};
+static const pdesc_t SPRING_RET = {"spring.ret", 0, 127, 90};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
+
+float echo_div_beats(int32_t d)
+{
+    static const float B[ECHO_DIV_N] = {0.25f, 1.0f / 3.0f, 0.375f, 0.5f, 2.0f / 3.0f, 0.75f, 1.0f, 4.0f / 3.0f,
+                                        1.5f, 2.0f};
+    return d >= 0 && d < ECHO_DIV_N ? B[d] : 0.75f;
+}
+const char *echo_div_name(int32_t d)
+{
+    static const char *const N[ECHO_DIV_N] = {"1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.", "1/4", "1/2T",
+                                              "1/4.", "1/2"};
+    return d >= 0 && d < ECHO_DIV_N ? N[d] : "";
+}
+float echo_t60(int32_t fb) { return 0.1f * fm_exp2f((float)fb * 0.1f); }
 
 uint32_t quant_beats(int32_t q)
 {
@@ -41,6 +66,10 @@ const pdesc_t *param_desc(uint32_t id)
         return &GLOBALS[id];
     if (id == P_DEV_TONES)
         return &DEV_TONES;
+    if (id >= P_ECHO_TIME && id < P_ECHO_END)
+        return &ECHO[id - P_ECHO_TIME];
+    if (id == P_SPRING_RET)
+        return &SPRING_RET;
     if (id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE < CHF_N)
         return &CH_FIELDS[(id - P_CH_BASE) % CH_STRIDE];
     if (id >= P_VOICE_BASE && id < P_VOICE_BASE + NCH * VOICE_STRIDE && (id - P_VOICE_BASE) % VOICE_STRIDE < VF_N)

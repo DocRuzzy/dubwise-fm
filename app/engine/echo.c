@@ -1,0 +1,138 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Dubwise FM contributors */
+/* echo.h. Compiled on its own at -O2 (fm1.toml o2). Floats only. */
+#include "echo.h"
+#include "fastmath.h"
+#include "plat.h"                                /* PLAT_POOL */
+#include "dsp.h"
+
+static PLAT_POOL int16_t line[ECHO_LINE];        /* the tape: big, so in the pool */
+#define LINE_FS 16384.0f                         /* full scale on the tape: 2x headroom for the saturation */
+
+/* the in-loop all-passes, 37 / 89 / 151 / 276 / 441 line samples (Schroeder, g 0.5) */
+#define NAP 5
+static const uint16_t AP_LEN[NAP] = {37, 89, 151, 276, 441};
+#define AP_TOTAL (37 + 89 + 151 + 276 + 441)
+static PLAT_POOL float ap_buf[AP_TOTAL];
+static uint16_t ap_pos[NAP];
+#define AP_G 0.5f
+
+static echo_cfg_t cfg;
+static uint32_t wpos;                            /* the write head */
+static float t_now;                              /* the slewed time */
+static float hp_x1, hp_y1, lp_y1;                /* the loop's filters */
+static float dec_s1, dec_s2;                     /* the decimator's low-pass (two one-poles at ~4 kHz, 44.1 kHz) */
+static float up_prev, up_cur, up_lp;             /* the interpolator's two line-rate outputs, and its smoothing */
+static uint32_t phase;                           /* 0..3: where in the line sample this 44.1 kHz sample is */
+static float lim_env = 0.0f, lim_g = 1.0f;
+
+void echo_init(void)
+{
+    uint32_t i;
+    for (i = 0; i < ECHO_LINE; i++)
+        line[i] = 0;
+    for (i = 0; i < AP_TOTAL; i++)
+        ap_buf[i] = 0.0f;
+    for (i = 0; i < NAP; i++)
+        ap_pos[i] = 0;
+    wpos = 0;
+    t_now = 6615.0f;
+    hp_x1 = hp_y1 = lp_y1 = dec_s1 = dec_s2 = up_prev = up_cur = up_lp = 0.0f;
+    phase = 0;
+    lim_env = 0.0f;
+    lim_g = 1.0f;
+    cfg.t = 6615.0f;
+    cfg.g = 0.0f;
+    cfg.tone = 0.5f;
+    cfg.head2 = 0.0f;
+    cfg.freeze = 0;
+}
+
+void echo_config(const echo_cfg_t *c)
+{
+    cfg = *c;
+    if (cfg.t > ECHO_T_MAX)
+        cfg.t = ECHO_T_MAX;
+    if (cfg.t < 64.0f)
+        cfg.t = 64.0f;
+}
+
+static inline float tap(float d)                 /* the line d samples behind the write head, interpolated */
+{
+    float p = (float)wpos - d, f;
+    int32_t i;
+    uint32_t a, b;
+    if (p < 0.0f)
+        p += (float)ECHO_LINE;
+    i = (int32_t)p;
+    f = p - (float)i;
+    a = (uint32_t)i;                             /* (no divide: a wrap) */
+    if (a >= ECHO_LINE)
+        a -= ECHO_LINE;
+    b = a + 1u == ECHO_LINE ? 0u : a + 1u;
+    return ((float)line[a] + f * (float)(line[b] - line[a])) * (1.0f / LINE_FS);
+}
+
+static float line_step(float x)                  /* one line-rate sample: the input in, the return out */
+{
+    float h1, h2, y, l;
+    uint32_t k;
+    int32_t w;
+    t_now += (cfg.t - t_now) * 0.0005f;          /* ~180 ms: the tape's speed changes, not jumps */
+    h1 = tap(t_now);
+    h2 = tap(2.0f * t_now);
+    if (cfg.freeze) {                            /* held: the tape loops as it is (no filters, no new input) */
+        y = h1;
+        goto write;
+    }
+    /* the loop: high-pass ~80 Hz, tone low-pass, five all-passes, gain, saturation */
+    y = undenorm(0.955f * (hp_y1 + h1 - hp_x1));
+    hp_x1 = h1;
+    hp_y1 = y;
+    lp_y1 = undenorm(lp_y1 + cfg.tone * (y - lp_y1));
+    y = lp_y1;
+    {
+        float *bp = ap_buf;
+        for (k = 0; k < NAP; k++) {
+            float d = bp[ap_pos[k]], v = undenorm(y + AP_G * d);
+            bp[ap_pos[k]] = v;
+            y = d - AP_G * v;
+            if (++ap_pos[k] == AP_LEN[k])
+                ap_pos[k] = 0;
+            bp += AP_LEN[k];
+        }
+    }
+    y = fm_tanhf(cfg.g * y + x);
+write:
+    w = (int32_t)(y * LINE_FS);
+    line[wpos] = (int16_t)(w > 32767 ? 32767 : w < -32768 ? -32768 : w);
+    if (++wpos == ECHO_LINE)
+        wpos = 0;
+    /* the return: the raw heads, then the peak limiter (-6 dBFS, instant attack, ~150 ms release) */
+    y = h1 + cfg.head2 * h2;
+    l = fm_fabsf(y);
+    lim_env = l > lim_env ? l : undenorm(lim_env * 0.9994f);
+    lim_g = lim_env > 0.5f ? 0.5f / lim_env : 1.0f;
+    return y * lim_g;
+}
+
+void echo_run(const float *in, float *out, uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        float x = in[i];
+        dec_s1 = undenorm(dec_s1 + 0.44f * (x - dec_s1));   /* ~4 kHz, twice: images below 5.5 kHz kept out */
+        dec_s2 = undenorm(dec_s2 + 0.44f * (dec_s1 - dec_s2));
+        if (++phase == 4u) {
+            phase = 0;
+            up_prev = up_cur;
+            up_cur = line_step(dec_s2);
+        }
+        /* back up: linear between the last two line samples (a line sample late), then smoothed */
+        up_lp = undenorm(up_lp + 0.5f * ((up_prev + (up_cur - up_prev) * (float)phase * 0.25f) - up_lp));
+        out[i] = up_lp;
+    }
+}
+
+float echo_gr(void) { return lim_g; }
+float echo_t_now(void) { return t_now; }

@@ -1,0 +1,94 @@
+# The dub tape echo (P0.3). A short note from MIDI (the test voice, on the bass channel) sent to the echo. At 75 BPM
+# the default time, a dotted eighth, is 0.75 x 800 ms = 600 ms: 6615 line samples (11,025 a second), less one for the
+# converters. Run by tests/run_tests.sh, then the #wav checks at the end.
+wait 600
+listen
+expect echo_div 5
+expect echo_t 6614
+param ch4.echo 127
+param echo.fb 30
+# one burst: its first repeat 600 ms after it, then falling (T60 0.8 s)
+wav echo-burst.wav
+midi 90 3C 64
+wait 60
+midi 80 3C 00
+wait 570
+expect echo_ret_db >-40
+wait 1700
+expect echo_ret_db <-40
+wavstop
+# the knobs: K1 TIME a division at a time (the slew bends it there), K2 FB, K3 the return
+turn K1 1
+wait 30
+said TIME 1/4
+wait 1000
+expect echo_div 6
+expect echo_t >8790
+turn K1 -1
+turn K2 2
+wait 30
+expect ui.echo.fb 32
+turn K3 -5
+wait 30
+expect ui.echo.ret 90
+# at a slow tempo the longest divisions no longer fit the line: the longest that does
+param tempo 400
+param echo.time 9
+wait 30
+expect echo_div 3
+param tempo 750
+param echo.time 5
+# hold-to-focus: K2 with mute key 4 held sets channel 4's echo send, and the mute stays as it was
+param ch4.echo 60
+key w3 down
+wait 50
+turn K2 2
+wait 400
+key w3 up
+wait 50
+expect ui.ch4.echo 64
+expect eng.ch4.mute 0
+param ch4.echo 127
+# stability (C4 drill 2, "engine idle"): feedback at its longest and PUSH held past unity (1.15, about 1.09 a pass
+# after the loop's filters) for 20 s: the saturation and the return limiter hold it; no runaway, no DC, still ringing
+param echo.fb 100
+wav echo-push.wav
+midi 90 3C 64
+wait 200
+midi 80 3C 00
+key b2 down
+wait 20000
+expect echo_ret_db >-30
+said DUB PUSH
+key b2 up
+wait 50
+wavstop
+# FREEZE: the input closed and the loop held; a note now does not go in
+param echo.fb 30
+key b1 down
+wait 1500
+expect ui.echo.freeze 1
+expect echo_ret_db >-30
+wait 3000
+expect echo_ret_db >-30
+midi 90 48 64
+wait 100
+midi 80 48 00
+key b1 up
+wait 50
+expect ui.echo.freeze 0
+# the return limiter (-6 dBFS): every tone sent in full holds the line near full scale, and it acts
+param echo.fb 30
+param dev.tones 1
+param ch1.echo 127
+param ch2.echo 127
+param ch3.echo 127
+param ch5.echo 127
+param ch6.echo 127
+param ch7.echo 127
+param ch8.echo 127
+wait 2000
+expect echo_gr <99
+param dev.tones 0
+#wav echo-burst.wav peak<-1 dc<-60 repeat_ms>590 repeat_ms<615 click<-40
+#wav echo-push.wav peak<-1 dc<-40 tail<-3 tail>-40

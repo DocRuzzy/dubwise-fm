@@ -81,3 +81,11 @@ expect midi_in_usb 5
 midi USB 80 40 00
 #wav note.wav peak<-1 dc<-60 click<-50
 #wav master.wav peak<-1 click<-50
+# the echo knobs persist too
+turn K2 3
+wait 30
+tap SAVE
+wait 30
+reboot
+wait 600
+expect eng.echo.fb 48

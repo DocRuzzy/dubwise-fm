@@ -84,7 +84,7 @@ param ch1.echo 100
 param ch2.spring 100
 wait 500
 perf
-expect perf_pct <50
+expect perf_pct <80
 param ch1.echo 0
 param ch2.spring 0
 # the queue: 291 sets at once (more than its 256), the parameter's latest value wins

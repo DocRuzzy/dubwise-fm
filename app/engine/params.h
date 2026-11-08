@@ -41,6 +41,25 @@ enum {
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
 enum { QUANT_BEAT, QUANT_1, QUANT_2, QUANT_4, QUANT_8, QUANT_16, QUANT_32, QUANT_N };
+
+/* bus modules (append only, within 0x0C0-0x0FF) */
+enum {
+    P_ECHO_TIME = 0x0C0,      /* a division of the beat: ECHO_DIV_* (the longest that fits the line at this tempo) */
+    P_ECHO_FB,                /* feedback as T60: 0.1 s x 2^(v/10), 0..100 (100: about 100 s) */
+    P_ECHO_RET,               /* the return's level, 0..127 (send law) */
+    P_ECHO_TONE,              /* the loop's low-pass, 0..127: 800 Hz .. 5 kHz */
+    P_ECHO_HEAD2,             /* the 2T head in the return, 0..127 */
+    P_ECHO_FREEZE,            /* 1: the input closed, the loop held */
+    P_ECHO_PUSH,              /* 1: the loop past unity (capped): "dub push" */
+    P_ECHO_END,
+    P_SPRING_RET = 0x0D0,     /* the spring's return (P1.2), 0..127 */
+    P_SPRING_END,
+};
+enum { ECHO_DIV_16, ECHO_DIV_8T, ECHO_DIV_16D, ECHO_DIV_8, ECHO_DIV_4T, ECHO_DIV_8D, ECHO_DIV_4, ECHO_DIV_2T,
+       ECHO_DIV_4D, ECHO_DIV_2, ECHO_DIV_N };
+float echo_div_beats(int32_t d);
+const char *echo_div_name(int32_t d);                 /* "1/8." */
+float echo_t60(int32_t fb);                          /* seconds */
 uint32_t quant_beats(int32_t q);                     /* 1, 4, 8 .. 128 (4/4) */
 const char *quant_name(int32_t q);                   /* "BEAT", "1 BAR", "2 BARS" .. */
 

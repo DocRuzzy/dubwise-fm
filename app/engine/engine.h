@@ -29,6 +29,11 @@ int32_t eng_param(uint32_t id);
 float eng_ch_peak(uint32_t ch);              /* the channel's post-fader peak over the last block, 0..1+ */
 float eng_echo_peak(void);                   /* the echo send bus's */
 float eng_spring_peak(void);
+float eng_echo_ret_peak(void);               /* the echo's return, after its level */
+float eng_echo_gr(void);                     /* the return limiter's gain (1: not limiting) */
+int32_t eng_echo_div(void);                  /* the division in use (P_ECHO_TIME, or shorter if that does not fit) */
+float eng_echo_t(void);                      /* the echo's time now, line samples (11,025 a second) */
+float eng_echo_g(void);                      /* the loop gain asked for (1 and over: rings on) */
 uint32_t eng_cmds(void);                     /* commands applied since boot */
 int eng_playing(void);
 uint32_t eng_beat(void);                     /* beats since the start (bar = beat / 4 + 1) */

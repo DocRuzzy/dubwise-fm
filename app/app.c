@@ -7,15 +7,17 @@
 #include "fastmath.h"
 #include "engine/engine.h"
 #include "engine/control.h"
+#include "engine/echo.h"
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x44554232u            /* "DUB2": the settings record; another magic loads defaults */
+#define SET_MAGIC 0x44554233u            /* "DUB3": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
     uint8_t quant;                       /* P_QUANT */
     uint8_t wave;                        /* the test voice's (MIDI in, on the bass channel): 0 sine, 1 triangle */
+    uint8_t echo_time, echo_fb, echo_ret, spring_ret;   /* the DUB page's knobs */
 } settings_t;
 static settings_t set;
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
@@ -53,6 +55,10 @@ static void settings_defaults(void)
     set.tempo = (int16_t)param_desc(P_TEMPO)->def;
     set.quant = (uint8_t)param_desc(P_QUANT)->def;
     set.wave = 0;
+    set.echo_time = (uint8_t)param_desc(P_ECHO_TIME)->def;
+    set.echo_fb = (uint8_t)param_desc(P_ECHO_FB)->def;
+    set.echo_ret = (uint8_t)param_desc(P_ECHO_RET)->def;
+    set.spring_ret = (uint8_t)param_desc(P_SPRING_RET)->def;
 }
 
 static void settings_save(void)
@@ -60,6 +66,10 @@ static void settings_save(void)
     set.tempo = (int16_t)ctl_get(P_TEMPO);
     set.quant = (uint8_t)ctl_get(P_QUANT);
     set.wave = (uint8_t)ctl_get(P_VOICE(CH_BASS, VF_WAVE));
+    set.echo_time = (uint8_t)ctl_get(P_ECHO_TIME);
+    set.echo_fb = (uint8_t)ctl_get(P_ECHO_FB);
+    set.echo_ret = (uint8_t)ctl_get(P_ECHO_RET);
+    set.spring_ret = (uint8_t)ctl_get(P_SPRING_RET);
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0) {
         set_dirty = 0;
         app_say("SAVED", "");
@@ -78,6 +88,10 @@ void app_init(void)
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
     ctl_set(P_VOICE(CH_BASS, VF_WAVE), set.wave);
+    ctl_set(P_ECHO_TIME, set.echo_time);  /* (clamped to their ranges) */
+    ctl_set(P_ECHO_FB, set.echo_fb);
+    ctl_set(P_ECHO_RET, set.echo_ret);
+    ctl_set(P_SPRING_RET, set.spring_ret);
 }
 
 /* ---------------------------------------------------------------- helpers --- */
@@ -226,6 +240,14 @@ int app_expect(const char *what, int *got)
         *got = peak_db(eng_ch_peak((uint32_t)(what[2] - '1')));   /* post-fader, dBFS (-120: silent) */
     else if (!strcmp(what, "echo_db"))
         *got = peak_db(eng_echo_peak());
+    else if (!strcmp(what, "echo_ret_db"))   /* the echo's return, after its level */
+        *got = peak_db(eng_echo_ret_peak());
+    else if (!strcmp(what, "echo_t"))        /* the echo's time now, line samples (11,025 a second) */
+        *got = (int)(eng_echo_t() + 0.5f);
+    else if (!strcmp(what, "echo_div"))
+        *got = eng_echo_div();
+    else if (!strcmp(what, "echo_gr"))       /* the return limiter's gain, % */
+        *got = (int)(eng_echo_gr() * 100.0f + 0.5f);
     else if (!strcmp(what, "spring_db"))
         *got = peak_db(eng_spring_peak());
     else if (!strcmp(what, "q_sent"))        /* the command queue (engine/control.c) */

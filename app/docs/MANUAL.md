@@ -7,7 +7,7 @@ channels, and every change can wait for the next beat or bar line so it lands on
 There are no drum or bass voices yet. Press GLO to put a test tone on every channel so you can hear the mutes. MIDI
 in plays a test voice on the bass channel. There's no Bluetooth: the RAM it would take goes to the dub bus.
 
-![The DUB page, stopped: 75.0 BPM, BAR 1.1, Q 1 BAR in the header; eight channel strips, all playing](img/screen-ready.png "The DUB page at rest")
+![The DUB page, stopped: 75.0 BPM, BAR 1.1, Q 1 BAR in the header; eight channel strips, all playing; the echo's repeats falling; TIME 1/8., FB 3.2s, ECHO 100, SPRG 90](img/screen-ready.png "The DUB page at rest")
 
 ---
 
@@ -46,8 +46,9 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | --- | --- |
 | Header | The tempo, playing (triangle) or stopped (square), the bar and beat, and the quantise setting (Q). After a change, a message shows here for a moment. |
 | Channel strips | The eight channels: 1 KICK, 2 SNR (snare), 3 HAT, 4 BASS, 5 SKNK (skank), 6 ORGN (organ), 7 LEAD, 8 VOX. A filled box is playing, with its level brighter over it. An outlined box is muted. A hatched box is muted by someone else's solo. S marks a solo. A strip that blinks white has a change waiting. A line under a strip marks the focus. |
-| Centre | What's waiting (CUED) and when it lands: NEXT BEAT, 1 BAR, 2 BARS and so on. |
-| Bottom line | The four knobs' places: echo time, feedback, echo and spring. They arrive with the echo. |
+| Centre, left | The echo: its time, and its repeats as they fall. They turn amber near endless feedback and red past it. A red line underneath shows the echo's limiter at work. |
+| Centre, right | What's waiting (CUED) and when it lands: NEXT BEAT, 1 BAR, 2 BARS and so on. |
+| Bottom line | The four knobs and their values: echo TIME, feedback (FB, how long the repeats take to die away), the ECHO return and the spring return (SPRG). While you hold a mute key, the held channel's LEVEL, ECHO send, spring send (SPRG) and filter. |
 
 ---
 
@@ -65,7 +66,14 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | GLO | Test tones on every channel, on or off, so you can hear the desk until the voices arrive. |
 | MASTER | Sets the volume. |
 | SAVE | Saves the tempo, the quantise setting and the wave. SAVE lights while there's something to save. |
-| White keys 9–16, black keys, the four knobs | Show their names. Throws, the echo, the spring and the rest come next. |
+| KNOB 1 · TIME | The echo's time, in steps of the beat: 1/16, 1/8T, 1/16., 1/8, 1/4T, 1/8. (dotted eighth, the default), 1/4, 1/2T, 1/4., 1/2. At slow tempos the longest don't fit, so you get the longest that does. A change glides like tape, bending the pitch. |
+| KNOB 2 · FB | How long the repeats last: the time they take to fall 60 dB, from 0.1 s to endless (INF). |
+| KNOB 3 · ECHO | The echo's return level. |
+| KNOB 4 · SPRG | The spring's return level (the spring comes later). |
+| Hold white key 1–8 + KNOB 1–3 | That channel's level, echo send and spring send. Turning a knob while you hold the key keeps the key from flipping the mute. |
+| Black key 2 | Echo hold, while held: no new sound goes in, and the tape loops as it is. |
+| Black key 3 | Dub push, while held: feedback past endless, so the echo builds and rings. The tape's saturation and the limiter keep it from blowing up. |
+| White keys 9–16, other black keys | Show their names. Throws, the spring and the rest come next. |
 
 The keys light by one rule: bright is playing, dim is muted or not in use yet, and a slow blink means waiting.
 
@@ -73,7 +81,7 @@ The keys light by one rule: bright is playing, dim is muted or not in use yet, a
 
 ## 4. Saving
 
-Press SAVE to keep the tempo, the quantise setting and the wave. They come back the next time the FM-1 starts. The
+Press SAVE to keep the tempo, the quantise setting, the wave and the echo's knobs. They come back the next time the FM-1 starts. The
 mutes and solos aren't saved: scenes will do that.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")

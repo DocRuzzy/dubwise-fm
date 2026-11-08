@@ -2,6 +2,8 @@
 #   app/build/host/dubwise_host app/tests/screens.txt app/docs/img
 wait 900
 param dev.tones 1
+param ch3.echo 90
+param echo.fb 50
 wait 200
 shot screen-ready.png
 tap PLAY
@@ -21,3 +23,8 @@ turn PRESET 1
 tap OCT+
 wait 1500
 shot screen-settings.png
+# a mute key held: the knobs are its strip
+key w2 down
+wait 400
+shot screen-focus.png
+key w2 up
