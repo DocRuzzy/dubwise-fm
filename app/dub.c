@@ -23,6 +23,17 @@
  * Quantised actions blink their key until they land, and the centre says when. Not here yet: the other black
  * keys' effects (P1.x, P2.x), the channel filter, the runway (P0.6), velocity-scaled throws (P2.9). */
 
+/* four regions, each drawn only when it changes (spec 5.3): header 0-23, strips 26-121, centre 124-199, footer
+ * 202-239 */
+#define HDR_Y 0
+#define HDR_H 24
+#define STRIP_Y 26
+#define STRIP_H 96
+#define CENTRE_Y 124
+#define CENTRE_H 76
+#define FOOT_Y 202
+#define FOOT_H 38
+
 #define TAP_MS 300u                      /* shorter than this, a tap; two within it, a double tap */
 #define BLINK_MS 250u                    /* slow blink: cued */
 
@@ -52,6 +63,7 @@ static struct {
     uint8_t play_used, home_used;        /* held as a modifier: its own press does nothing on release */
     int32_t focus;                       /* ALGORITHM's channel */
     uint8_t sound;                       /* the SOUND view: 0 off, else its bank (1, 2) */
+    uint8_t page, page_drawn;            /* PAGE_DUB, PAGE_STEPS; the one on the screen */
     int32_t turns[NE];                   /* detents since boot, per encoder */
     uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
     uint32_t foot_sig, centre_t;         /* what the footer shows (redrawn when it changes); the centre's last draw */
@@ -151,6 +163,9 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
         t[i] = a[i] >= 'a' && a[i] <= 'z' ? (char)(a[i] - 32) : a[i];
     t[i] = 0;
 }
+
+enum { PAGE_DUB, PAGE_STEPS };
+#include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 
 /* ------------------------------------------------------------------ input --- */
 static void say_mute(uint32_t ch, int muted)
@@ -252,10 +267,16 @@ static void quant_step(int32_t d)
 
 static void button_press(uint32_t k)
 {
-    if (k == B_OCTDN)
+    if ((k == B_OCTDN || k == B_OCTUP) && dub.page == PAGE_STEPS)
+        steps_oct(k == B_OCTUP ? 1 : -1);   /* the STEPS page: its page of 16 */
+    else if (k == B_OCTDN)
         quant_step(-1);
     else if (k == B_OCTUP)
         quant_step(1);
+    else if (k == B_SEQ) {
+        dub.page = PAGE_STEPS;
+        app_say("STEPS", CH_NAME[st.ch]);
+    }
     else if (k == B_PLAY)
         dub.play_used = 0;               /* start / stop on release, unless used as a modifier */
     else if (k == B_HOME)
@@ -287,6 +308,7 @@ static void button_release(uint32_t k)
         ctl_set(P_PLAY, on);
         app_say(on ? "PLAY" : "STOP", "");
     } else if (k == B_HOME && !dub.home_used) {
+        dub.page = PAGE_DUB;
         app_say("DUB", "PAGE");
     }
 }
@@ -448,6 +470,8 @@ static void encoder(uint32_t k, int32_t e)
             dub.sound = voice_fields(dub.focus) ? 1u : 0u;
         dub.dirty_strips = 1;
         app_say("FOCUS", CH_NAME[dub.focus]);
+    } else if (k >= EN_K1 && k <= EN_K4 && dub.page == PAGE_STEPS) {
+        steps_knob(k - EN_K1, e);
     } else if (k >= EN_K1 && k <= EN_K4) {
         knob(k - EN_K1, e);
     } else {
@@ -471,6 +495,10 @@ void dub_input(void)
             dub.btn &= ~bit;
             button_release(k);
         }
+    }
+    if (dub.page == PAGE_STEPS) {        /* the STEPS page has the keys */
+        steps_keys(keys, dub.keys);
+        goto encoders;
     }
     for (k = 0; k < 16u; k++) {          /* white keys: 1-8 mutes, 9-16 throws (P0.2) */
         uint32_t bit = 1u << WK[k];
@@ -503,6 +531,7 @@ void dub_input(void)
             dub.dirty_foot = dub.dirty_centre = 1;
         }
     }
+encoders:
     for (k = 0; k < NE; k++)
         if ((e = plat_enc((int)k)) != 0)
             encoder(k, e);
@@ -518,6 +547,10 @@ static uint32_t blink_on(void) { return (plat_ms() / BLINK_MS) & 1u; }
 static void lights(void)
 {
     uint32_t ch, bright = 0, dim = 0, bb = dub.btn, k;
+    if (dub.page == PAGE_STEPS) {
+        bright = steps_lights(&dim);
+        goto buttons;
+    }
     for (ch = 0; ch < NCH; ch++) {
         uint32_t bit = 1u << WK[ch];
         if (cued(ch))
@@ -534,6 +567,7 @@ static void lights(void)
             dim |= 1u << WK[k];
     for (k = 0; k < 11u; k++)
         dim |= 1u << BK[k];
+buttons:
     if (eng_playing())
         bb |= LED_PLAY_GREEN;
     if (set_dirty)
@@ -551,16 +585,6 @@ static int led_state(uint32_t ch)        /* 0 off, 1 dim, 2 bright, 3 blinking (
 #endif
 
 /* ----------------------------------------------------------------- screen --- */
-/* four regions, each drawn only when it changes (spec 5.3): header 0-23, strips 26-121, centre 124-199, footer
- * 202-239 */
-#define HDR_Y 0
-#define HDR_H 24
-#define STRIP_Y 26
-#define STRIP_H 96
-#define CENTRE_Y 124
-#define CENTRE_H 76
-#define FOOT_Y 202
-#define FOOT_H 38
 
 static void play_glyph(int32_t x, int32_t y, int playing, uint16_t c)
 {
@@ -805,6 +829,18 @@ void dub_draw(void)
         dub.dirty_hdr = 0;
         draw_header();
     }
+    if (dub.page != dub.page_drawn) {    /* a page change: all of it */
+        dub.page_drawn = dub.page;
+        dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 1;
+        if (dub.page == PAGE_STEPS)
+            steps_draw(1);
+    }
+    if (dub.page == PAGE_STEPS) {
+        steps_draw(0);
+        dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
+        lights();
+        return;
+    }
     if (dub.dirty_strips) {
         dub.dirty_strips = 0;
         draw_strips();
@@ -841,6 +877,11 @@ void dub_speak(void)
     text_cat(t, n);
     text_cat(t, " BPM. ");
     text_cat(t, eng_playing() ? "PLAYING" : "STOPPED");
+    if (dub.page == PAGE_STEPS) {
+        steps_speak(t);
+        ann_say(t, 0, ANN_NOW);
+        return;
+    }
     text_cat(t, ". QUANTISE ");
     text_cat(t, quant_name(ctl_get(P_QUANT)));
     for (first = 1, ch = 0; ch < NCH; ch++)
@@ -871,8 +912,10 @@ static int dub_expect(const char *what, int *got)
         *got = lands_in();
     else if (!strncmp(what, "turns", 5)) /* turnsN: encoder N's count (plat.h EN_*) */
         *got = dub.turns[atoi(what + 5) % NE];
+    else if (!strcmp(what, "page"))
+        *got = dub.page;
     else
-        return 0;
+        return steps_expect(what, got);
     return 1;
 }
 #endif

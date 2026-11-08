@@ -26,6 +26,14 @@ typedef struct {
     int16_t v[P_NIDS - P_VOICE_BASE];
 } sound_t;
 static sound_t snd;
+/* the patterns and their lengths (OBJ_PATTERN) */
+#define PATTERN_MAGIC 0x50415431u        /* "PAT1" */
+typedef struct {
+    uint32_t magic;
+    uint8_t len[NCH];
+    step_t steps[NCH][NSTEPS];
+} pattern_store_t;
+static pattern_store_t pst;
 static settings_t set;
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
 
@@ -95,7 +103,17 @@ static void settings_save(void)
         for (i = 0; i < P_NIDS - P_VOICE_BASE; i++)
             snd.v[i] = (int16_t)ctl_get(P_VOICE_BASE + i);
     }
-    if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0) {
+    pst.magic = PATTERN_MAGIC;
+    {
+        uint32_t ch, i;
+        for (ch = 0; ch < NCH; ch++) {
+            pst.len[ch] = (uint8_t)ctl_get(P_CH(ch, CHF_LEN));
+            for (i = 0; i < NSTEPS; i++)
+                pst.steps[ch][i] = ctl_get_step(ch, i);
+        }
+    }
+    if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
+        && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0) {
         set_dirty = 0;
         app_say("SAVED", "");
     } else {
@@ -115,6 +133,15 @@ void app_init(void)
         for (i = 0; i < P_NIDS - P_VOICE_BASE; i++)
             if (param_desc(P_VOICE_BASE + i))
                 ctl_set(P_VOICE_BASE + i, snd.v[i]);   /* (clamped) */
+    }
+    if (plat_store_load(OBJ_PATTERN, &pst, sizeof pst) == (int)sizeof pst && pst.magic == PATTERN_MAGIC) {
+        uint32_t ch, i;                  /* (more than the queue holds: the rest goes on later frames) */
+        for (ch = 0; ch < NCH; ch++) {
+            ctl_set(P_CH(ch, CHF_LEN), pst.len[ch]);
+            for (i = 0; i < NSTEPS; i++)
+                if (pst.steps[ch][i].lvl < LVL_N)
+                    ctl_step(ch, i, pst.steps[ch][i]);
+        }
     }
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
@@ -300,6 +327,10 @@ int app_expect(const char *what, int *got)
         *got = (int)eng_beat();
     else if (!strcmp(what, "t_playing"))
         *got = eng_playing();
+    else if (!strncmp(what, "hit", 3) && what[3] >= '1' && what[3] <= '8' && !what[4])
+        *got = (int)eng_seq_hit_at((uint32_t)(what[3] - '1'));   /* hitN: channel N's last hit, samples since PLAY */
+    else if (!strcmp(what, "seq_hits"))
+        *got = (int)eng_seq_hits();
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */
         uint32_t i, tot = 0;
         for (i = 0; i < NPARTS; i++)

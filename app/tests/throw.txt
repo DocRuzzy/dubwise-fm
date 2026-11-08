@@ -25,13 +25,15 @@ wait 50
 expect eng.ch1.throw 0
 expect echo_db -120
 expect echo_g <200
-# pre-fader: the fader down does not matter
+# pre-fader: the fader down does not matter (a pause first: a press within 300 ms of a tap would latch)
 param ch1.level 0
+wait 400
 key w8 down
 wait 50
 expect echo_db >-22
 key w8 up
 wait 50
+expect eng.ch1.throw 0
 param ch1.level 100
 param ch1.mute 0
 # a double tap latches (snare: both buses); a tap lets it go
@@ -70,7 +72,10 @@ wait 50
 # channel is muted, so the first sound is the first repeat; the next comes a little late on the onset detector)
 param dev.tones 0
 param ch4.mute 1
-param echo.fb 40
+param echo.fb 0
+wait 2500
+param echo.fb 70
+wait 30
 wav throw.wav
 midi 90 3C 64
 key w11 down

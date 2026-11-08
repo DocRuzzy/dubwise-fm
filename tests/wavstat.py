@@ -14,6 +14,7 @@ Metrics (dBFS unless noted; -200 for silence):
             and amplitude A gives A*(2 pi f / 44100)^2 at most (110 Hz at -20 dBFS: about -84)
   side_lo   RMS of (L - R)/2 below ~120 Hz: the low end must be mono (design principles)
   tail      RMS of the last 250 ms (an echo that rings on, or dies)
+  tail2     RMS of the last 2 s (the same, over a pulsing echo's gaps)
   head      RMS of the first 250 ms
   growth    tail - head in dB (feedback stability: a loop that runs away grows)
   seconds   the length (s)
@@ -125,6 +126,7 @@ def metrics(path):
         "click": db(d2),
         "side_lo": db(rms(side)),
         "tail": tail,
+        "tail2": db(rms(L[-2 * rate:])),
         "head": head,
         "growth": tail - head,
         "seconds": n / rate,

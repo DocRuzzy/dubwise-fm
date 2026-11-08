@@ -28,3 +28,11 @@ key w2 down
 wait 400
 shot screen-focus.png
 key w2 up
+# the STEPS page, the bass, playing
+tap HOME
+tap SEQ
+wait 50
+tapkey b3
+tap PLAY
+wait 1500
+shot screen-steps.png

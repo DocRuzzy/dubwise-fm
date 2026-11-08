@@ -11,7 +11,13 @@ typedef char cmdq_n_check[(CMDQ_N >= 256u && (CMDQ_N & (CMDQ_N - 1u)) == 0) ? 1 
 
 /* opcodes: their own space, apart from the parameter IDs. CMD_SET: now (the block's start). CMD_CUE: at the next
  * multiple of `beats` beats from the transport's start, P_LEAD ms early (at once while stopped) */
-enum { CMD_NONE, CMD_SET, CMD_CUE };
+enum {
+    CMD_NONE,
+    CMD_SET,
+    CMD_CUE,
+    CMD_STEP,                     /* a pattern step: id = ch x NSTEPS + step, v = step_pack (riddim.h); now */
+    CMD_TEMPLATE,                 /* a riddim template: id = TPL_*, v = the channels (a mask); quantised as CMD_CUE */
+};
 
 typedef struct {
     uint8_t op;

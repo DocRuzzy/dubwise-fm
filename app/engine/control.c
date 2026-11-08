@@ -8,6 +8,11 @@ static int16_t ctl_val[P_NIDS];             /* every range fits in 16 bits (pdes
 static uint8_t ctl_beats[P_NIDS];            /* a pending parameter's quantum: 0 now, else CMD_CUE's beats */
 static uint32_t ctl_pend[P_NIDS / 32u];      /* a bit per parameter waiting for room in the queue */
 ctl_stats_t ctl_stats;
+static step_t ctl_pat[NCH][NSTEPS];
+static uint32_t ctl_step_pend[NCH * NSTEPS / 32u];
+static uint32_t ctl_steps_pending;
+static int32_t ctl_tpl_t = -1;                   /* a template the full queue refused */
+static uint32_t ctl_tpl_mask, ctl_tpl_beats;
 
 void ctl_init(void)
 {
@@ -18,6 +23,79 @@ void ctl_init(void)
     for (id = 0; id < P_NIDS / 32u; id++)
         ctl_pend[id] = 0;
     ctl_stats.pending = 0;
+    for (id = 0; id < NCH; id++)
+        template_fill(TPL_ONE_DROP, id, ctl_pat[id]);   /* as the engine starts */
+    for (id = 0; id < NCH * NSTEPS / 32u; id++)
+        ctl_step_pend[id] = 0;
+    ctl_steps_pending = 0;
+    ctl_tpl_t = -1;
+}
+
+static int step_push(uint32_t k)
+{
+    cmd_t c;
+    c.op = CMD_STEP;
+    c.beats = 0;
+    c.id = (uint16_t)k;
+    c.v = step_pack(ctl_pat[k / NSTEPS][k % NSTEPS]);
+    if (!cmdq_push(&eng_q, c)) {
+        ctl_stats.refused++;
+        return 0;
+    }
+    ctl_stats.sent++;
+    return 1;
+}
+
+static int tpl_push(void)
+{
+    cmd_t c;
+    c.op = CMD_TEMPLATE;
+    c.beats = (uint8_t)ctl_tpl_beats;
+    c.id = (uint16_t)ctl_tpl_t;
+    c.v = (int32_t)ctl_tpl_mask;
+    if (!cmdq_push(&eng_q, c)) {
+        ctl_stats.refused++;
+        return 0;
+    }
+    ctl_stats.sent++;
+    ctl_tpl_t = -1;
+    return 1;
+}
+
+void ctl_step(uint32_t ch, uint32_t i, step_t st)
+{
+    uint32_t k = (ch % NCH) * NSTEPS + i % NSTEPS, bit = 1u << (k & 31u);
+    ctl_pat[ch % NCH][i % NSTEPS] = st;
+    if (ctl_steps_pending || ctl_tpl_t >= 0 || ctl_stats.pending || !step_push(k)) {
+        if (!(ctl_step_pend[k >> 5] & bit)) {   /* (a newer value for a waiting step: sent as it is then) */
+            ctl_step_pend[k >> 5] |= bit;
+            ctl_steps_pending++;
+        }
+    }
+}
+
+step_t ctl_get_step(uint32_t ch, uint32_t i) { return ctl_pat[ch % NCH][i % NSTEPS]; }
+
+void ctl_template(int32_t t, uint32_t mask, uint32_t beats)
+{
+    uint32_t ch, w;
+    for (ch = 0; ch < NCH; ch++)
+        if (mask >> ch & 1u)
+            template_fill(t, ch, ctl_pat[ch]);
+    /* steps still waiting for those channels are now the template's: theirs no longer to send */
+    for (w = 0; w < NCH * NSTEPS / 32u; w++) {
+        uint32_t m = ctl_step_pend[w], b;
+        for (b = 0; b < 32u; b++)
+            if ((m >> b & 1u) && (mask >> ((w * 32u + b) / NSTEPS) & 1u)) {
+                ctl_step_pend[w] &= ~(1u << b);
+                ctl_steps_pending--;
+            }
+    }
+    ctl_tpl_t = t;
+    ctl_tpl_mask = mask;
+    ctl_tpl_beats = beats > 128u ? 128u : beats;
+    if (!ctl_stats.pending)
+        tpl_push();
 }
 
 static int ctl_push(uint32_t id)
@@ -68,6 +146,22 @@ int32_t ctl_get(uint32_t id) { return id < P_NIDS ? ctl_val[id] : 0; }
 void ctl_flush(void)
 {
     uint32_t w;
+    if (ctl_tpl_t >= 0 && !tpl_push())
+        return;
+    for (w = 0; w < NCH * NSTEPS / 32u && ctl_steps_pending; w++) {   /* steps waiting, in order */
+        while (ctl_step_pend[w]) {
+            uint32_t b = 0, m = ctl_step_pend[w];
+            while (!(m & 1u)) {
+                m >>= 1;
+                b++;
+            }
+            if (!step_push(w * 32u + b))
+                return;
+            ctl_step_pend[w] &= ~(1u << b);
+            ctl_steps_pending--;
+            ctl_stats.resent++;
+        }
+    }
     for (w = 0; w < P_NIDS / 32u && ctl_stats.pending; w++) {
         while (ctl_pend[w]) {
             uint32_t b = 0, m = ctl_pend[w];

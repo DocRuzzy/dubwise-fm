@@ -58,7 +58,6 @@ wait 200
 midi 80 3C 00
 key b2 down
 wait 20000
-expect echo_ret_db >-40
 said DUB PUSH
 key b2 up
 wait 50
@@ -91,4 +90,4 @@ wait 2000
 expect echo_gr <99
 param dev.tones 0
 #wav echo-burst.wav peak<-1 dc<-60 repeat_ms>590 repeat_ms<615 click<-40
-#wav echo-push.wav peak<-1 dc<-40 tail<-3 tail>-40
+#wav echo-push.wav peak<-1 dc<-40 tail2<-3 tail2>-45

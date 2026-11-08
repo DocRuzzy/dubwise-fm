@@ -9,13 +9,16 @@
 static PLAT_POOL int16_t line[ECHO_LINE];        /* the tape: big, so in the pool */
 #define LINE_FS 16384.0f                         /* full scale on the tape: 2x headroom for the saturation */
 
-/* the in-loop all-passes, 37 / 89 / 151 / 276 / 441 line samples (Schroeder, g 0.5) */
+/* the in-loop all-passes (Schroeder): short and gentle. A Schroeder all-pass delays the lows by D (1+g)/(1-g), so
+ * DUB-1's 37/89/151/276/441 at g 0.5 held a bass note's repeat back ~270 ms a pass, and a tempo-synced echo drifted
+ * late (measured: 657 ms for 600). These smear each repeat by a few ms; the loop reads the tape AP_TOTAL earlier, so
+ * a repeat lands on T on average (the lows ~8 ms a pass late, like tape wow) */
 #define NAP 5
-static const uint16_t AP_LEN[NAP] = {37, 89, 151, 276, 441};
-#define AP_TOTAL (37 + 89 + 151 + 276 + 441)
+static const uint16_t AP_LEN[NAP] = {7, 13, 23, 37, 53};
+#define AP_TOTAL (7 + 13 + 23 + 37 + 53)
 static PLAT_POOL float ap_buf[AP_TOTAL];
 static uint16_t ap_pos[NAP];
-#define AP_G 0.5f
+#define AP_G 0.3f
 
 static echo_cfg_t cfg;
 static uint32_t wpos;                            /* the write head */
@@ -75,19 +78,20 @@ static inline float tap(float d)                 /* the line d samples behind th
 
 static float line_step(float x)                  /* one line-rate sample: the input in, the return out */
 {
-    float h1, h2, y, l;
+    float h1, h2, hl, y, l;
     uint32_t k;
     int32_t w;
     t_now += (cfg.t - t_now) * 0.0005f;          /* ~180 ms: the tape's speed changes, not jumps */
     h1 = tap(t_now);
     h2 = tap(2.0f * t_now);
+    hl = tap(t_now - (float)AP_TOTAL);           /* the loop's own read: the all-passes' delay taken off */
     if (cfg.freeze) {                            /* held: the tape loops as it is (no filters, no new input) */
         y = h1;
         goto write;
     }
     /* the loop: high-pass ~80 Hz, tone low-pass, five all-passes, gain, saturation */
-    y = undenorm(0.955f * (hp_y1 + h1 - hp_x1));
-    hp_x1 = h1;
+    y = undenorm(0.955f * (hp_y1 + hl - hp_x1));
+    hp_x1 = hl;
     hp_y1 = y;
     lp_y1 = undenorm(lp_y1 + cfg.tone * (y - lp_y1));
     y = lp_y1;

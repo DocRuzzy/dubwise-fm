@@ -6,6 +6,7 @@
 #include "plat.h"                                /* plat_ticks24: the profiler */
 #include "echo.h"
 #include "voices.h"
+#include "riddim.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -71,10 +72,19 @@ typedef struct {
     uint32_t fb, fp;
     uint16_t id;
     int16_t v;
+    uint8_t op;                                  /* CMD_SET (a parameter) or CMD_TEMPLATE */
 } cue_t;
 static cue_t cues[NCUES];
 static uint32_t ncues;
-static volatile uint32_t cue_overflows;          /* a cue the full list could not hold fired at once instead */
+static volatile uint32_t cue_overflows;
+
+/* the sequencer (P0.4): each channel's pattern, played a sixteenth at a time from the transport */
+#define Q16 (BEAT_UNITS / 4u)                    /* a sixteenth in beat units: 6,615,000 (exact) */
+static step_t pat[NCH][NSTEPS];
+static int32_t last_tick = -1;                   /* the sixteenth last played since the start */
+static int32_t seq_bass = -1;                    /* the bass note the sequencer holds */
+static volatile uint32_t seq_hits;               /* steps played since boot (tests) */
+static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */          /* a cue the full list could not hold fired at once instead */
 
 
 /* -------------------------------------------------------------- profiler --- */
@@ -122,12 +132,23 @@ static void set_param(uint32_t id, int32_t v)
     ev[id] = (int16_t)param_clamp(id, v);
 }
 
+static void load_template(int32_t t, uint32_t mask)
+{
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++)
+        if (mask >> ch & 1u)
+            template_fill(t, ch, pat[ch]);
+}
+
 static void fire_due(int all)                    /* the cues now due (all: every one), in order */
 {
     uint32_t i, k = 0;
     for (i = 0; i < ncues; i++) {
         if (all || cue_due(&cues[i])) {
-            set_param(cues[i].id, cues[i].v);
+            if (cues[i].op == CMD_TEMPLATE)
+                load_template(cues[i].id, (uint16_t)cues[i].v);
+            else
+                set_param(cues[i].id, cues[i].v);
             t_fire_at = t_samples;
             t_fires++;
         } else {
@@ -137,17 +158,17 @@ static void fire_due(int all)                    /* the cues now due (all: every
     ncues = k;
 }
 
-static void cue_add(uint32_t id, int32_t v, uint32_t beats)
+static void cue_add(uint32_t op, uint32_t id, int32_t v, uint32_t beats)
 {
     cue_t *c;
     uint32_t b, lead;
-    if (!t_playing || !beats) {                  /* no clock: now */
-        set_param(id, v);
-        return;
-    }
-    if (ncues == NCUES) {                        /* never lost: late is better than never (counted) */
-        cue_overflows++;
-        set_param(id, v);
+    if (!t_playing || !beats || ncues == NCUES) {   /* no clock: now (a full list: late is better than never) */
+        if (t_playing && beats)
+            cue_overflows++;
+        if (op == CMD_TEMPLATE)
+            load_template((int32_t)id, (uint32_t)v);
+        else
+            set_param(id, v);
         return;
     }
     b = (t_beat / beats + 1u) * beats;           /* the next line */
@@ -155,6 +176,9 @@ static void cue_add(uint32_t id, int32_t v, uint32_t beats)
     c = &cues[ncues++];
     c->id = (uint16_t)id;
     c->v = (int16_t)v;
+    c->op = (uint8_t)op;
+    if (op == CMD_TEMPLATE)                      /* a pattern change lands on the line itself, not early */
+        lead = 0;
     if (lead) {                                  /* (lead < a beat: 50 ms at 180 BPM is a sixth of one) */
         c->fb = b - 1u;
         c->fp = BEAT_UNITS - lead;
@@ -265,15 +289,23 @@ static void drain(void)                          /* every queued command, at the
         if (c.op == CMD_SET)
             set_param(c.id, c.v);
         else if (c.op == CMD_CUE)
-            cue_add(c.id, c.v, c.beats);
+            cue_add(CMD_SET, c.id, c.v, c.beats);
+        else if (c.op == CMD_STEP && c.id < NCH * NSTEPS)
+            pat[c.id / NSTEPS][c.id % NSTEPS] = step_unpack(c.v);
+        else if (c.op == CMD_TEMPLATE)
+            cue_add(CMD_TEMPLATE, c.id, c.v, c.beats);
         cmds++;
     }
     if (ev[P_PLAY] && !t_playing) {              /* start: bar 1, beat 1, at this block's first sample */
         t_playing = 1;
         t_beat = t_phase = t_samples = 0;
-    } else if (!ev[P_PLAY] && t_playing) {       /* stop: what was cued happens now */
+        last_tick = -1;
+    } else if (!ev[P_PLAY] && t_playing) {       /* stop: what was cued happens now; the bass let go */
         t_playing = 0;
         fire_due(1);
+        if (seq_bass >= 0)
+            voice_release(CH_BASS, seq_bass);
+        seq_bass = -1;
     }
 }
 
@@ -302,6 +334,56 @@ void eng_init(void)
     t_playing = 0;
     t_beat = t_phase = t_samples = 0;
     ncues = 0;
+    load_template(TPL_ONE_DROP, 0xFFu);          /* a riddim to start from (editable steps) */
+    last_tick = -1;
+    seq_bass = -1;
+}
+
+/* ------------------------------------------------------------- sequencer --- */
+static void seq_play(uint32_t tick)              /* sixteenth `tick` since the start: every channel's step */
+{
+    uint32_t ch;
+    if (seq_bass >= 0) {                         /* the bass: a step long (staccato), unless the next one sounds */
+        voice_release(CH_BASS, seq_bass);
+        seq_bass = -1;
+    }
+    for (ch = 0; ch < NCH; ch++) {
+        uint32_t len = (uint32_t)ev[P_CH(ch, CHF_LEN)];
+        step_t st = pat[ch][tick % (len ? len : 16u)];
+        if (!st.lvl)
+            continue;
+        voice_trig(ch, st.note, lvl_vel(st.lvl));
+        seq_hits++;
+        seq_hit_at[ch] = t_samples;
+        if (ch == CH_BASS)
+            seq_bass = st.note;
+    }
+}
+
+static uint32_t until_16th(void)                 /* samples to the next sixteenth's line */
+{
+    uint32_t b = (t_phase / Q16 + 1u) * Q16, tempo = (uint32_t)ev[P_TEMPO];
+    return (b - t_phase + tempo - 1u) / tempo;
+}
+
+static uint32_t until_cue(void)                  /* samples to the first cue's moment (0: due) */
+{
+    uint32_t i, best = 0xFFFFFFFFu, tempo = (uint32_t)ev[P_TEMPO];
+    for (i = 0; i < ncues; i++) {
+        const cue_t *c = &cues[i];
+        uint32_t d;
+        if (cue_due(c))
+            return 0;
+        if (c->fb == t_beat)
+            d = (c->fp - t_phase + tempo - 1u) / tempo;
+        else if (c->fb == t_beat + 1u)
+            d = (BEAT_UNITS - t_phase + c->fp + tempo - 1u) / tempo;
+        else
+            continue;                            /* (further than a beat: the sixteenths come first) */
+        if (d < best)
+            best = d;
+    }
+    return best;
 }
 
 /* ---------------------------------------------------------------- sources --- */
@@ -400,7 +482,7 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
 
 void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
-    uint32_t i, seg = 0;
+    uint32_t pos = 0;
     float gain = (float)master_q12 * (8300000.0f / 4096.0f);
     if (n > ENG_BLOCK)
         n = ENG_BLOCK;
@@ -409,27 +491,37 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     strips_update();
     bus_update();
     prof_mark(PART_CMD);
-    if (t_playing && ncues) {                    /* a cue lands on its sample: the block is split there */
-        for (i = 0; i < n; i++) {
-            uint32_t k;
-            int due = 0;
-            for (k = 0; k < ncues && !due; k++)
-                due = cue_due(&cues[k]);
-            if (due) {
-                render_seg(lr + 2u * seg, i - seg, gain);
+    /* from event to event: a sixteenth's line (the sequencer) or a cue (launch quantise), each on its sample */
+    for (;;) {
+        uint32_t d = n - pos;
+        if (t_playing) {
+            uint32_t tick = t_beat * 4u + t_phase / Q16, u;
+            if ((int32_t)tick != last_tick) {
+                last_tick = (int32_t)tick;
+                seq_play(tick);
+            }
+            if (ncues && until_cue() == 0) {
                 fire_due(0);
                 strips_update();
                 bus_update();
-                prof_mark(PART_CMD);
-                seg = i;
             }
-            t_step(1);
+            u = until_16th();
+            if (u < d)
+                d = u;
+            if (ncues) {
+                u = until_cue();
+                if (u < d)
+                    d = u;
+            }
         }
-    } else if (t_playing) {
-        t_step(n);
+        prof_mark(PART_CMD);
+        if (pos >= n)
+            break;
+        render_seg(lr + 2u * pos, d, gain);
+        if (t_playing)
+            t_step(d);
+        pos += d;
     }
-    prof_mark(PART_CMD);
-    render_seg(lr + 2u * seg, n - seg, gain);
     prof_block();
 }
 
@@ -440,6 +532,10 @@ float eng_ch_peak(uint32_t ch) { return ch < NCH ? strip[ch].peak : 0.0f; }
 float eng_echo_peak(void) { return echo_peak; }
 float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
+uint32_t eng_seq_hits(void) { return seq_hits; }
+int32_t eng_tick(void) { return t_playing ? last_tick : -1; }
+uint32_t eng_seq_hit_at(uint32_t ch) { return ch < NCH ? seq_hit_at[ch] : 0; }
+step_t eng_step(uint32_t ch, uint32_t i) { return pat[ch % NCH][i % NSTEPS]; }
 float eng_echo_ret_peak(void) { return echo_ret_peak; }
 float eng_echo_gr(void) { return echo_gr(); }
 int32_t eng_echo_div(void) { return echo_div_now; }

@@ -4,9 +4,9 @@ DUBWISE (Dubwise FM) is a reggae/dub groovebox for the M-VAVE FM-1 in the making
 instrument. This early build has the desk's first move: the DUB page, where the white keys mute and solo the eight
 channels, and every change can wait for the next beat or bar line so it lands on time.
 
-The first four channels have voices: an FM kick, rim, hats and bass. Play them over MIDI (drums on channel 10,
-bass on any other) until the step sequencer arrives. Press GLO to put a test tone on every channel so you can hear the
-desk without them. There's no Bluetooth: the RAM it would take goes to the dub bus.
+The first four channels have voices: an FM kick, rim, hats and bass, played by a step sequencer. It starts with a
+ONE DROP riddim, so press PLAY and you're dubbing. Press SEQ to edit the patterns or pick another riddim. You can also
+play the voices over MIDI. Press GLO to put a test tone on every channel. There's no Bluetooth: the RAM it would take goes to the dub bus.
 
 ![The DUB page, stopped: 75.0 BPM, BAR 1.1, Q 1 BAR in the header; eight channel strips, all playing; the echo's repeats falling; TIME 1/8., FB 3.2s, ECHO 100, SPRG 90](img/screen-ready.png "The DUB page at rest")
 
@@ -82,9 +82,29 @@ The keys light by one rule: bright is playing, dim is muted or not in use yet, a
 
 ---
 
+## 3a. The STEPS page (SEQ)
+
+![The STEPS page: every channel's 16 steps at the top, the bass's below with its notes; LEN 16, RIDDIM ONE DROP](img/screen-steps.png "The STEPS page")
+
+Press SEQ for the steps, HOME to go back to the DUB page. The top shows every channel's 16 steps, the middle the
+channel you're editing, bigger, with its notes.
+
+| Control | What it does |
+| --- | --- |
+| White keys 1–16 | Turn a step on or off. |
+| Black keys 1–8 | Pick the channel to edit. |
+| Hold black key 9 or 10 + a white key | Make that step an accent or a ghost note (again: back to normal). |
+| OCT− · OCT+ | The page of 16 steps: 1–16, 17–32, 33–48, 49–64. |
+| KNOB 1 · LEN | The pattern's length, 1 to 64 steps. |
+| KNOB 2 · NOTE | The note of the step you hold, or the last one you touched: a semitone a click. On the hats, closed or open. |
+| KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS or FLYERS. It lands on the next bar line, and then it's just steps you can change. |
+
+The riddims: ONE DROP has the kick and rim on beat 3 only. ROCKERS puts the kick on 1 and 3 and doubles the rim.
+STEPPERS has the kick on every beat. FLYERS opens the hat on every off-beat and closes it on the beat.
+
 ## 4. Saving
 
-Press SAVE to keep the tempo, the quantise setting, the echo's knobs and the sounds. They come back the next time the FM-1 starts. The
+Press SAVE to keep the tempo, the quantise setting, the echo's knobs, the sounds and the patterns. They come back the next time the FM-1 starts. The
 mutes and solos aren't saved: scenes will do that.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")

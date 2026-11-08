@@ -15,6 +15,7 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_SPRING_SEND] = {"spring", 0, 127, 0},
     [CHF_THROW] = {"throw", 0, 1, 0},               /* pre-fader, pre-mute: a muted channel can be thrown (P0.2) */
     [CHF_THROW_DEST] = {"dest", 0, DEST_N - 1, DEST_ECHO},   /* per channel: param_def */
+    [CHF_LEN] = {"len", 1, 64, 16},                 /* the pattern's length, sixteenth steps (P0.4) */
 };
 /* the voices' parameters, 0..127 unless said (voices.c maps them) */
 static const pdesc_t KICK_F[VK_N] = {
