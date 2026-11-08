@@ -51,6 +51,18 @@ Companion docs in this folder:
 ---
 
 ## P0 — Foundation
+
+**P0.0 status (2026-11-08):** host tests pass; Bluetooth removed. Still open: claim an `id_prefix`. Device link
+(JieLi toolchain 20260730.1, AC79 SDK V1.2.1), template with Bluetooth → without:
+
+| | With BLE | No radio | Limit |
+|---|---|---|---|
+| Image | 225,716 B | 87,492 B | ~581 KB slot |
+| RAM code `.ram_text` | 9,164 B | 4,964 B | 32,768 B |
+| RAM `.data+.bss` | 76,420 B | 27,828 B | 98,304 B |
+| Pool | 93,960 B | 69,384 B | 344,064 B (8 KB kept spare) |
+
+So the dub bus starts with ~70 KB of `.data+.bss` and ~266 KB of pool free.
 | # | Feature | Ref | Build notes |
 |---|---|---|---|
 | 0.0 | **Repo from the fm1-base template** | — | Template app runs in the host simulator and emulator. Strip Bluetooth. Claim an `id_prefix`. CI runs the host tests |
