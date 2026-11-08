@@ -7,7 +7,8 @@
  * The song (P1.8): a bar list (engine/song.h).
  *   REC (here or on DUB)   capture on / off: while playing, each bar takes the desk at its line; HOME + REC: undo
  *                          the last capture
- *   Black 1-11          a section marker at the bar playing (stopped: the cursor's); again: removed
+ *   Black 1-11          a section marker at the bar playing (stopped: the cursor's); again: removed. HOME + black
+ *                       1-4: the dub-plate words, VERSION, DUBPLATE, SPECIAL, RUB-A-DUB
  *   KNOB 1              the cursor (a bar); KNOB 2 the song's length; KNOB 3 OFF / ONCE / LOOP (playback)
  * Motion (P2.7, engine/motion.h): what the hands do inside each bar, captured with REC too; SAVE + REC clears it.
  * A bar with motion has a white mark under it.
@@ -175,9 +176,14 @@ static void arr_keys(uint32_t keys, uint32_t prev)
             } else
                 arr_recall(k, act_beats());
         }
-    for (k = 0; k < SECTIONS; k++)
-        if ((keys >> BK[k] & 1u) && !(prev >> BK[k] & 1u))
-            song_mark(k);
+    for (k = 0; k < SECTION_KEYS; k++)
+        if ((keys >> BK[k] & 1u) && !(prev >> BK[k] & 1u)) {
+            if ((dub.btn >> B_HOME & 1u) && k < SECTIONS - SECTION_KEYS) {   /* HOME + black 1-4: VERSION .. */
+                dub.home_used = 1;
+                song_mark(SECTION_KEYS + k);
+            } else
+                song_mark(k);
+        }
 }
 
 static void arr_knob(uint32_t i, int32_t e)

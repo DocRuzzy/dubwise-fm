@@ -377,8 +377,11 @@ static void button_press(uint32_t k)
     }
     else if (k == B_PLAY && (dub.btn >> B_HOME & 1u)) {   /* HOME + PLAY: the spin-back (P3.5) */
         dub.home_used = dub.play_used = 1;
+        static const char *const CALL[3][2] = {{"REWIND", "COME AGAIN"}, {"PULL UP", "SELECTA"}, {"WHEEL UP", ""}};
+        static uint8_t call;             /* the selector's calls, in turn */
         ctl_set(P_SPIN, 1);
-        app_say("REWIND", ctl_get(P_PLAY) ? "COME AGAIN" : "");
+        app_say(CALL[call][0], CALL[call][1]);
+        call = (uint8_t)((call + 1u) % 3u);
     } else if (k == B_PLAY)
         dub.play_used = 0;               /* start / stop on release, unless used as a modifier */
     else if (k == B_HOME)
@@ -793,6 +796,22 @@ static void play_glyph(int32_t x, int32_t y, int playing, uint16_t c)
 
 #define C_GREEN RGB(80, 220, 120)
 
+/* 72.0 BPM: the first bar played at it lights the cycle bar red, gold and green (the demo's tempo; an egg) */
+static int32_t roots_bar = -1;
+static uint8_t roots_armed;
+static int roots_now(void)
+{
+    if (!eng_playing() || ctl_get(P_TEMPO) != 720) {
+        roots_armed = 0;
+        return 0;
+    }
+    if (!roots_armed) {
+        roots_armed = 1;
+        roots_bar = (int32_t)(eng_beat() / 4u);
+    }
+    return (int32_t)(eng_beat() / 4u) == roots_bar;
+}
+
 static void draw_header(void)            /* tempo, transport, the cycle bar, bar n / cycle, quantise (spec 5.1) */
 {
     char t[24], n[12];
@@ -815,7 +834,10 @@ static void draw_header(void)            /* tempo, transport, the cycle bar, bar
             segw = 1u;
         for (i = 0; i < r.cyc; i++) {    /* a segment a bar, in fours; this bar fills beat by beat */
             int32_t sx = bx + (int32_t)(i * segw + (i / 4u) * 2u), sw = (int32_t)(segw > 1u ? segw - 1u : 1u);
-            if (!eng_playing() || i > r.bar)
+            if (roots_now()) {           /* 72.0 BPM, the demo's tempo: red, gold and green for a bar */
+                static const uint16_t RGG[3] = {RGB(220, 40, 40), RGB(250, 200, 40), RGB(40, 170, 70)};
+                cv_rect(sx, 8, sw, 10, RGG[i % 3u]);
+            } else if (!eng_playing() || i > r.bar)
                 cv_rect(sx, 8, sw, 10, C_LINE);
             else if (i < r.bar)
                 cv_rect(sx, 8, sw, 10, rc);
@@ -1311,6 +1333,8 @@ static int dub_expect(const char *what, int *got)
         *got = (int)dub.key_flashes;
     else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got))
         return 1;
+    else if (!strcmp(what, "roots"))     /* 1: the cycle bar red, gold and green (72.0 BPM's first bar) */
+        *got = roots_now();
     else
         return setup_expect(what, got);
     return 1;

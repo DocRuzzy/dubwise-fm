@@ -9,6 +9,21 @@
  * Part of the unity build: dub.c includes it. */
 
 #define SV_ORANGE RGB(242, 120, 72)
+#define SV_TAN RGB(188, 138, 90)                 /* the SpIllt Beats mark's ground, its two blues */
+#define SV_BLUE RGB(84, 120, 180)
+#define SV_SKY RGB(120, 180, 212)
+
+/* The SpIllt Beats mark: an S and a B sharing strokes (the S's top is the B's top, its centre line the B's back),
+ * brushed. Its strokes in a 240 x 205 box (traced from the label's own drawing) */
+static const int16_t LOGO[][4] = {             /* (stylised: two diagonal angles, joints that meet, one width) */
+    {50, 12, 206, 12},                           /* the top: the S's and the B's */
+    {58, 12, 124, 118},                          /* the S's centre line .. */
+    {124, 118, 124, 196},                        /* .. running on as the B's back */
+    {12, 62, 88, 62}, {12, 62, 46, 118}, {46, 118, 124, 118}, {78, 70, 58, 102},   /* the S's lower turn */
+    {186, 12, 155, 62}, {155, 62, 212, 62}, {212, 62, 224, 92}, {224, 92, 208, 118},   /* the B's upper bowl */
+    {208, 118, 124, 196}, {124, 140, 164, 140},  /* its lower bowl, its middle */
+};
+#define LOGO_N (sizeof LOGO / sizeof LOGO[0])
 #define SV_BAND 120                              /* the screen in two bands (the canvas holds 144 rows) */
 
 static struct {
@@ -16,6 +31,7 @@ static struct {
     uint8_t on;
     uint32_t t0, frame_t;
     uint32_t kswallow, bswallow;                 /* keys and buttons that woke it: ignored until let go */
+    uint8_t hour;                                /* an hour untouched: said so */
 } sv;
 static int32_t sv_oy;                            /* the band being drawn: its first row */
 
@@ -57,21 +73,46 @@ static void sv_ring(int32_t cx, int32_t cy, int32_t r, uint16_t c)   /* a circle
     }
 }
 
+/* the mark at (x0, y0), scaled by k/256: dark strokes of one width (square ends: the joints close), a light core */
+static void sv_logo(int32_t x0, int32_t y0, int32_t k)
+{
+    uint32_t i;
+    int32_t t = k * 7 / 256 < 2 ? 2 : k * 7 / 256, dx, dy;   /* the brush: ~14 px wide in the drawing, to scale */
+    for (i = 0; i < LOGO_N; i++) {
+        int32_t ax = x0 + LOGO[i][0] * k / 256, ay = y0 + LOGO[i][1] * k / 256 - sv_oy;
+        int32_t bx = x0 + LOGO[i][2] * k / 256, by = y0 + LOGO[i][3] * k / 256 - sv_oy;
+        for (dy = -t; dy <= t; dy++)
+            for (dx = -t; dx <= t; dx++)
+                cv_line(ax + dx, ay + dy, bx + dx, by + dy, SV_BLUE);
+    }
+    for (i = 0; i < LOGO_N; i++) {               /* then a light line down every stroke's middle: one tube */
+        int32_t ax = x0 + LOGO[i][0] * k / 256, ay = y0 + LOGO[i][1] * k / 256 - sv_oy;
+        int32_t bx = x0 + LOGO[i][2] * k / 256, by = y0 + LOGO[i][3] * k / 256 - sv_oy;
+        cv_line(ax, ay, bx, by, SV_SKY);
+    }
+}
+
 /* the picture: rings at phase ph (0..1 of the spacing) around (cx, cy), the words at (wx, wy) */
 static void sv_scene(int32_t cx, int32_t cy, float ph, int32_t wx, int32_t wy)
 {
     int32_t i, w;
     for (i = 0; i < 9; i++) {                    /* each further ring a repeat down: dimmer */
-        float r = 14.0f + ((float)i + ph) * 17.0f;
+        float r = 40.0f + ((float)i + ph) * 17.0f;
         uint32_t a = (uint32_t)(255.0f * (1.0f - ((float)i + ph) / 9.0f));
         sv_ring(cx, cy, (int32_t)r, sv_fade(SV_ORANGE, a));
     }
-    cv_rect(cx - 5, cy - 5 - sv_oy, 10, 10, SV_ORANGE);   /* the source: a drop */
+    cv_rect(cx - 34, cy - 30 - sv_oy, 68, 60, C_BLACK);   /* the source: the label's mark */
+    sv_logo(cx - 30, cy - 26, 64);
     w = text_w(&FONT_L, "DUBWISE");
     cv_rect(wx - w / 2 - 6, wy - 2 - sv_oy, w + 12, 50, C_BLACK);
     cv_text(wx - w / 2, wy - sv_oy, &FONT_L, "DUBWISE", C_WHITE);
     w = text_w(&FONT_XS, "SPILLT BEATS");
     cv_text(wx - w / 2, wy + 32 - sv_oy, &FONT_XS, "SPILLT BEATS", SV_ORANGE);
+    if (sv.hour) {
+        w = text_w(&FONT_XS, "SOUND SYSTEM STILL RUNNING");
+        cv_rect(120 - w / 2 - 4, 4 - sv_oy, w + 8, 16, C_BLACK);
+        cv_text(120 - w / 2, 6 - sv_oy, &FONT_XS, "SOUND SYSTEM STILL RUNNING", C_GRAY);
+    }
 }
 
 static void sv_paint(int32_t cx, int32_t cy, float ph, int32_t wx, int32_t wy)
@@ -84,7 +125,20 @@ static void sv_paint(int32_t cx, int32_t cy, float ph, int32_t wx, int32_t wy)
     sv_oy = 0;
 }
 
-void app_splash(void) { sv_paint(120, 92, 0.0f, 120, 170); }
+void app_splash(void)                            /* the mark on its ground, the name under it */
+{
+    int32_t w;
+    for (sv_oy = 0; sv_oy < 240; sv_oy += SV_BAND) {
+        cv_begin(240, SV_BAND, SV_TAN);
+        sv_logo(54, 22, 146);                   /* 136 x 117 */
+        w = text_w(&FONT_L, "DUBWISE");
+        cv_text(120 - w / 2, 160 - sv_oy, &FONT_L, "DUBWISE", RGB(52, 36, 24));
+        w = text_w(&FONT_XS, "SPILLT BEATS");
+        cv_text(120 - w / 2, 196 - sv_oy, &FONT_XS, "SPILLT BEATS", SV_BLUE);
+        cv_blit(0, (uint32_t)sv_oy);
+    }
+    sv_oy = 0;
+}
 
 /* dub_input: 1 = this frame's input was the saver's (nothing else to do). act: a key or button changed */
 static int saver_input(uint32_t *keys, uint32_t *btn, uint32_t now)
@@ -125,6 +179,7 @@ static int saver_draw(uint32_t now)
         sv.on = 1;
         sv.t0 = now;
         sv.frame_t = 0;
+        sv.hour = 0;
     }
     if (eng_playing()) {                         /* (MIDI started it) */
         sv.on = 0;
@@ -139,6 +194,10 @@ static int saver_draw(uint32_t now)
         uint32_t slot = (t / 20000u) % 4u;       /* the words move every 20 s */
         static const int8_t DX[4] = {0, 22, 0, -22}, DY[4] = {0, -14, 12, -6};
         sv.frame_t = now;
+        if (!sv.hour && now - sv.last >= 3600000u) {   /* an hour on its own: the dance goes on */
+            sv.hour = 1;
+            app_say("SOUND SYSTEM", "STILL RUNNING");
+        }
         sv_paint(120, 120, ph, 120 + DX[slot], 170 + DY[slot]);
     }
     return 1;

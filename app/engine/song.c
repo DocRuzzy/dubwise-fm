@@ -9,7 +9,8 @@ PLAT_POOL song_bar_t song[SONG_BARS];
 const char *section_name(int32_t s)
 {
     static const char *const N[SECTIONS] = {"INTRO", "VERSE", "CHORUS", "DUB", "DROP", "BREAK", "BRIDGE", "BUILD",
-                                            "VOCAL", "OUTRO", "END"};
+                                            "VOCAL", "OUTRO", "END", "VERSION", "DUBPLATE", "SPECIAL",
+                                            "RUB-A-DUB"};
     return s >= 0 && s < SECTIONS ? N[s] : "";
 }
 
