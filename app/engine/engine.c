@@ -57,7 +57,12 @@ static strip_t strip[NCH];
 static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], eret[ENG_BLOCK], sret[ENG_BLOCK];
 static volatile float echo_peak, spring_peak, echo_ret_peak, spring_ret_peak;
 static ramp_t echo_ret, spring_ret;              /* the returns' levels */
-static int16_t kick_last;                        /* P_SPRING_KICK as it was: a strike on 0 -> 1 */
+static int16_t kick_last;
+static float bus_echo_g;                         /* the echo's loop gain this block (the cross-sends' cap) */
+static float sret_last[ENG_BLOCK];               /* the spring's return a block ago: into the echo (cross-send) */
+static uint32_t sret_last_n;
+static ramp_t xs_e2s, xs_s2e;                    /* the cross-sends' levels (P1.3) */
+#define XS_LOOP_CAP 0.5f                         /* echo -> spring -> echo: their product at most this */                        /* P_SPRING_KICK as it was: a strike on 0 -> 1 */
 static volatile uint32_t crashes;
 static volatile int32_t echo_div_now;
 static volatile uint32_t lock_now = 0xFFFu;
@@ -289,6 +294,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     c.g = fm_exp2f(-9.966f * (t / ECHO_RATE) / t60);   /* -60 dB after T60 */
     if (echo_thrown())
         c.g = throw_lift(c.g);
+    bus_echo_g = c.g;
     c.freeze = ev[P_ECHO_FREEZE] != 0;
     if (c.freeze)
         c.g = 1.0f;
@@ -310,6 +316,17 @@ static void bus_update(void)                     /* the echo's and the voices' s
         sc.damp = 1.0f - fm_expf(-6.2831853f * hz / 22050.0f);
         spring_config(&sc);
         ramp_to(&spring_ret, send(ev[P_SPRING_RET]));
+        {                                        /* the cross-sends, their loop capped */
+            /* echo -> spring -> echo is a loop through two resonant loops: each one's peaks are about 1 / (1 - g)
+             * (the spring's 22x at its longest decay), so the sends' product is held under the cap times both
+             * (1 - g). The echo's g counts up to 0.9: past that its own saturation and limiter hold it */
+            float a = send(ev[P_XS_E2S]), b = send(ev[P_XS_S2E]);
+            float ge = fm_minf(bus_echo_g, 0.9f), lim = XS_LOOP_CAP * (1.0f - ge) * (1.0f - sc.g);
+            if (a * b > lim)
+                b = a > 0.0f ? lim / a : b;
+            ramp_to(&xs_e2s, a);
+            ramp_to(&xs_s2e, b);
+        }
         if (ev[P_SPRING_KICK] && !kick_last) {
             spring_crash(0.7f);
             crashes++;
@@ -378,6 +395,9 @@ void eng_init(void)
     bigknob_init(&bk);
     bk_step = -1;
     spring_init();
+    xs_e2s.g = xs_e2s.target = xs_s2e.g = xs_s2e.target = 0.0f;
+    xs_e2s.left = xs_s2e.left = 0;
+    sret_last_n = 0;
     spring_ret.g = spring_ret.target = 0.0f;
     spring_ret.left = 0;
     kick_last = 0;
@@ -515,12 +535,23 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         s->peak = pk;                            /* (the block's last part: a meter, not a measurement) */
         prof_mark(PART_MIX);
     }
+    if (sret_last_n) {                           /* the spring's return into the echo (a block late) */
+        uint32_t m = sret_last_n < n ? sret_last_n : n;
+        for (i = 0; i < m; i++)
+            ebus[i] += ramp_next(&xs_s2e) * sret_last[i];
+    }
     echo_run(ebus, eret, n);
     prof_mark(PART_ECHO);
+    if (xs_e2s.g != 0.0f || xs_e2s.left)         /* the echo's return into the spring */
+        for (i = 0; i < n; i++)
+            sbus[i] += ramp_next(&xs_e2s) * eret[i];
     if (ev[P_HPF_ON] == HPF_ON_ECHO)             /* the Big Knob on the echo's return */
         bigknob_run(&bk, eret, n);
     spring_run(sbus, sret, n);
     prof_mark(PART_SPRING);
+    for (i = 0; i < n; i++)
+        sret_last[i] = sret[i];
+    sret_last_n = xs_s2e.g != 0.0f || xs_s2e.left ? n : 0u;
     {
         float rp = 0.0f, op = 0.0f, srp = 0.0f;
         for (i = 0; i < n; i++) {

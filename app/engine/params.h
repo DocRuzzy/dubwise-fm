@@ -93,6 +93,9 @@ enum {
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..10 = HPF_HZ */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */
     P_HPF_END,
+    P_XS_E2S = 0x0E8,         /* cross-sends (P1.3): the echo's return into the spring, 0..127 */
+    P_XS_S2E,                 /* the spring's return into the echo, 0..127 (the two together capped: a loop) */
+    P_XS_END,
 };
 enum { ECHO_DIV_16, ECHO_DIV_8T, ECHO_DIV_16D, ECHO_DIV_8, ECHO_DIV_4T, ECHO_DIV_8D, ECHO_DIV_4, ECHO_DIV_2T,
        ECHO_DIV_4D, ECHO_DIV_2, ECHO_DIV_N };

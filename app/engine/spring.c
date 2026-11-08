@@ -25,6 +25,7 @@ static uint32_t phase;
 static float crash_env, crash_amp;               /* the strike: its burst */
 static uint32_t rng = 0x9E3779B9u;
 static uint32_t quiet;                           /* half-rate samples in a row with silence in and (almost) out */
+static float lim_env, lim_g = 1.0f;              /* the return's limiter (-6 dBFS, as the echo's) */
 #define IDLE_AFTER (2u * LINE_MAX)               /* two of the longest loop: nothing left in it */
 
 static inline float noise(void)
@@ -91,7 +92,13 @@ static float half_step(float x)                  /* one 22,050 Hz sample: in, th
         out += lp[s];
     }
     ap_i = (uint16_t)((ap_i + 1u) % APK);
-    return out * 0.5f;
+    out *= 0.5f;
+    {                                            /* the return's limiter: instant attack, ~150 ms release */
+        float l = fm_fabsf(out);
+        lim_env = l > lim_env ? l : undenorm(lim_env * 0.9997f);
+        lim_g = lim_env > 0.5f ? 0.5f / lim_env : 1.0f;
+    }
+    return out * lim_g;
 }
 
 void spring_run(const float *in, float *out, uint32_t n)

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Dubwise FM contributors */
 /* The FX page (FX; docs/interface-spec.md 4): the effects' settings, four to a bank, KNOB 1-4; FX again for the next
- * bank. Echo, Spring so far (phaser / width and the cross-sends join later: spec 4). Part of the unity build:
+ * bank. Echo, Spring, Cross-sends (P1.3; phaser / width join later: spec 4). Part of the unity build:
  * dub.c includes it. */
 
 typedef struct {
@@ -13,6 +13,7 @@ typedef struct {
 static const fx_bank_t FX_BANK[] = {
     {"ECHO", {P_ECHO_TIME, P_ECHO_FB, P_ECHO_TONE, P_ECHO_HEAD2}, {"TIME", "FB", "TONE", "2T HEAD"}},
     {"SPRING", {P_SPRING_DECAY, P_SPRING_TONE, P_SPRING_RET, 0}, {"DECAY", "TONE", "RETURN", ""}},
+    {"CROSS", {P_XS_E2S, P_XS_S2E, 0, 0}, {"ECHO>SPR", "SPR>ECHO", "", ""}},
 };
 #define FX_NBANKS (sizeof FX_BANK / sizeof FX_BANK[0])
 static uint32_t fx_bank, fx_sig;
