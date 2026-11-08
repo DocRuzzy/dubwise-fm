@@ -58,7 +58,8 @@ static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], e
 static volatile float echo_peak, spring_peak, echo_ret_peak, spring_ret_peak;
 static ramp_t echo_ret, spring_ret;              /* the returns' levels */
 static int16_t kick_last;
-static float bus_echo_g;                         /* the echo's loop gain this block (the cross-sends' cap) */
+static float bus_echo_g;
+static int dive_back;                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
 static float sret_last[ENG_BLOCK];               /* the spring's return a block ago: into the echo (cross-send) */
 static uint32_t sret_last_n;
 static ramp_t xs_e2s, xs_s2e;                    /* the cross-sends' levels (P1.3) */
@@ -290,6 +291,14 @@ static void bus_update(void)                     /* the echo's and the voices' s
     echo_div_now = d;
     t = echo_line_t(d) - 1.0f;                   /* (the decimator and interpolator are about a line sample) */
     c.t = t;
+    c.slew = 0.0005f;
+    if (ev[P_ECHO_DIVE] || dive_back) {          /* the tape dive: slower to DEPTH x T, then back as slowly */
+        float secs = 0.1f + 2.9f * (float)ev[P_DIVE_TIME] * (1.0f / 127.0f);
+        c.slew = 1.0f - fm_expf(-1.0f / (secs * 0.33f * ECHO_RATE));   /* ~95 % of the way in secs */
+        if (ev[P_ECHO_DIVE])
+            c.t = fm_minf(t * (1.0f + (float)ev[P_DIVE_DEPTH] * (1.0f / 127.0f)), ECHO_T_MAX);
+        dive_back = ev[P_ECHO_DIVE] || fm_fabsf(echo_t_now() - t) > 2.0f;
+    }
     t60 = echo_t60(ev[P_ECHO_FB]);
     c.g = fm_exp2f(-9.966f * (t / ECHO_RATE) / t60);   /* -60 dB after T60 */
     if (echo_thrown())

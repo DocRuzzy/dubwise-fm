@@ -75,6 +75,9 @@ static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
     [P_ECHO_HEAD2 - P_ECHO_TIME] = {"echo.head2", 0, 127, 0},
     [P_ECHO_FREEZE - P_ECHO_TIME] = {"echo.freeze", 0, 1, 0},
     [P_ECHO_PUSH - P_ECHO_TIME] = {"echo.push", 0, 1, 0},
+    [P_ECHO_DIVE - P_ECHO_TIME] = {"echo.dive", 0, 1, 0},
+    [P_DIVE_DEPTH - P_ECHO_TIME] = {"dive.depth", 0, 127, 64},
+    [P_DIVE_TIME - P_ECHO_TIME] = {"dive.time", 0, 127, 40},
 };
 static const pdesc_t SPRING[P_SPRING_END - P_SPRING_RET] = {
     {"spring.ret", 0, 127, 90},

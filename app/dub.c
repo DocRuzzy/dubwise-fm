@@ -16,6 +16,7 @@
  *   ARP            the KEY & CHORDS page (keys.c); HOME + ARP: the key lock on / off from any page
  *   FX             the FX page (fx.c): the echo's and the spring's settings, a bank at a time
  *   black 1        the spring crash (the tank struck); held with a throw key, that throw goes to the spring too
+ *   black 4        the tape dive, while held: the echo's time glides longer (FX page, TAPE: depth, glide)
  *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
  *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
  *                  a knob keeps the key from flipping the mute
@@ -593,6 +594,10 @@ void dub_input(void)
         if ((keys & bit) && !(dub.keys & bit)) {
             dub.vel[BK[k]] = (uint8_t)touch_vel(BK[k]);
             dub.last_key = BK[k];
+            if (k == 3u) {               /* the tape dive, while held */
+                ctl_set(P_ECHO_DIVE, 1);
+                dub.dirty_foot = 1;
+            }
             if (k == 1u || k == 2u) {
                 ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 1);
                 dub.dirty_foot = dub.dirty_centre = 1;
@@ -609,6 +614,8 @@ void dub_input(void)
                 ctl_set(P_SPRING_KICK, 1);
             }
             app_say(BLACK_NAME[k], "");
+        } else if (!(keys & bit) && (dub.keys & bit) && k == 3u) {
+            ctl_set(P_ECHO_DIVE, 0);
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 1u || k == 2u)) {
             ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 0);
             dub.dirty_foot = dub.dirty_centre = 1;

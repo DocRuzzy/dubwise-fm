@@ -1,0 +1,33 @@
+# The tape dive (P1.4; C4 drill 3): black 4 held glides the echo's time to DEPTH x T (default x1.5, clamped to what
+# the tape holds: 8960 line samples) over DIVE TIME (default ~1 s), bending the repeats down; let go, it glides back.
+wait 600
+listen
+param dev.tones 1
+param ch1.solo 1
+param ch1.echo 127
+param echo.fb 80
+wait 2000
+expect echo_t 6614
+wav dive.wav
+key b3 down
+wait 50
+said TAPE DIVE
+expect ui.echo.dive 1
+wait 1500
+expect echo_t >8800
+key b3 up
+wait 1600
+expect echo_t <6700
+wavstop
+# FX: the TAPE bank's depth and glide
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+said FX TAPE
+turn K1 -64
+wait 30
+expect ui.dive.depth 0
+said DIVE x1.00
+#wav dive.wav peak<-1 dc<-50 click<-35

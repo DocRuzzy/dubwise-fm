@@ -14,6 +14,7 @@ static const fx_bank_t FX_BANK[] = {
     {"ECHO", {P_ECHO_TIME, P_ECHO_FB, P_ECHO_TONE, P_ECHO_HEAD2}, {"TIME", "FB", "TONE", "2T HEAD"}},
     {"SPRING", {P_SPRING_DECAY, P_SPRING_TONE, P_SPRING_RET, 0}, {"DECAY", "TONE", "RETURN", ""}},
     {"CROSS", {P_XS_E2S, P_XS_S2E, 0, 0}, {"ECHO>SPR", "SPR>ECHO", "", ""}},
+    {"TAPE", {P_DIVE_DEPTH, P_DIVE_TIME, 0, 0}, {"DIVE", "DIVE TIME", "", ""}},
 };
 #define FX_NBANKS (sizeof FX_BANK / sizeof FX_BANK[0])
 static uint32_t fx_bank, fx_sig;
@@ -29,6 +30,24 @@ static void fx_value(uint16_t id, char *t)       /* a value as the page shows it
         text_cat(t, echo_div_name(v));
     } else if (id == P_ECHO_FB) {
         t60_text(t);
+    } else if (id == P_DIVE_DEPTH) {             /* x 1.00 .. 2.00 */
+        int32_t d = 100 + v * 100 / 127;
+        text_cat(t, "x");
+        int_text(d / 100, n);
+        text_cat(t, n);
+        text_cat(t, ".");
+        n[0] = (char)('0' + d % 100 / 10);
+        n[1] = (char)('0' + d % 10);
+        n[2] = 0;
+        text_cat(t, n);
+    } else if (id == P_DIVE_TIME) {              /* 0.1 .. 3 s */
+        int32_t d = 1 + v * 29 / 127;
+        int_text(d / 10, n);
+        text_cat(t, n);
+        text_cat(t, ".");
+        int_text(d % 10, n);
+        text_cat(t, n);
+        text_cat(t, "s");
     } else if (id == P_SPRING_DECAY) {           /* 0.5 .. 6 s */
         int32_t d = 5 + v * 55 / 127;
         int_text(d / 10, n);

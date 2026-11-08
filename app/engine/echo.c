@@ -52,6 +52,7 @@ void echo_init(void)
     cfg.tone = 0.5f;
     cfg.head2 = 0.0f;
     cfg.freeze = 0;
+    cfg.slew = 0.0005f;
     quiet = IDLE_AFTER;
 }
 
@@ -85,7 +86,7 @@ static float line_step(float x)                  /* one line-rate sample: the in
     float h1, h2, hl, y, l;
     uint32_t k;
     int32_t w;
-    t_now += (cfg.t - t_now) * 0.0005f;          /* ~180 ms: the tape's speed changes, not jumps */
+    t_now += (cfg.t - t_now) * cfg.slew;         /* ~180 ms (a dive: its own): the tape's speed changes, not jumps */
     h1 = tap(t_now);
     h2 = tap(2.0f * t_now);
     last_heads_zero = h1 == 0.0f && h2 == 0.0f;

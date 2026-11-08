@@ -21,6 +21,7 @@ typedef struct {
     float tone;                                  /* the in-loop low-pass coefficient, one-pole at 11 kHz */
     float head2;                                 /* the 2T head's level in the output */
     int freeze;                                  /* 1: the input closed */
+    float slew;                                  /* the time's glide, a factor a line sample (0.0005: ~180 ms) */
 } echo_cfg_t;
 
 void echo_init(void);
