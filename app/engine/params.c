@@ -5,6 +5,7 @@
 #include "fastmath.h"
 
 typedef char p_ch_fits[(CHF_N <= CH_STRIDE && P_CH_BASE + NCH * CH_STRIDE <= P_BUS_BASE) ? 1 : -1];
+typedef char p_globals_fit[(P_NGLOBAL <= P_CHORD0 && P_CHORD_END <= P_DEV_TONES) ? 1 : -1];
 typedef char p_voice_fits[(VB_N <= VOICE_STRIDE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
 
 static const pdesc_t CH_FIELDS[CHF_N] = {
@@ -76,6 +77,9 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_KB_OCT] = {"kb.oct", 0, 5, 1},               /* -2: the bass's register */
     [P_LOCK_MIDI] = {"lock.midi", 0, 1, 0},
     [P_CHORD_LEN] = {"chord.len", 1, 16, 4},
+    [P_SONG_MODE] = {"song", 0, 2, 0},
+    [P_SONG_LEN] = {"song.len", 1, 192, 16},
+    [P_SONG_REC] = {"song.rec", 0, 1, 0},
 };
 static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {

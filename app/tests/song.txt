@@ -1,0 +1,84 @@
+# The song (P1.8; spec 4.2): REC arms capture; while playing, each bar takes the desk at its line. Played back
+# (ONCE / LOOP), each bar's mutes land on its line. Section markers (black keys on ARRANGE); in song mode the runway
+# counts to the next one. HOME + REC undoes a capture. A bar at 75 BPM is 3.2 s.
+wait 600
+listen
+param dev.tones 1
+# capture a pass: the kick out on bar 2's line, back on bar 4's; five bars
+tap REC
+wait 30
+said SONG CAPTURE ON
+tap PLAY
+wait 100
+tapkey w0
+wait 3300
+expect eng.ch1.mute 1
+wait 3200
+tapkey w0
+wait 3200
+expect eng.ch1.mute 0
+wait 3000
+tap PLAY
+wait 30
+tap REC
+wait 30
+said SONG CAPTURE OFF
+expect song_mute1 0
+expect song_mute2 1
+expect song_mute3 1
+expect song_mute4 0
+expect ui.song.len 5
+# played back once: the kick drops on bar 2's line and comes back on bar 4's; at the end the transport stops
+param song 1
+wait 30
+tap PLAY
+wait 100
+expect eng.ch1.mute 0
+wait 3300
+expect eng.ch1.mute 1
+expect song_bar 2
+wait 6400
+expect eng.ch1.mute 0
+wait 6500
+expect t_playing 0
+expect ui.play 0
+# section markers on ARRANGE (stopped: at the cursor): INTRO on bar 1, DROP on bar 4
+tap HOME
+wait 30
+tapkey b0
+wait 30
+said MARKER INTRO AT BAR 1
+turn K1 3
+tapkey b4
+wait 30
+said MARKER DROP AT BAR 4
+expect song_mark1 1
+expect song_mark4 5
+# looped, the runway counts to the next marker: in bar 2, two bars to DROP
+param song 2
+param ch1.mute 0
+tap PLAY
+wait 3300
+expect song_bar 2
+expect runway 2
+tap PLAY
+wait 30
+# HOME + REC takes a capture back
+tap REC
+tap PLAY
+wait 3500
+tap PLAY
+wait 30
+press HOME
+tap REC
+release HOME
+wait 30
+said SONG CAPTURE UNDONE
+expect song_mute2 1
+# saved
+tap SAVE
+wait 30
+reboot
+wait 600
+expect song_mute2 1
+expect song_mark4 5

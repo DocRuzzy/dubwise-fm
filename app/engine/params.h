@@ -59,9 +59,12 @@ enum {
     P_KB_OCT,                 /* the keyboard's octave: 0..5 = -3..+2 (the bass plays at -2) */
     P_LOCK_MIDI,              /* 1: the lock filters MIDI in too */
     P_CHORD_LEN,              /* the chord lane's bars, 1..16 */
+    P_SONG_MODE,              /* the song (P1.8): SONG_OFF, SONG_ONCE, SONG_LOOP */
+    P_SONG_LEN,               /* its bars, 1..192 */
+    P_SONG_REC,               /* 1: capturing (each bar's desk written at its line while playing) */
     P_NGLOBAL,
-    P_CHORD0 = 0x010,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
-    P_CHORD_END = 0x020,
+    P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
+    P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
 enum { QUANT_BEAT, QUANT_1, QUANT_2, QUANT_4, QUANT_8, QUANT_16, QUANT_32, QUANT_CYCLE, QUANT_N };

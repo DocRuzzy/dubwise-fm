@@ -11,6 +11,7 @@
 #include "spring.h"
 #include "chordv.h"
 #include "scenes.h"
+#include "song.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -103,6 +104,8 @@ static int32_t seq_bass = -1;                    /* the bass note the sequencer 
 static volatile uint32_t seq_hits;               /* steps played since boot (tests) */
 static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */
 static volatile int32_t chord_last[NCH];         /* the chord a chord channel last played (tests) */
+static int32_t scene_fired = -1;                 /* the scene recalled at this line (the song's capture) */
+static volatile uint32_t song_bar_now;           /* the song's bar playing
 
 /* the runway's audible tick (P_TICK, P0.6): a short sine blip on each of its beats, higher on a bar's first */
 static float tick_ph, tick_inc, tick_amp;
@@ -179,9 +182,10 @@ static void fire_due(int all)                    /* the cues now due (all: every
         if (all || cue_due(&cues[i])) {
             if (cues[i].op == CMD_TEMPLATE)
                 load_template(cues[i].id, (uint16_t)cues[i].v);
-            else if (cues[i].op == CMD_SCENE)
+            else if (cues[i].op == CMD_SCENE) {
                 scene_apply(cues[i].id, ev, pat);
-            else
+                scene_fired = cues[i].id;
+            } else
                 set_param(cues[i].id, cues[i].v);
             t_fire_at = t_samples;
             t_fires++;
@@ -201,9 +205,10 @@ static void cue_add(uint32_t op, uint32_t id, int32_t v, uint32_t beats)
             cue_overflows++;
         if (op == CMD_TEMPLATE)
             load_template((int32_t)id, (uint32_t)v);
-        else if (op == CMD_SCENE)
+        else if (op == CMD_SCENE) {
             scene_apply(id, ev, pat);
-        else
+            scene_fired = (int32_t)id;
+        } else
             set_param(id, v);
         return;
     }
@@ -439,9 +444,47 @@ void eng_init(void)
 }
 
 /* ------------------------------------------------------------- sequencer --- */
+static void song_line(uint32_t bar)             /* a bar's line: the song captured or played */
+{
+    uint32_t len = (uint32_t)ev[P_SONG_LEN], b = bar;
+    if (ev[P_SONG_REC]) {                        /* capture: this bar holds what the desk is now */
+        if (bar < SONG_BARS) {                   /* (a pass from the top is the song: its length, what it took) */
+            song_capture(bar, ev, scene_fired);
+            if (bar == 0u || bar + 1u > len)
+                ev[P_SONG_LEN] = (int16_t)(bar + 1u);
+            song_bar_now = bar;
+        }
+    } else if (ev[P_SONG_MODE] != SONG_OFF) {   /* playback */
+        int sc;
+        if (bar >= len) {
+            if (ev[P_SONG_MODE] == SONG_ONCE) {  /* the end: stop (the UI follows) */
+                t_playing = 0;
+                ev[P_PLAY] = 0;
+                fire_due(1);
+                return;
+            }
+            b = bar % len;
+        }
+        song_bar_now = b;
+        sc = song_apply(b, ev);                  /* the bar's mutes, solos, Big Knob */
+        if (sc >= 0 && sc < NSCENES) {           /* its scene first, then the bar's own desk over it */
+            scene_apply((uint32_t)sc, ev, pat);
+            song_apply(b, ev);
+        }
+    }
+    scene_fired = -1;
+    strips_update();
+    bus_update();
+}
+
 static void seq_play(uint32_t tick)              /* sixteenth `tick` since the start: every channel's step */
 {
     uint32_t ch;
+    if (tick % 16u == 0u) {
+        song_line(tick / 16u);
+        if (!t_playing)
+            return;
+    }
     if (seq_bass >= 0) {                         /* the bass: a step long (staccato), unless the next one sounds */
         voice_release(CH_BASS, seq_bass);
         seq_bass = -1;
@@ -640,15 +683,17 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         uint32_t d = n - pos;
         if (t_playing) {
             uint32_t tick = t_beat * 4u + t_phase / Q16, u;
+            if (ncues && until_cue() == 0) {     /* the cues at this sample first: a scene on the line is there */
+                fire_due(0);                     /* for the line's step, and for the song's capture */
+                strips_update();
+                bus_update();
+            }
             if ((int32_t)tick != last_tick) {
                 last_tick = (int32_t)tick;
                 seq_play(tick);
             }
-            if (ncues && until_cue() == 0) {
-                fire_due(0);
-                strips_update();
-                bus_update();
-            }
+            if (!t_playing)                      /* (a song played once has ended: the rest rings out) */
+                goto render;
             u = until_16th();
             if (u < d)
                 d = u;
@@ -658,6 +703,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                     d = u;
             }
         }
+    render:
         prof_mark(PART_CMD);
         if (pos >= n)
             break;
@@ -678,6 +724,7 @@ float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
 uint32_t eng_seq_hits(void) { return seq_hits; }
 uint32_t eng_ticks(void) { return ticks; }
+uint32_t eng_song_bar(void) { return song_bar_now; }
 int32_t eng_chord_last(uint32_t ch) { return ch < NCH ? chord_last[ch] : 0; }
 float eng_spring_ret_peak(void) { return spring_ret_peak; }
 uint32_t eng_crashes(void) { return crashes; }

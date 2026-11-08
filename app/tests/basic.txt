@@ -38,7 +38,7 @@ expect ui.tempo 780
 tap SAVE
 wait 30
 expect dirty 0
-expect store_writes 3
+expect store_writes 4
 reboot
 wait 600
 expect ui.v1.tune 45
@@ -56,7 +56,10 @@ wait 30
 said DUB PAGE
 tap REC
 wait 30
-said BUTTON REC
+said SONG CAPTURE ON
+tap REC
+wait 30
+said SONG CAPTURE OFF
 tap OCT-
 wait 30
 said QUANTISE 1 BAR

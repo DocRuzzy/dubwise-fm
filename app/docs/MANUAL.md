@@ -153,6 +153,25 @@ the Big Knob and both returns. A scene with patterns (P) keeps every channel's p
 
 SAVE on its own (pressed and let go) saves everything to the FM-1, scenes included.
 
+### The song
+
+The song is a list of bars (up to 192). Each bar can hold the mutes and solos, the Big Knob and a scene. To make
+one, play it: press REC (on the DUB or ARRANGE page) to arm capture, press PLAY, and dub. At every bar line, that
+bar takes what the desk is doing: your drops, mutes, solos, Big Knob moves and scene changes. Stop, and press REC to
+disarm. A pass that starts from bar 1 becomes the song, as long as you played. HOME + REC takes the last pass back.
+
+Then set KNOB 3 to ONCE (play it through and stop) or LOOP, and press PLAY: each bar lands on its line, as you played
+it.
+
+| Control | What it does |
+| --- | --- |
+| KNOB 1 · BAR | The cursor: the bar a marker goes on while stopped. |
+| KNOB 2 · BARS | The song's length. |
+| KNOB 3 · SONG | OFF (the desk is yours), ONCE or LOOP. |
+| Black keys 1–11 | Put a section marker on the bar playing (stopped: the cursor's bar): INTRO, VERSE, CHORUS, DUB, DROP, BREAK, BRIDGE, BUILD, VOCAL, OUTRO, END. The same key again takes it off. In song mode the runway counts down to the next marker, not the cycle. |
+
+Throws and knob sweeps inside a bar aren't captured yet (motion recording comes later).
+
 ## 3d. KEY & CHORDS (ARP): the lock
 
 The lock makes wrong notes impossible: keys outside the allowed notes are silent. They're never moved to a
@@ -173,7 +192,7 @@ IN makes the lock filter MIDI notes coming in too.
 
 ## 4. Saving
 
-Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the key, its lock and the chord lane, the sounds, the patterns and the scenes. They come back the next time the FM-1 starts. The
+Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the key, its lock and the chord lane, the sounds, the patterns, the scenes and the song. They come back the next time the FM-1 starts. The
 mutes and solos aren't saved: scenes will do that.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")

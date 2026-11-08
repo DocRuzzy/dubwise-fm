@@ -55,6 +55,11 @@ static const char *const FOCUS_LABEL[4] = {"LEVEL", "ECHO", "SPRG", "FILT"};   /
 static const char *const DEST_NAME[DEST_N] = {"E", "S", "ES"};
 static const char *const DEST_WORD[DEST_N] = {"ECHO", "SPRING", "BOTH"};
 #define C_RED RGB(232, 76, 60)
+/* (forward: the pages' files are included further down) */
+static void song_rec_toggle(void);
+static void song_undo_last(void);
+static void song_sync(void);
+static int song_section(uint32_t *from, uint32_t *to);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
 
 static struct {
@@ -131,6 +136,14 @@ static runway_t runway_now(void)
     r.bar = eng_playing() ? (b / 4u) % r.cyc : 0u;
     r.left = r.cyc - r.bar;
     r.beat = eng_playing() ? b % 4u : 0u;
+    {                                    /* in song mode, the section is the cycle (its markers) */
+        uint32_t from, to;
+        if (song_section(&from, &to)) {
+            r.cyc = to - from;
+            r.bar = eng_song_bar() - from;
+            r.left = r.cyc - r.bar;
+        }
+    }
     r.on = eng_playing() && r.left <= runway_bars(ctl_get(P_RUNWAY));
     return r;
 }
@@ -330,6 +343,11 @@ static void button_press(uint32_t k)
         app_say("KEY", ks.bank ? "CHORD LANE" : "AND LOCK");
     } else if (k == B_REC && dub.page == PAGE_STEPS) {
         steps_rec();
+    } else if (k == B_REC && (dub.btn >> B_HOME & 1u)) {   /* HOME + REC: undo the last song capture */
+        dub.home_used = 1;
+        song_undo_last();
+    } else if (k == B_REC && (dub.page == PAGE_DUB || dub.page == PAGE_ARRANGE)) {
+        song_rec_toggle();
     } else if (k == B_FX) {
         fx_next(dub.page == PAGE_FX);
         dub.page = PAGE_FX;
@@ -1030,6 +1048,7 @@ void dub_draw(void)
 {
     uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
     int drew = 0;
+    song_sync();
     runway_track(now);
     if (dub.border && now >= dub.border_until)
         dub.border = 0;

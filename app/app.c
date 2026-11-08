@@ -9,10 +9,11 @@
 #include "engine/control.h"
 #include "engine/echo.h"
 #include "engine/scenes.h"
+#include "engine/song.h"
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x4455423Bu            /* "DUB;": the settings record; another magic loads defaults */
+#define SET_MAGIC 0x4455423Cu            /* "DUB<": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
@@ -62,6 +63,12 @@ static union {                           /* (one at a time) */
     scnpat_store_t p;
 } sst;
 static uint16_t scenes_dirty;            /* (arrange.c sets the bits; saved and cleared by SAVE) */
+#define SONG_MAGIC 0x534F4E31u           /* "SON1": the song (OBJ_SONG) */
+typedef struct {
+    uint32_t magic;
+    song_bar_t bars[SONG_BARS];
+} song_store_t;
+typedef char song_store_fits[sizeof(song_store_t) <= PLAT_STORE_MAX ? 1 : -1];
 
 static int scenes_save(void)             /* the desks if anything changed; the pattern groups that changed */
 {
@@ -95,6 +102,28 @@ static int scenes_save(void)             /* the desks if anything changed; the p
     if (ok)
         scenes_dirty = 0;
     return (int)ok;
+}
+
+static int song_save(void)               /* (the scenes' buffer reused: one store at a time) */
+{
+    song_store_t *ss = (song_store_t *)(void *)&sst;
+    uint32_t i;
+    typedef char fits[sizeof(song_store_t) <= sizeof sst ? 1 : -1];
+    (void)sizeof(fits);
+    ss->magic = SONG_MAGIC;
+    for (i = 0; i < SONG_BARS; i++)
+        ss->bars[i] = song[i];
+    return plat_store_save(OBJ_SONG, ss, sizeof *ss) == 0;
+}
+
+static void song_load(void)
+{
+    song_store_t *ss = (song_store_t *)(void *)&sst;
+    uint32_t i;
+    if (plat_store_load(OBJ_SONG, ss, sizeof *ss) != (int)sizeof *ss || ss->magic != SONG_MAGIC)
+        return;
+    for (i = 0; i < SONG_BARS; i++)
+        song[i] = ss->bars[i];
 }
 
 static void scenes_load(void)
@@ -229,7 +258,7 @@ static void settings_save(void)
         }
     }
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
-        && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0 && scenes_save()) {
+        && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0 && scenes_save() && song_save()) {
         set_dirty = 0;
         app_say("SAVED", "");
     } else {
@@ -242,6 +271,7 @@ void app_init(void)
     eng_init();                          /* every parameter at its default, on both sides of the queue */
     ctl_init();
     scenes_load();
+    song_load();
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC
         || set.tempo != param_clamp(P_TEMPO, set.tempo) || set.quant >= QUANT_N)
         settings_defaults();
