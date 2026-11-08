@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Dubwise FM contributors */
 /* The FX page (FX; docs/interface-spec.md 4): the effects' settings, four to a bank, KNOB 1-4; FX again for the next
- * bank. Echo, Spring, Cross-sends (P1.3; phaser / width join later: spec 4). Part of the unity build:
+ * bank. Echo, Spring, Cross-sends (P1.3), Tape (P1.4), Width (P1.5; the phaser joins it later: spec 4). Part of the unity build:
  * dub.c includes it. */
 
 typedef struct {
@@ -15,6 +15,7 @@ static const fx_bank_t FX_BANK[] = {
     {"SPRING", {P_SPRING_DECAY, P_SPRING_TONE, P_SPRING_RET, 0}, {"DECAY", "TONE", "RETURN", ""}},
     {"CROSS", {P_XS_E2S, P_XS_S2E, 0, 0}, {"ECHO>SPR", "SPR>ECHO", "", ""}},
     {"TAPE", {P_DIVE_DEPTH, P_DIVE_TIME, 0, 0}, {"DIVE", "DIVE TIME", "", ""}},
+    {"WIDTH", {P_ECHO_WIDTH, 0, 0, 0}, {"ECHO WIDTH", "", "", ""}},
 };
 #define FX_NBANKS (sizeof FX_BANK / sizeof FX_BANK[0])
 static uint32_t fx_bank, fx_sig;
@@ -30,6 +31,14 @@ static void fx_value(uint16_t id, char *t)       /* a value as the page shows it
         text_cat(t, echo_div_name(v));
     } else if (id == P_ECHO_FB) {
         t60_text(t);
+    } else if (id == P_ECHO_WIDTH) {             /* OFF, 8 .. 16 ms */
+        if (!v)
+            text_cat(t, "MONO");
+        else {
+            int_text(8 + (v - 1) * 8 / 126, n);
+            text_cat(t, n);
+            text_cat(t, " MS");
+        }
     } else if (id == P_DIVE_DEPTH) {             /* x 1.00 .. 2.00 */
         int32_t d = 100 + v * 100 / 127;
         text_cat(t, "x");

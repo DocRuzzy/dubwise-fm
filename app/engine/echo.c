@@ -26,6 +26,10 @@ static float t_now;                              /* the slewed time */
 static float hp_x1, hp_y1, lp_y1;                /* the loop's filters */
 static float dec_s1, dec_s2;                     /* the decimator's low-pass (two one-poles at ~4 kHz, 44.1 kHz) */
 static float up_prev, up_cur, up_lp;             /* the interpolator's two line-rate outputs, and its smoothing */
+static float upr_prev, upr_cur, upr_lp;          /* the right side's */
+static hp4_t side_hp;                            /* the right's difference, high-passed at 150 Hz, 24 dB/oct */
+#define SIDE_A 0.9182f                           /* exp(-2 pi 150 / 11025) */
+static float out_r;                              /* line_step's right side */
 static uint32_t phase;                           /* 0..3: where in the line sample this 44.1 kHz sample is */
 static float lim_env = 0.0f, lim_g = 1.0f;
 static uint32_t quiet;                           /* line samples in a row: silent in, both heads read zero */
@@ -53,6 +57,9 @@ void echo_init(void)
     cfg.head2 = 0.0f;
     cfg.freeze = 0;
     cfg.slew = 0.0005f;
+    cfg.width = 0.0f;
+    upr_prev = upr_cur = upr_lp = out_r = 0.0f;
+    hp4_clear(&side_hp);
     quiet = IDLE_AFTER;
 }
 
@@ -118,15 +125,22 @@ write:
     line[wpos] = (int16_t)(w > 32767 ? 32767 : w < -32768 ? -32768 : w);
     if (++wpos == ECHO_LINE)
         wpos = 0;
-    /* the return: the raw heads, then the peak limiter (-6 dBFS, instant attack, ~150 ms release) */
+    /* the return: the raw heads, then the peak limiter (-6 dBFS, instant attack, ~150 ms release), on both sides */
     y = h1 + cfg.head2 * h2;
-    l = fm_fabsf(y);
+    if (cfg.width > 0.0f) {                      /* the right reads later; only its difference above ~120 Hz */
+        float d = tap(t_now + cfg.width) + cfg.head2 * h2 - y;
+        out_r = y + hp4_run(&side_hp, SIDE_A, d);
+    } else {
+        out_r = y;
+    }
+    l = fm_maxf(fm_fabsf(y), fm_fabsf(out_r));
     lim_env = l > lim_env ? l : undenorm(lim_env * 0.9994f);
     lim_g = lim_env > 0.5f ? 0.5f / lim_env : 1.0f;
+    out_r *= lim_g;
     return y * lim_g;
 }
 
-void echo_run(const float *in, float *out, uint32_t n)
+void echo_run(const float *in, float *out, float *outr, uint32_t n)
 {
     uint32_t i;
     if (quiet >= IDLE_AFTER && !cfg.freeze) {    /* idle: the tape empty, nothing coming in: costs nothing */
@@ -134,7 +148,7 @@ void echo_run(const float *in, float *out, uint32_t n)
             ;
         if (i == n) {
             for (i = 0; i < n; i++)
-                out[i] = 0.0f;
+                out[i] = outr[i] = 0.0f;
             t_now = cfg.t;                       /* (an empty tape has nothing to bend: the time is there at once) */
             return;
         }
@@ -147,7 +161,9 @@ void echo_run(const float *in, float *out, uint32_t n)
         if (++phase == 4u) {
             phase = 0;
             up_prev = up_cur;
+            upr_prev = upr_cur;
             up_cur = line_step(dec_s2);
+            upr_cur = out_r;
             if (x == 0.0f && dec_s2 == 0.0f && up_cur == 0.0f && last_heads_zero)
                 quiet++;
             else
@@ -156,6 +172,8 @@ void echo_run(const float *in, float *out, uint32_t n)
         /* back up: linear between the last two line samples (a line sample late), then smoothed */
         up_lp = undenorm(up_lp + 0.5f * ((up_prev + (up_cur - up_prev) * (float)phase * 0.25f) - up_lp));
         out[i] = up_lp;
+        upr_lp = undenorm(upr_lp + 0.5f * ((upr_prev + (upr_cur - upr_prev) * (float)phase * 0.25f) - upr_lp));
+        outr[i] = upr_lp;
     }
 }
 

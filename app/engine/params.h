@@ -87,6 +87,7 @@ enum {
     P_ECHO_DIVE,              /* 1: the tape dive (P1.4): the time glides to DEPTH x T, the repeats bend down */
     P_DIVE_DEPTH,             /* 0..127: 1 .. 2 x the time */
     P_DIVE_TIME,              /* 0..127: the glide, 0.1 .. 3 s */
+    P_ECHO_WIDTH,             /* 0 mono; 1..127: the right side 8 .. 16 ms later (P1.5) */
     P_ECHO_END,
     P_SPRING_RET = 0x0D0,     /* the spring's return (P1.2), 0..127 */
     P_SPRING_DECAY,           /* its decay: 0.5 .. 6 s */

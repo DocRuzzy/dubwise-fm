@@ -55,6 +55,7 @@ typedef struct {
 static int16_t ev[P_NIDS];                       /* the applied values (the main loop reads them back); 16 bits: pdesc_t */
 static strip_t strip[NCH];
 static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], eret[ENG_BLOCK], sret[ENG_BLOCK];
+static float dryr[ENG_BLOCK], eretr[ENG_BLOCK], sretr[ENG_BLOCK];   /* the right side (returns are stereo: P1.5) */
 static volatile float echo_peak, spring_peak, echo_ret_peak, spring_ret_peak;
 static ramp_t echo_ret, spring_ret;              /* the returns' levels */
 static int16_t kick_last;
@@ -67,7 +68,7 @@ static ramp_t xs_e2s, xs_s2e;                    /* the cross-sends' levels (P1.
 static volatile uint32_t crashes;
 static volatile int32_t echo_div_now;
 static volatile uint32_t lock_now = 0xFFFu;
-static bigknob_t bk;                             /* the Big Knob (P1.1) */
+static bigknob_t bk, bkr;                        /* the Big Knob (P1.1), left and right */
 static int32_t bk_step = -1;                     /* its step set */
 static volatile float out_peak;                  /* the output's, before MASTER (tests, meters)      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
 static volatile uint32_t cmds;
@@ -312,6 +313,8 @@ static void bus_update(void)                     /* the echo's and the voices' s
     tone_hz = 800.0f * fm_exp2f((float)ev[P_ECHO_TONE] * (2.64f / 127.0f));
     c.tone = 1.0f - fm_expf(-6.2831853f * tone_hz / ECHO_RATE);
     c.head2 = send(ev[P_ECHO_HEAD2]);
+    c.width = ev[P_ECHO_WIDTH] ? (8.0f + 8.0f * (float)(ev[P_ECHO_WIDTH] - 1) * (1.0f / 126.0f)) * (ECHO_RATE / 1000.0f)
+                               : 0.0f;
     if (echo_thrown() && c.head2 < 0.35f)
         c.head2 = 0.35f;
     echo_config(&c);
@@ -346,6 +349,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     if (ev[P_HPF_STEP] != bk_step) {             /* a step: at once, unsmoothed (the detents are the sound) */
         bk_step = ev[P_HPF_STEP];
         bigknob_step(&bk, hpf_hz(bk_step));
+        bigknob_step(&bkr, hpf_hz(bk_step));
     }
 }
 
@@ -402,6 +406,7 @@ void eng_init(void)
     echo_init();
     voices_init();
     bigknob_init(&bk);
+    bigknob_init(&bkr);
     bk_step = -1;
     spring_init();
     xs_e2s.g = xs_e2s.target = xs_s2e.g = xs_s2e.target = 0.0f;
@@ -549,43 +554,50 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         for (i = 0; i < m; i++)
             ebus[i] += ramp_next(&xs_s2e) * sret_last[i];
     }
-    echo_run(ebus, eret, n);
+    echo_run(ebus, eret, eretr, n);
     prof_mark(PART_ECHO);
     if (xs_e2s.g != 0.0f || xs_e2s.left)         /* the echo's return into the spring */
         for (i = 0; i < n; i++)
             sbus[i] += ramp_next(&xs_e2s) * eret[i];
-    if (ev[P_HPF_ON] == HPF_ON_ECHO)             /* the Big Knob on the echo's return */
+    if (ev[P_HPF_ON] == HPF_ON_ECHO) {           /* the Big Knob on the echo's return */
         bigknob_run(&bk, eret, n);
-    spring_run(sbus, sret, n);
+        bigknob_run(&bkr, eretr, n);
+    }
+    spring_run(sbus, sret, sretr, n);
     prof_mark(PART_SPRING);
     for (i = 0; i < n; i++)
-        sret_last[i] = sret[i];
+        sret_last[i] = 0.5f * (sret[i] + sretr[i]);
     sret_last_n = xs_s2e.g != 0.0f || xs_s2e.left ? n : 0u;
     {
         float rp = 0.0f, op = 0.0f, srp = 0.0f;
         for (i = 0; i < n; i++) {
-            float r = ramp_next(&echo_ret) * eret[i], sr = ramp_next(&spring_ret) * sret[i];
+            float ge = ramp_next(&echo_ret), gs = ramp_next(&spring_ret);
+            float r = ge * eret[i], rr = ge * eretr[i], sr = gs * sret[i], srr = gs * sretr[i];
             ep = fm_maxf(ep, fm_fabsf(ebus[i]));
             sp = fm_maxf(sp, fm_fabsf(sbus[i]));
-            rp = fm_maxf(rp, fm_fabsf(r));
-            srp = fm_maxf(srp, fm_fabsf(sr));
-            dry[i] += r + sr;                    /* mono dry and the returns (stereo returns: P1.5) */
+            rp = fm_maxf(rp, fm_maxf(fm_fabsf(r), fm_fabsf(rr)));
+            srp = fm_maxf(srp, fm_maxf(fm_fabsf(sr), fm_fabsf(srr)));
+            dryr[i] = dry[i] + rr + srr;         /* the mono dry path to both sides; the returns stereo */
+            dry[i] += r + sr;
         }
         spring_ret_peak = srp;
-        if (ev[P_HPF_ON] == HPF_ON_MIX)          /* the Big Knob on the whole mix */
+        if (ev[P_HPF_ON] == HPF_ON_MIX) {        /* the Big Knob on the whole mix */
             bigknob_run(&bk, dry, n);
+            bigknob_run(&bkr, dryr, n);
+        }
         for (i = 0; i < n; i++) {
-            float y = dry[i];
-            op = fm_maxf(op, fm_fabsf(y));
+            float y = dry[i], yr = dryr[i];
+            op = fm_maxf(op, fm_maxf(fm_fabsf(y), fm_fabsf(yr)));
             gain_now = undenorm(gain_now + (gain - gain_now) * 0.004f);   /* ~5 ms: MASTER does not click */
             if (tick_amp > 1e-4f) {              /* the runway's tick, not sent anywhere */
-                y += tick_amp * fm_sin_turns(tick_ph);
+                float tk = tick_amp * fm_sin_turns(tick_ph);
+                y += tk;
+                yr += tk;
                 tick_ph = tick_ph + tick_inc >= 1.0f ? tick_ph + tick_inc - 1.0f : tick_ph + tick_inc;
                 tick_amp *= 0.9985f;             /* ~15 ms */
             }
-            y *= gain_now;
-            lr[2 * i] = (int32_t)y;
-            lr[2 * i + 1] = (int32_t)y;
+            lr[2 * i] = (int32_t)(y * gain_now);
+            lr[2 * i + 1] = (int32_t)(yr * gain_now);
         }
         echo_ret_peak = rp;
         out_peak = op;

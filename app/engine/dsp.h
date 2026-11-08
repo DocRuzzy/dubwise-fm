@@ -11,3 +11,26 @@ static inline float undenorm(float x)
     volatile float k = 1e-18f;
     return (x + k) - k;
 }
+
+/* a steep high-pass for a side (L - R) signal, so the low end stays mono: four one-pole high-passes in a row,
+ * 24 dB/oct. a = exp(-2 pi fc / fs) */
+typedef struct {
+    float x[4], y[4];
+} hp4_t;
+static inline float hp4_run(hp4_t *h, float a, float in)
+{
+    int k;
+    for (k = 0; k < 4; k++) {
+        float y = a * (h->y[k] + in - h->x[k]);
+        h->x[k] = in;
+        h->y[k] = undenorm(y);
+        in = y;
+    }
+    return in;
+}
+static inline void hp4_clear(hp4_t *h)
+{
+    int k;
+    for (k = 0; k < 4; k++)
+        h->x[k] = h->y[k] = 0.0f;
+}

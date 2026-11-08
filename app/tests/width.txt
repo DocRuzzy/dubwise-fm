@@ -1,0 +1,43 @@
+# Echo width (P1.5; C8): the returns are stereo, the dry path mono. The echo's right side reads the tape 8-16 ms
+# later, only its difference above ~120 Hz reaching it; the spring's two springs go left and right the same way. So
+# there is stereo, but nothing below ~120 Hz differs between the sides (side_lo).
+wait 600
+# no width, no spring: the output is mono (a bass note and a rim shot into the echo)
+param ch4.echo 127
+param ch2.echo 127
+wav width-off.wav
+midi 90 21 64
+midi 99 25 64
+wait 120
+midi 80 21 00
+wait 1200
+wavstop
+# width at its widest: stereo, the lows still mono
+param echo.width 127
+wav width-on.wav
+midi 90 21 64
+midi 99 25 64
+wait 120
+midi 80 21 00
+wait 1200
+wavstop
+# the spring: stereo too
+param ch2.echo 0
+param ch4.echo 0
+param echo.width 0
+param ch3.spring 127
+wav width-spring.wav
+midi 99 2A 64
+wait 1200
+wavstop
+# FX: the WIDTH bank
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 4
+#wav width-off.wav side<-150
+#wav width-on.wav side>-70 side_lo<-80 peak<-1
+#wav width-spring.wav side>-90 side_lo<-80

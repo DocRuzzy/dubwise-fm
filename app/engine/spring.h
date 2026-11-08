@@ -4,8 +4,8 @@
  * delay loop (37 and 43 ms) through twelve stretched all-passes (each pass round, the spring's dispersive chirp
  * grows: its "drip") and a ~4.5 kHz damping low-pass, decaying in DECAY. The input is high-passed at ~200 Hz (a
  * tank carries little bass; the low end stays the dry path's). The crash strikes both springs at once: a 6 ms
- * noise burst and a thump, the "thunderclap" of a kicked tank. Mono for now (the springs summed): stereo returns
- * come with P1.5. In the pool: ~8 KB. */
+ * noise burst and a thump, the "thunderclap" of a kicked tank. Stereo since P1.5: a spring each side. In the
+ * pool: ~8 KB. */
 #pragma once
 #include <stdint.h>
 
@@ -17,4 +17,6 @@ typedef struct {
 void spring_init(void);
 void spring_config(const spring_cfg_t *c);
 void spring_crash(float amount);                 /* strike the tank (0..1) */
-void spring_run(const float *in, float *out, uint32_t n);   /* 44.1 kHz in, the return out */
+/* 44.1 kHz in, the return out: the two springs left and right around their middle, the difference above ~120 Hz
+ * only (the low end mono) */
+void spring_run(const float *in, float *outl, float *outr, uint32_t n);

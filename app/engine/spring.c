@@ -21,6 +21,9 @@ static float lp[NSPR], fb[NSPR];
 static spring_cfg_t cfg = {0.8f, 0.5f};
 static float hp_x, hp_y;                         /* the input's high-pass (~200 Hz, at 22 kHz) */
 static float dec, up_prev, up_cur;               /* half rate: the decimator's state, the interpolator's two */
+static float upr_prev, upr_cur, half_r;          /* the right side's */
+static hp4_t side_hp;                            /* the difference, high-passed at 150 Hz, 24 dB/oct */
+#define SIDE_A 0.9582f                           /* exp(-2 pi 150 / 22050) */
 static uint32_t phase;
 static float crash_env, crash_amp;               /* the strike: its burst */
 static uint32_t rng = 0x9E3779B9u;
@@ -51,6 +54,8 @@ void spring_init(void)
     ap_i = 0;
     hp_x = hp_y = dec = up_prev = up_cur = 0.0f;
     phase = 0;
+    upr_prev = upr_cur = half_r = 0.0f;
+    hp4_clear(&side_hp);
     crash_env = crash_amp = 0.0f;
     quiet = IDLE_AFTER;                          /* (idle from the start) */
 }
@@ -67,7 +72,7 @@ void spring_crash(float amount)
 static float half_step(float x)                  /* one 22,050 Hz sample: in, the return out */
 {
     uint32_t s, i;
-    float out = 0.0f, y;
+    float out = 0.0f, y, sp[NSPR];
     /* the input: high-passed, plus a strike's burst (noise and a thump, ~6 ms) */
     y = 0.945f * (hp_y + x - hp_x);
     hp_x = x;
@@ -89,19 +94,25 @@ static float half_step(float x)                  /* one 22,050 Hz sample: in, th
             pos[s] = 0;
         lp[s] = undenorm(lp[s] + cfg.damp * (line[s][pos[s]] - lp[s]));   /* the oldest, damped */
         fb[s] = lp[s];
-        out += lp[s];
+        sp[s] = lp[s];
     }
     ap_i = (uint16_t)((ap_i + 1u) % APK);
-    out *= 0.5f;
+    {                                            /* left and right: the middle, and the difference over ~120 Hz */
+        float hp = hp4_run(&side_hp, SIDE_A, 0.5f * (sp[0] - sp[1]));
+        out = 0.5f * (sp[0] + sp[1]);
+        half_r = out - hp;
+        out += hp;
+    }
     {                                            /* the return's limiter: instant attack, ~150 ms release */
-        float l = fm_fabsf(out);
+        float l = fm_maxf(fm_fabsf(out), fm_fabsf(half_r));
         lim_env = l > lim_env ? l : undenorm(lim_env * 0.9997f);
         lim_g = lim_env > 0.5f ? 0.5f / lim_env : 1.0f;
     }
+    half_r *= lim_g;
     return out * lim_g;
 }
 
-void spring_run(const float *in, float *out, uint32_t n)
+void spring_run(const float *in, float *out, float *outr, uint32_t n)
 {
     uint32_t i;
     if (quiet >= IDLE_AFTER) {                   /* idle: silent in, nothing left: costs nothing */
@@ -109,7 +120,7 @@ void spring_run(const float *in, float *out, uint32_t n)
             ;
         if (i == n) {
             for (i = 0; i < n; i++)
-                out[i] = 0.0f;
+                out[i] = outr[i] = 0.0f;
             return;
         }
         quiet = 0;
@@ -119,9 +130,12 @@ void spring_run(const float *in, float *out, uint32_t n)
         if (++phase == 2u) {
             phase = 0;
             up_prev = up_cur;
+            upr_prev = upr_cur;
             up_cur = half_step(dec);
+            upr_cur = half_r;
         }
         out[i] = up_prev + (up_cur - up_prev) * (phase ? 0.5f : 0.0f);
+        outr[i] = upr_prev + (upr_cur - upr_prev) * (phase ? 0.5f : 0.0f);
         if (phase == 0u) {                       /* counting the quiet: in silent, out under -120 dB */
             if (in[i] == 0.0f && fm_fabsf(up_cur) < 1e-6f && crash_env < 1e-4f)
                 quiet++;

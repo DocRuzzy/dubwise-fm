@@ -13,6 +13,7 @@ Metrics (dBFS unless noted; -200 for silence):
   click     largest |second difference| of the left side: a step or a discontinuity shows here; a sine at f
             and amplitude A gives A*(2 pi f / 44100)^2 at most (110 Hz at -20 dBFS: about -84)
   side_lo   RMS of (L - R)/2 below ~120 Hz: the low end must be mono (design principles)
+  side      RMS of (L - R)/2, all of it: how much stereo there is
   tail      RMS of the last 250 ms (an echo that rings on, or dies)
   tail2     RMS of the last 2 s (the same, over a pulsing echo's gaps)
   head      RMS of the first 250 ms
@@ -125,6 +126,7 @@ def metrics(path):
         "dc": db(abs(sum(L) / n) if n else 0.0),
         "click": db(d2),
         "side_lo": db(rms(side)),
+        "side": db(rms([(a - b) * 0.5 for a, b in zip(L, R)])),
         "tail": tail,
         "tail2": db(rms(L[-2 * rate:])),
         "head": head,

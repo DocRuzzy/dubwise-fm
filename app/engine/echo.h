@@ -22,10 +22,13 @@ typedef struct {
     float head2;                                 /* the 2T head's level in the output */
     int freeze;                                  /* 1: the input closed */
     float slew;                                  /* the time's glide, a factor a line sample (0.0005: ~180 ms) */
+    float width;                                 /* the right side's extra delay, line samples (0: mono); P1.5 */
 } echo_cfg_t;
 
 void echo_init(void);
 void echo_config(const echo_cfg_t *c);           /* the audio interrupt, before echo_run */
-void echo_run(const float *in, float *out, uint32_t n);   /* 44.1 kHz: n samples of send in, return out */
+/* 44.1 kHz: n samples of send in, the return out, left and right. Width: the right reads the tape later, and only
+ * the difference above ~120 Hz reaches it (the low end stays mono: design principles) */
+void echo_run(const float *in, float *outl, float *outr, uint32_t n);
 float echo_gr(void);                             /* the return limiter's gain now (1: not limiting) */
 float echo_t_now(void);                          /* the slewed time, line samples */
