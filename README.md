@@ -70,7 +70,7 @@ engineer's moves built in (SETUP → DEMO SONG). The manual ends with a few hidd
 ## Status
 
 **Beta, not yet tested on a real FM-1.** The roadmap is built (P0 desk and sequencer, P1 signature tone, P2 colour,
-leads and live input, P3 wishlist) and checked by 34 host-simulator scenarios with audio analysis. The device package
+leads and live input, P3 wishlist) and checked by 37 host-simulator scenarios with audio analysis. The device package
 builds and passes fm1-base's install simulation. The live USB-audio input waits on a proposed fm1-base change
 ([`docs/upstream/`](docs/upstream/)). See [`docs/roadmap.md`](docs/roadmap.md), the manual in
 [`app/docs/MANUAL.md`](app/docs/MANUAL.md), and the release checklist in
