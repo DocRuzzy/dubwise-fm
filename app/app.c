@@ -11,7 +11,7 @@
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x44554236u            /* "DUB6": the settings record; another magic loads defaults */
+#define SET_MAGIC 0x44554237u            /* "DUB7": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
@@ -20,6 +20,7 @@ typedef struct {
     uint8_t echo_time, echo_fb, echo_ret, spring_ret;   /* the DUB page's knobs */
     uint8_t setup[P_NGLOBAL];            /* the globals from P_LEAD on: lead, cycle, runway .. (SETUP) */
     uint8_t chords[P_CHORD_END - P_CHORD0];   /* the chord lane */
+    uint8_t hpf_on;                      /* where the Big Knob sits */
 } settings_t;
 /* the sounds: every voice parameter (P_VOICE_BASE..P_NIDS), in their own store object (OBJ_SOUND) */
 #define SOUND_MAGIC 0x534E4431u          /* "SND1" */
@@ -89,6 +90,7 @@ static void settings_defaults(void)
     set.echo_fb = (uint8_t)param_def(P_ECHO_FB);
     set.echo_ret = (uint8_t)param_def(P_ECHO_RET);
     set.spring_ret = (uint8_t)param_def(P_SPRING_RET);
+    set.hpf_on = (uint8_t)param_def(P_HPF_ON);
     {
         uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
@@ -106,6 +108,7 @@ static void settings_save(void)
     set.echo_fb = (uint8_t)ctl_get(P_ECHO_FB);
     set.echo_ret = (uint8_t)ctl_get(P_ECHO_RET);
     set.spring_ret = (uint8_t)ctl_get(P_SPRING_RET);
+    set.hpf_on = (uint8_t)ctl_get(P_HPF_ON);
     {
         uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
@@ -165,6 +168,7 @@ void app_init(void)
     ctl_set(P_ECHO_FB, set.echo_fb);
     ctl_set(P_ECHO_RET, set.echo_ret);
     ctl_set(P_SPRING_RET, set.spring_ret);
+    ctl_set(P_HPF_ON, set.hpf_on);
     {
         uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
@@ -316,6 +320,8 @@ int app_expect(const char *what, int *got)
         *got = what[0] == 'e' ? eng_param((uint32_t)id) : ctl_get((uint32_t)id);
     } else if (!strncmp(what, "ch", 2) && what[2] >= '1' && what[2] <= '8' && !strcmp(what + 3, "_db"))
         *got = peak_db(eng_ch_peak((uint32_t)(what[2] - '1')));   /* post-fader, dBFS (-120: silent) */
+    else if (!strcmp(what, "out_db"))        /* the mix, before MASTER */
+        *got = peak_db(eng_out_peak());
     else if (!strcmp(what, "echo_db"))
         *got = peak_db(eng_echo_peak());
     else if (!strcmp(what, "echo_ret_db"))   /* the echo's return, after its level */

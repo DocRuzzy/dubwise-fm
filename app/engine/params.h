@@ -87,12 +87,19 @@ enum {
     P_ECHO_END,
     P_SPRING_RET = 0x0D0,     /* the spring's return (P1.2), 0..127 */
     P_SPRING_END,
+    P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..10 = HPF_HZ */
+    P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */
+    P_HPF_END,
 };
 enum { ECHO_DIV_16, ECHO_DIV_8T, ECHO_DIV_16D, ECHO_DIV_8, ECHO_DIV_4T, ECHO_DIV_8D, ECHO_DIV_4, ECHO_DIV_2T,
        ECHO_DIV_4D, ECHO_DIV_2, ECHO_DIV_N };
 float echo_div_beats(int32_t d);
 const char *echo_div_name(int32_t d);                 /* "1/8." */
 float echo_t60(int32_t fb);                          /* seconds */
+enum { HPF_ON_MIX, HPF_ON_ECHO, HPF_ON_N };
+#define HPF_STEPS 10
+float hpf_hz(int32_t step);                          /* a step's cutoff, Hz (0: off) */
+const char *hpf_name(int32_t step);                  /* "500 HZ", "1K", "OFF" */
 uint32_t quant_beats(int32_t q);                     /* 1, 4, 8 .. 128 (4/4); QUANT_CYCLE: the UI's (cycle) */
 uint32_t cycle_bars(int32_t c);                      /* 8, 16, 32, 64 */
 uint32_t runway_bars(int32_t r);                     /* 1, 2, 4, 8 */

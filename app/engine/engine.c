@@ -7,6 +7,7 @@
 #include "echo.h"
 #include "voices.h"
 #include "riddim.h"
+#include "bigknob.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -56,7 +57,10 @@ static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], e
 static volatile float echo_peak, spring_peak, echo_ret_peak;
 static ramp_t echo_ret;                          /* the echo return's level */
 static volatile int32_t echo_div_now;
-static volatile uint32_t lock_now = 0xFFFu;      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
+static volatile uint32_t lock_now = 0xFFFu;
+static bigknob_t bk;                             /* the Big Knob (P1.1) */
+static int32_t bk_step = -1;                     /* its step set */
+static volatile float out_peak;                  /* the output's, before MASTER (tests, meters)      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
 
@@ -296,6 +300,10 @@ static void bus_update(void)                     /* the echo's and the voices' s
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev);
     lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
+    if (ev[P_HPF_STEP] != bk_step) {             /* a step: at once, unsmoothed (the detents are the sound) */
+        bk_step = ev[P_HPF_STEP];
+        bigknob_step(&bk, hpf_hz(bk_step));
+    }
 }
 
 static void drain(void)                          /* every queued command, at the start of the block */
@@ -350,6 +358,8 @@ void eng_init(void)
     strips_update();
     echo_init();
     voices_init();
+    bigknob_init(&bk);
+    bk_step = -1;
     echo_ret.g = echo_ret.target = 0.0f;
     echo_ret.left = 0;
     bus_update();
@@ -486,15 +496,23 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
     }
     echo_run(ebus, eret, n);
     prof_mark(PART_ECHO);
+    if (ev[P_HPF_ON] == HPF_ON_ECHO)             /* the Big Knob on the echo's return */
+        bigknob_run(&bk, eret, n);
     {
-        float rp = 0.0f;
+        float rp = 0.0f, op = 0.0f;
         for (i = 0; i < n; i++) {
-            float y, r = ramp_next(&echo_ret) * eret[i];
+            float r = ramp_next(&echo_ret) * eret[i];
             ep = fm_maxf(ep, fm_fabsf(ebus[i]));
             sp = fm_maxf(sp, fm_fabsf(sbus[i]));
             rp = fm_maxf(rp, fm_fabsf(r));
+            dry[i] += r;                         /* mono dry and the echo's return (stereo returns: P1.5) */
+        }
+        if (ev[P_HPF_ON] == HPF_ON_MIX)          /* the Big Knob on the whole mix */
+            bigknob_run(&bk, dry, n);
+        for (i = 0; i < n; i++) {
+            float y = dry[i];
+            op = fm_maxf(op, fm_fabsf(y));
             gain_now = undenorm(gain_now + (gain - gain_now) * 0.004f);   /* ~5 ms: MASTER does not click */
-            y = dry[i] + r;                      /* mono dry and the echo's return (stereo returns: P1.5) */
             if (tick_amp > 1e-4f) {              /* the runway's tick, not sent anywhere */
                 y += tick_amp * fm_sin_turns(tick_ph);
                 tick_ph = tick_ph + tick_inc >= 1.0f ? tick_ph + tick_inc - 1.0f : tick_ph + tick_inc;
@@ -505,6 +523,7 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             lr[2 * i + 1] = (int32_t)y;
         }
         echo_ret_peak = rp;
+        out_peak = op;
     }
     echo_peak = ep;
     spring_peak = sp;
@@ -565,6 +584,7 @@ float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
 uint32_t eng_seq_hits(void) { return seq_hits; }
 uint32_t eng_ticks(void) { return ticks; }
+float eng_out_peak(void) { return out_peak; }
 int eng_midi_allowed(int32_t note)               /* MIDI in, when the lock covers it (P_LOCK_MIDI) */
 {
     return !ev[P_LOCK_MIDI] || (lock_now >> (note % 12) & 1u);

@@ -77,6 +77,10 @@ static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
     [P_ECHO_PUSH - P_ECHO_TIME] = {"echo.push", 0, 1, 0},
 };
 static const pdesc_t SPRING_RET = {"spring.ret", 0, 127, 90};
+static const pdesc_t HPF[P_HPF_END - P_HPF_STEP] = {
+    {"hpf", 0, HPF_STEPS, 0},
+    {"hpf.on", 0, HPF_ON_N - 1, HPF_ON_MIX},
+};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 
 float echo_div_beats(int32_t d)
@@ -92,6 +96,17 @@ const char *echo_div_name(int32_t d)
     return d >= 0 && d < ECHO_DIV_N ? N[d] : "";
 }
 float echo_t60(int32_t fb) { return 0.1f * fm_exp2f((float)fb * 0.1f); }
+
+/* the Altec 9069B's steps, as the replicas and emulations list them (mastery guide B1, C3) */
+static const float HPF_HZ[HPF_STEPS + 1] = {0.0f, 70.0f, 100.0f, 150.0f, 250.0f, 500.0f, 1000.0f, 2000.0f, 3000.0f,
+                                            5000.0f, 7500.0f};
+float hpf_hz(int32_t step) { return step >= 0 && step <= HPF_STEPS ? HPF_HZ[step] : 0.0f; }
+const char *hpf_name(int32_t step)
+{
+    static const char *const N[HPF_STEPS + 1] = {"OFF", "70 HZ", "100 HZ", "150 HZ", "250 HZ", "500 HZ", "1K", "2K",
+                                                 "3K", "5K", "7.5K"};
+    return step >= 0 && step <= HPF_STEPS ? N[step] : "";
+}
 
 uint32_t quant_beats(int32_t q)
 {
@@ -119,6 +134,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &ECHO[id - P_ECHO_TIME];
     if (id == P_SPRING_RET)
         return &SPRING_RET;
+    if (id >= P_HPF_STEP && id < P_HPF_END)
+        return &HPF[id - P_HPF_STEP];
     if (id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE < CHF_N)
         return &CH_FIELDS[(id - P_CH_BASE) % CH_STRIDE];
     if (id >= P_VOICE_BASE && id < P_VOICE_BASE + NCH * VOICE_STRIDE) {

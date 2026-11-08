@@ -106,7 +106,7 @@ image +6.2 KB (the page); CPU only while a cue waits (the transport stepped per 
 ## P1 — Signature tone
 | # | Feature | Ref | Notes |
 |---|---|---|---|
-| 1.1 | Stepped Big Knob HPF | C3 | 3rd-order, 10 steps + off, no smoothing; on master and echo return |
+| 1.1 | Stepped Big Knob HPF | C3 | 3rd-order, 10 steps + off, no smoothing; on master and echo return. **Done (2026-11-08)**, `app/engine/bigknob.c`: TPT one-pole + SVF (Q 1) high-pass = 3rd-order Butterworth, coefficients jump per detent (stable); 70 Hz–7.5 kHz; on the mix or the echo return (SETUP). SELECT on any page but SETUP. Tested against \|H\| = r³/√(1+r⁶) (−0.3, −1.9, −39.5 dB at 110 Hz through 70, 100, 500 Hz). Cost ≈ 15 flops a sample, all tiers |
 | 1.2 | Spring + crash | C5 | Black 1 crash. Held during a throw, it adds the spring |
 | 1.3 | Return cross-sends | B5 | Echo ↔ spring, loop-gain clamped |
 | 1.4 | Tape-dive control | C4 drill 3 | |

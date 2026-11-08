@@ -508,6 +508,10 @@ static void encoder(uint32_t k, int32_t e)
         dub.dirty_hdr = 1;
         tempo_text(t);
         app_say("TEMPO", t);
+    } else if (k == EN_SELECT && dub.page != PAGE_SETUP) {   /* the Big Knob: a detent a step, at once */
+        ctl_set(P_HPF_STEP, ctl_get(P_HPF_STEP) + e);
+        dub.dirty_centre = 1;
+        app_say("BIG KNOB", hpf_name(ctl_get(P_HPF_STEP)));
     } else if (k == EN_ALGO) {
         dub.focus = (dub.focus + e % (int32_t)NCH + (int32_t)NCH) % (int32_t)NCH;
         if (dub.sound)
@@ -828,13 +832,19 @@ static void draw_centre(void)
         cv_text(126, 22, &FONT_XS, "LANDS IN", C_GRAY);
         lands_text(lands_in(), t);
         cv_text(126, 38, &FONT_M, t, C_AMB);
-    } else if (!eng_playing()) {
-        cv_text(126, 4, &FONT_XS, "STOPPED", C_DIM);
-        cv_text(126, 22, &FONT_XS, "MUTES ACT AT ONCE", C_DIM);
-    } else {
-        cv_text(126, 4, &FONT_XS, "NEXT LINE", C_DIM);
+    } else {                             /* the Big Knob: its ten detents as an arc, lit to the step */
+        int32_t stp = eng_param(P_HPF_STEP), k;
+        cv_text(126, 4, &FONT_XS, ctl_get(P_HPF_ON) == HPF_ON_ECHO ? "BIG KNOB: ECHO" : "BIG KNOB", C_GRAY);
+        for (k = 1; k <= HPF_STEPS; k++) {
+            float a = 3.14159265f * (1.0f - (float)(k - 1) / (float)(HPF_STEPS - 1));   /* left to right */
+            int32_t x = 180 + (int32_t)(24.0f * fm_cosf(a)), y = 42 - (int32_t)(22.0f * fm_sinf(a));
+            cv_rect(x - 2, y - 2, 5, 5, k <= stp ? C_HI : C_LINE);
+        }
+        cv_text(180 - text_w(&FONT_B, hpf_name(stp)) / 2, 44, &FONT_B, hpf_name(stp), stp ? C_WHITE : C_DIM);
         lands_text(lands_in(), t);
-        cv_text(126, 22, &FONT_B, t, C_GRAY);
+        cv_text(126, 63, &FONT_T, eng_playing() ? "NEXT LINE" : "STOPPED: AT ONCE", C_DIM);
+        if (eng_playing())
+            cv_text(184, 63, &FONT_T, t, C_GRAY);
     }
     cv_rect(0, 0, 240, 1, C_LINE);
     cv_blit(0, CENTRE_Y);
