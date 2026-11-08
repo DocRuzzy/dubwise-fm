@@ -10,6 +10,7 @@
 
 void ctl_init(void);                       /* the desired values to the defaults (the engine starts from them too) */
 int ctl_set(uint32_t id, int32_t v);       /* clamped; 1 queued, 0 pending (queue full), -1 no such parameter */
+int ctl_cue(uint32_t id, int32_t v, uint32_t beats);   /* the same, quantised: at the next multiple of beats (0: now) */
 int32_t ctl_get(uint32_t id);              /* the desired value */
 void ctl_flush(void);                      /* resend what is pending, in ID order, until the queue is full */
 

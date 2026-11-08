@@ -52,10 +52,90 @@ static volatile float echo_peak, spring_peak;
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
 
+/* the transport: an exact integer clock. Position = t_beat + t_phase / BEAT_UNITS beats; each sample adds the tempo
+ * (BPM x 10) to t_phase, so a beat is BEAT_UNITS / tempo samples, with no rounding that adds up (no drift) */
+#define BEAT_UNITS 26460000u                     /* 600 x 44100 */
+static uint32_t t_beat, t_phase, t_samples;      /* beats and samples since the start */
+static int t_playing;
+static volatile uint32_t t_fire_at, t_fires;     /* the last cue's sample (since the start), cues fired */
+
+/* cued commands (CMD_CUE): each fires once the position reaches (fb, fp), in the order they came */
+#define NCUES 32u
+typedef struct {
+    uint32_t fb, fp;
+    uint16_t id;
+    int16_t v;
+} cue_t;
+static cue_t cues[NCUES];
+static uint32_t ncues;
+static volatile uint32_t cue_overflows;          /* a cue the full list could not hold fired at once instead */
+
 /* the key voice: one voice, the last note wins (the template's; P0.5 replaces it with the bass voice) */
 static volatile int32_t voice_note = -1;
 static volatile float voice_vel = 1.0f;
 static float voice_phase, voice_level;
+
+/* ------------------------------------------------------------- transport --- */
+static int cue_due(const cue_t *c) { return t_beat > c->fb || (t_beat == c->fb && t_phase >= c->fp); }
+
+static void set_param(uint32_t id, int32_t v)
+{
+    if (id >= P_NIDS || !param_desc(id))
+        return;
+    ev[id] = (int16_t)param_clamp(id, v);
+}
+
+static void fire_due(int all)                    /* the cues now due (all: every one), in order */
+{
+    uint32_t i, k = 0;
+    for (i = 0; i < ncues; i++) {
+        if (all || cue_due(&cues[i])) {
+            set_param(cues[i].id, cues[i].v);
+            t_fire_at = t_samples;
+            t_fires++;
+        } else {
+            cues[k++] = cues[i];
+        }
+    }
+    ncues = k;
+}
+
+static void cue_add(uint32_t id, int32_t v, uint32_t beats)
+{
+    cue_t *c;
+    uint32_t b, lead;
+    if (!t_playing || !beats) {                  /* no clock: now */
+        set_param(id, v);
+        return;
+    }
+    if (ncues == NCUES) {                        /* never lost: late is better than never (counted) */
+        cue_overflows++;
+        set_param(id, v);
+        return;
+    }
+    b = (t_beat / beats + 1u) * beats;           /* the next line */
+    lead = (uint32_t)ev[P_LEAD] * 441u / 10u * (uint32_t)ev[P_TEMPO];   /* ms -> samples -> beat units */
+    c = &cues[ncues++];
+    c->id = (uint16_t)id;
+    c->v = (int16_t)v;
+    if (lead) {                                  /* (lead < a beat: 50 ms at 180 BPM is a sixth of one) */
+        c->fb = b - 1u;
+        c->fp = BEAT_UNITS - lead;
+    } else {
+        c->fb = b;
+        c->fp = 0;
+    }
+}
+
+static inline void t_step(uint32_t n)            /* the position n samples on */
+{
+    t_samples += n;
+    t_phase += (uint32_t)ev[P_TEMPO] * n;        /* (1800 x 256 at most: no overflow) */
+    while (t_phase >= BEAT_UNITS) {
+        t_phase -= BEAT_UNITS;
+        t_beat++;
+    }
+}
 
 /* --------------------------------------------------------------- commands --- */
 static float fader(int32_t v)                    /* 0..127, 100 = unity */
@@ -90,9 +170,18 @@ static void drain(void)                          /* every queued command, at the
 {
     cmd_t c;
     while (cmdq_pop(&eng_q, &c)) {
-        if (c.op == CMD_SET && c.id < P_NIDS && param_desc(c.id))
-            ev[c.id] = (int16_t)param_clamp(c.id, c.v);
+        if (c.op == CMD_SET)
+            set_param(c.id, c.v);
+        else if (c.op == CMD_CUE)
+            cue_add(c.id, c.v, c.beats);
         cmds++;
+    }
+    if (ev[P_PLAY] && !t_playing) {              /* start: bar 1, beat 1, at this block's first sample */
+        t_playing = 1;
+        t_beat = t_phase = t_samples = 0;
+    } else if (!ev[P_PLAY] && t_playing) {       /* stop: what was cued happens now */
+        t_playing = 0;
+        fire_due(1);
     }
 }
 
@@ -114,6 +203,9 @@ void eng_init(void)
     }
     strips_update();
     cmds = 0;
+    t_playing = 0;
+    t_beat = t_phase = t_samples = 0;
+    ncues = 0;
 }
 
 /* ---------------------------------------------------------------- sources --- */
@@ -172,14 +264,12 @@ static int source(uint32_t ch, float *o, uint32_t n)   /* the channel's sound, m
 }
 
 /* ----------------------------------------------------------------- render --- */
-void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
+static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the parameters as they are now */
 {
     uint32_t ch, i;
-    float gain = (float)master_q12 * (8300000.0f / 4096.0f), ep = 0.0f, sp = 0.0f;
-    if (n > ENG_BLOCK)
-        n = ENG_BLOCK;
-    drain();
-    strips_update();
+    float ep = 0.0f, sp = 0.0f;
+    if (!n)
+        return;
     for (i = 0; i < n; i++)
         dry[i] = ebus[i] = sbus[i] = 0.0f;
     for (ch = 0; ch < NCH; ch++) {               /* a fixed order: the same sum on one core or two */
@@ -215,7 +305,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 for (i = 0; i < n; i++)
                     sbus[i] += gs * buf[i];
         }
-        s->peak = pk;
+        s->peak = pk;                            /* (the block's last part: a meter, not a measurement) */
     }
     for (i = 0; i < n; i++) {
         float y;
@@ -230,6 +320,34 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     spring_peak = sp;
 }
 
+void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
+{
+    uint32_t i, seg = 0;
+    float gain = (float)master_q12 * (8300000.0f / 4096.0f);
+    if (n > ENG_BLOCK)
+        n = ENG_BLOCK;
+    drain();
+    strips_update();
+    if (t_playing && ncues) {                    /* a cue lands on its sample: the block is split there */
+        for (i = 0; i < n; i++) {
+            uint32_t k;
+            int due = 0;
+            for (k = 0; k < ncues && !due; k++)
+                due = cue_due(&cues[k]);
+            if (due) {
+                render_seg(lr + 2u * seg, i - seg, gain);
+                fire_due(0);
+                strips_update();
+                seg = i;
+            }
+            t_step(1);
+        }
+    } else if (t_playing) {
+        t_step(n);
+    }
+    render_seg(lr + 2u * seg, n - seg, gain);
+}
+
 void eng_panic(void)
 {
     voice_note = -1;
@@ -241,3 +359,9 @@ float eng_ch_peak(uint32_t ch) { return ch < NCH ? strip[ch].peak : 0.0f; }
 float eng_echo_peak(void) { return echo_peak; }
 float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
+int eng_playing(void) { return t_playing; }
+uint32_t eng_beat(void) { return t_beat; }
+uint32_t eng_fire_at(void) { return t_fire_at; }
+uint32_t eng_fires(void) { return t_fires; }
+uint32_t eng_cues(void) { return ncues; }
+uint32_t eng_cue_overflows(void) { return cue_overflows; }

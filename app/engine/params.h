@@ -33,8 +33,16 @@ enum { VF_WAVE, VF_N };
 
 /* globals (append only) */
 enum {
+    P_TEMPO = 0x000,          /* BPM x 10 (750 = 75.0) */
+    P_PLAY,                   /* the transport: 1 playing (a start counts from bar 1, beat 1) */
+    P_QUANT,                  /* launch quantise: QUANT_BEAT .. QUANT_32 (the UI's setting; cues carry beats) */
+    P_LEAD,                   /* a quantised action fires this many ms before the line ("a fraction early") */
+    P_NGLOBAL,
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
+enum { QUANT_BEAT, QUANT_1, QUANT_2, QUANT_4, QUANT_8, QUANT_16, QUANT_32, QUANT_N };
+uint32_t quant_beats(int32_t q);                     /* 1, 4, 8 .. 128 (4/4) */
+const char *quant_name(int32_t q);                   /* "BEAT", "1 BAR", "2 BARS" .. */
 
 typedef struct {
     const char *name;         /* "level"; a channel's is shown as "ch4.level" (param_name) */

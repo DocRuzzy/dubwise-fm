@@ -5,6 +5,7 @@
 #include "engine.h"
 
 static int16_t ctl_val[P_NIDS];             /* every range fits in 16 bits (pdesc_t) */
+static uint8_t ctl_beats[P_NIDS];            /* a pending parameter's quantum: 0 now, else CMD_CUE's beats */
 static uint32_t ctl_pend[P_NIDS / 32u];      /* a bit per parameter waiting for room in the queue */
 ctl_stats_t ctl_stats;
 
@@ -23,8 +24,8 @@ void ctl_init(void)
 static int ctl_push(uint32_t id)
 {
     cmd_t c;
-    c.op = CMD_SET;
-    c.rsv = 0;
+    c.op = ctl_beats[id] ? CMD_CUE : CMD_SET;
+    c.beats = ctl_beats[id];
     c.id = (uint16_t)id;
     c.v = ctl_val[id];
     if (!cmdq_push(&eng_q, c)) {
@@ -44,11 +45,14 @@ static void ctl_mark(uint32_t id)
     }
 }
 
-int ctl_set(uint32_t id, int32_t v)
+int ctl_set(uint32_t id, int32_t v) { return ctl_cue(id, v, 0); }
+
+int ctl_cue(uint32_t id, int32_t v, uint32_t beats)
 {
     if (id >= P_NIDS || !param_desc(id))
         return -1;
     ctl_val[id] = (int16_t)param_clamp(id, v);
+    ctl_beats[id] = (uint8_t)(beats > 128u ? 128u : beats);
     if (ctl_stats.pending) {                 /* something is waiting: keep the order fair, this joins it */
         ctl_mark(id);
         ctl_flush();

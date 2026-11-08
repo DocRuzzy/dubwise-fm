@@ -9,11 +9,13 @@
 #define CMDQ_N 256u
 typedef char cmdq_n_check[(CMDQ_N >= 256u && (CMDQ_N & (CMDQ_N - 1u)) == 0) ? 1 : -1];
 
-enum { CMD_NONE, CMD_SET };       /* opcodes: their own space, apart from the parameter IDs */
+/* opcodes: their own space, apart from the parameter IDs. CMD_SET: now (the block's start). CMD_CUE: at the next
+ * multiple of `beats` beats from the transport's start, P_LEAD ms early (at once while stopped) */
+enum { CMD_NONE, CMD_SET, CMD_CUE };
 
 typedef struct {
     uint8_t op;
-    uint8_t rsv;
+    uint8_t beats;                /* CMD_CUE: the quantum, 1..128 beats */
     uint16_t id;                  /* params.h */
     int32_t v;
 } cmd_t;

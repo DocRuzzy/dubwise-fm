@@ -16,10 +16,29 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
 static const pdesc_t VOICE_FIELDS[VF_N] = {
     [VF_WAVE] = {"wave", 0, 1, 0},                  /* the template's key voice: 0 sine, 1 triangle */
 };
+static const pdesc_t GLOBALS[P_NGLOBAL] = {
+    [P_TEMPO] = {"tempo", 400, 1800, 750},          /* 40.0 .. 180.0 BPM */
+    [P_PLAY] = {"play", 0, 1, 0},
+    [P_QUANT] = {"quant", 0, QUANT_N - 1, QUANT_1},
+    [P_LEAD] = {"lead", 0, 50, 10},                 /* ms (spec: launch quantise "fired slightly early") */
+};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
+
+uint32_t quant_beats(int32_t q)
+{
+    static const uint8_t B[QUANT_N] = {1, 4, 8, 16, 32, 64, 128};
+    return q >= 0 && q < QUANT_N ? B[q] : 4u;
+}
+const char *quant_name(int32_t q)
+{
+    static const char *const N[QUANT_N] = {"BEAT", "1 BAR", "2 BARS", "4 BARS", "8 BARS", "16 BARS", "32 BARS"};
+    return q >= 0 && q < QUANT_N ? N[q] : "";
+}
 
 const pdesc_t *param_desc(uint32_t id)
 {
+    if (id < P_NGLOBAL)
+        return &GLOBALS[id];
     if (id == P_DEV_TONES)
         return &DEV_TONES;
     if (id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE < CHF_N)

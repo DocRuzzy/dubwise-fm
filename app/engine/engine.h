@@ -5,8 +5,9 @@
  * spring send buses (whose effects are P0.3 and P1.2: their returns are silent for now). Stereo is only for the
  * returns (design principle 6): the dry path goes to both sides.
  *
- * The render never allocates, never waits and never touches the flash. UI commands take effect at the start of
- * the next block (at most 5.8 ms: player input); sequencer events will carry sample offsets (P0.6). */
+ * The render never allocates, never waits and never touches the flash. CMD_SET takes effect at the start of the
+ * next block (at most 5.8 ms: player input). CMD_CUE lands on its exact sample: the transport counts beats with
+ * integer arithmetic, and the block is split where a cue falls (launch quantise, P0.1). */
 #pragma once
 #include <stdint.h>
 #include "params.h"
@@ -29,5 +30,11 @@ float eng_ch_peak(uint32_t ch);              /* the channel's post-fader peak ov
 float eng_echo_peak(void);                   /* the echo send bus's */
 float eng_spring_peak(void);
 uint32_t eng_cmds(void);                     /* commands applied since boot */
+int eng_playing(void);
+uint32_t eng_beat(void);                     /* beats since the start (bar = beat / 4 + 1) */
+uint32_t eng_fire_at(void);                  /* the sample (since the start) the last cue landed on */
+uint32_t eng_fires(void);                    /* cues fired since boot */
+uint32_t eng_cues(void);                     /* cues waiting */
+uint32_t eng_cue_overflows(void);
 
 #define ENG_BLOCK 256u
