@@ -200,10 +200,31 @@ static void strips_update(void)                  /* the targets from the applied
         /* solo is additive; a soloed channel that is muted stays muted. Solo-muted = muted, sends too */
         int audible = !ev[P_CH(ch, CHF_MUTE)] && (!any_solo || ev[P_CH(ch, CHF_SOLO)]);
         float g = audible ? fader(ev[P_CH(ch, CHF_LEVEL)]) : 0.0f;
+        /* a throw (P0.2): the channel to its destination in full, pre-fader and pre-mute, on top of its sends */
+        int thr = ev[P_CH(ch, CHF_THROW)] != 0, dest = ev[P_CH(ch, CHF_THROW_DEST)];
+        float te = thr && dest != DEST_SPRING ? 1.0f : 0.0f, ts = thr && dest != DEST_ECHO ? 1.0f : 0.0f;
         ramp_to(&s->dry, g);
-        ramp_to(&s->echo, g * send(ev[P_CH(ch, CHF_ECHO_SEND)]));
-        ramp_to(&s->spring, g * send(ev[P_CH(ch, CHF_SPRING_SEND)]));
+        ramp_to(&s->echo, g * send(ev[P_CH(ch, CHF_ECHO_SEND)]) + te);
+        ramp_to(&s->spring, g * send(ev[P_CH(ch, CHF_SPRING_SEND)]) + ts);
     }
+}
+
+static int echo_thrown(void)                     /* a throw into the echo held: the loop lifted */
+{
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++)
+        if (ev[P_CH(ch, CHF_THROW)] && ev[P_CH(ch, CHF_THROW_DEST)] != DEST_SPRING)
+            return 1;
+    return 0;
+}
+
+/* a throw lifts the loop's gain halfway to unity, capped (DUB-1's "throws add gain up to a cap"), and brings in
+ * the 2T head (its "second head only during throws"), so a thrown word rings longer and thicker */
+#define THROW_G_CAP 0.95f
+static float throw_lift(float g)
+{
+    float l = g + (1.0f - g) * 0.5f;
+    return g >= THROW_G_CAP ? g : l > THROW_G_CAP ? THROW_G_CAP : l;
 }
 
 static float echo_line_t(int32_t d)              /* a division's time in line samples at this tempo */
@@ -223,6 +244,8 @@ static void bus_update(void)                     /* the echo's settings from the
     c.t = t;
     t60 = echo_t60(ev[P_ECHO_FB]);
     c.g = fm_exp2f(-9.966f * (t / ECHO_RATE) / t60);   /* -60 dB after T60 */
+    if (echo_thrown())
+        c.g = throw_lift(c.g);
     c.freeze = ev[P_ECHO_FREEZE] != 0;
     if (c.freeze)
         c.g = 1.0f;
@@ -231,6 +254,8 @@ static void bus_update(void)                     /* the echo's settings from the
     tone_hz = 800.0f * fm_exp2f((float)ev[P_ECHO_TONE] * (2.64f / 127.0f));
     c.tone = 1.0f - fm_expf(-6.2831853f * tone_hz / ECHO_RATE);
     c.head2 = send(ev[P_ECHO_HEAD2]);
+    if (echo_thrown() && c.head2 < 0.35f)
+        c.head2 = 0.35f;
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
 }
@@ -258,8 +283,7 @@ void eng_init(void)
 {
     uint32_t id, ch;
     for (id = 0; id < P_NIDS; id++) {
-        const pdesc_t *d = param_desc(id);
-        ev[id] = (int16_t)(d ? d->def : 0);
+        ev[id] = (int16_t)param_def(id);
     }
     eng_q.r = eng_q.w = 0;
     for (ch = 0; ch < NCH; ch++) {
@@ -462,7 +486,10 @@ float eng_echo_g(void)
         return 1.15f;
     if (ev[P_ECHO_FREEZE])
         return 1.0f;
-    return fm_exp2f(-9.966f * (t / ECHO_RATE) / echo_t60(ev[P_ECHO_FB]));
+    {
+        float g = fm_exp2f(-9.966f * (t / ECHO_RATE) / echo_t60(ev[P_ECHO_FB]));
+        return echo_thrown() ? throw_lift(g) : g;
+    }
 }
 int eng_playing(void) { return t_playing; }
 uint32_t eng_beat(void) { return t_beat; }

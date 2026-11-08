@@ -78,7 +78,9 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 - **Quantise:** BEAT / 1 / 2 / 4 / 8 / 16 / 32 bars from the transport's start (4/4). A cue fires `P_LEAD` = 10 ms before the line (spec: "fired slightly early"; it also covers the 2.9 ms gain ramp). A cue made inside that window fires at once. While stopped, everything acts at once; STOP fires anything waiting.
 - **PLAY** toggles on release; held with a key it is "now" for that key and does not stop the transport.
 - **Tempo** on HOME + SELECT (1 BPM a click), as in 4.6. **GLO** toggles test tones on every channel until SETUP and the voices exist.
-- Not yet: hold-to-focus knobs, throws (P0.2), black-key effects, the echo panel and Big Knob in the centre.
+- Throws (P0.2) are immediate, not quantised (a throw catches a word). Destination on hold + KNOB 1 until MIXER bank 3 exists.
+- Hold-to-focus (P0.3): a held mute key turns KNOB 1–3 into level / echo send / spring send; turning one cancels the key's momentary mute flip.
+- Not yet: the channel filter, the other black-key effects, the Big Knob in the centre.
 
 ### 4.2 ARRANGE page
 - **White 1–16:** recall scene, quantised. **SAVE held + white key:** store.

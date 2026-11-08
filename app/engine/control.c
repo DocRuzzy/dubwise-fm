@@ -13,8 +13,7 @@ void ctl_init(void)
 {
     uint32_t id;
     for (id = 0; id < P_NIDS; id++) {
-        const pdesc_t *d = param_desc(id);
-        ctl_val[id] = (int16_t)(d ? d->def : 0);
+        ctl_val[id] = (int16_t)param_def(id);
     }
     for (id = 0; id < P_NIDS / 32u; id++)
         ctl_pend[id] = 0;

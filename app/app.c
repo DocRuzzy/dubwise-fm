@@ -52,13 +52,13 @@ void app_panic(void) { eng_panic(); }
 static void settings_defaults(void)
 {
     set.magic = SET_MAGIC;
-    set.tempo = (int16_t)param_desc(P_TEMPO)->def;
-    set.quant = (uint8_t)param_desc(P_QUANT)->def;
+    set.tempo = (int16_t)param_def(P_TEMPO);
+    set.quant = (uint8_t)param_def(P_QUANT);
     set.wave = 0;
-    set.echo_time = (uint8_t)param_desc(P_ECHO_TIME)->def;
-    set.echo_fb = (uint8_t)param_desc(P_ECHO_FB)->def;
-    set.echo_ret = (uint8_t)param_desc(P_ECHO_RET)->def;
-    set.spring_ret = (uint8_t)param_desc(P_SPRING_RET)->def;
+    set.echo_time = (uint8_t)param_def(P_ECHO_TIME);
+    set.echo_fb = (uint8_t)param_def(P_ECHO_FB);
+    set.echo_ret = (uint8_t)param_def(P_ECHO_RET);
+    set.spring_ret = (uint8_t)param_def(P_SPRING_RET);
 }
 
 static void settings_save(void)
@@ -248,6 +248,8 @@ int app_expect(const char *what, int *got)
         *got = eng_echo_div();
     else if (!strcmp(what, "echo_gr"))       /* the return limiter's gain, % */
         *got = (int)(eng_echo_gr() * 100.0f + 0.5f);
+    else if (!strcmp(what, "echo_g"))        /* the loop gain, x 1000 */
+        *got = (int)(eng_echo_g() * 1000.0f + 0.5f);
     else if (!strcmp(what, "spring_db"))
         *got = peak_db(eng_spring_peak());
     else if (!strcmp(what, "q_sent"))        /* the command queue (engine/control.c) */

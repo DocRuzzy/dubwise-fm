@@ -16,7 +16,8 @@
 enum { CH_KICK, CH_SNARE, CH_HATS, CH_BASS, CH_SKANK, CH_ORGAN, CH_LEAD, CH_VOX, NCH };   /* spec 3 */
 
 /* channel strip fields (append only, at most CH_STRIDE) */
-enum { CHF_LEVEL, CHF_MUTE, CHF_SOLO, CHF_ECHO_SEND, CHF_SPRING_SEND, CHF_N };
+enum { CHF_LEVEL, CHF_MUTE, CHF_SOLO, CHF_ECHO_SEND, CHF_SPRING_SEND, CHF_THROW, CHF_THROW_DEST, CHF_N };
+enum { DEST_ECHO, DEST_SPRING, DEST_BOTH, DEST_N };   /* a throw's destination (spec 3) */
 /* voice fields (append only, at most VOICE_STRIDE) */
 enum { VF_WAVE, VF_N };
 
@@ -70,5 +71,6 @@ typedef struct {
 
 const pdesc_t *param_desc(uint32_t id);              /* NULL: no parameter has this ID */
 int32_t param_clamp(uint32_t id, int32_t v);
+int32_t param_def(uint32_t id);                     /* the default (some differ by channel) */
 void param_name(uint32_t id, char *buf, uint32_t n);   /* "ch4.mute", "dev.tones", "" if none */
 int param_find(const char *name);                    /* the ID, or -1 */

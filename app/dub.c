@@ -16,8 +16,11 @@
  *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
  *                  a knob keeps the key from flipping the mute
  *   black 2 / 3    echo freeze / dub push, while held
- * Quantised actions blink their key until they land, and the centre says when. Not here yet: throws (white 9-16,
- * P0.2), the other black keys' effects (P1.x, P2.x), the channel filter, the runway (P0.6). */
+ *   White 9-16     throw channel 1-8 to its destination (P0.2): while held, in full, pre-fader and pre-mute (a muted
+ *                  channel can be thrown); the echo's loop lifted. A double tap latches it; a tap unlatches
+ *   white 9-16 held + K1   the destination: E (echo), S (spring), ES (both); the throw is cancelled
+ * Quantised actions blink their key until they land, and the centre says when. Not here yet: the other black
+ * keys' effects (P1.x, P2.x), the channel filter, the runway (P0.6), velocity-scaled throws (P2.9). */
 
 #define TAP_MS 300u                      /* shorter than this, a tap; two within it, a double tap */
 #define BLINK_MS 250u                    /* slow blink: cued */
@@ -31,6 +34,8 @@ static const char *const BTN_NAME[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO
 static const char *const ENC_NAME[NE] = {"BIG KNOB", "FOCUS", "PRESET", "K1", "K2", "K3", "K4"};
 static const char *const KNOB_LABEL[4] = {"TIME", "FB", "ECHO", "SPRG"};   /* spec 4.1 */
 static const char *const FOCUS_LABEL[4] = {"LEVEL", "ECHO", "SPRG", "FILT"};   /* a mute key held */
+static const char *const DEST_NAME[DEST_N] = {"E", "S", "ES"};
+static const char *const DEST_WORD[DEST_N] = {"ECHO", "SPRING", "BOTH"};
 #define C_RED RGB(232, 76, 60)
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
 
@@ -40,6 +45,8 @@ static struct {
     uint8_t m0[NCH];                     /* its mute before the press (a hold, a double tap put it back) */
     uint8_t tapped[NCH], dbl[NCH];       /* released as a tap (a double tap may follow); this press is the second */
     uint8_t vel[NKEYS];                  /* each key's last velocity */
+    uint32_t thr_rel_t[NCH];             /* a throw key's last release */
+    uint8_t thr_tapped[NCH], thr_latched[NCH], thr_skip[NCH];   /* a tap's release; latched; this release ignored */
     int32_t last_key;
     uint8_t play_used, home_used;        /* held as a modifier: its own press does nothing on release */
     int32_t focus;                       /* ALGORITHM's channel */
@@ -174,6 +181,40 @@ static void mute_release(uint32_t ch, uint32_t now)
     }
 }
 
+static void throw_press(uint32_t ch, uint32_t now)
+{
+    uint32_t id = P_CH(ch, CHF_THROW);
+    if (dub.thr_latched[ch]) {           /* latched: a tap lets it go */
+        dub.thr_latched[ch] = 0;
+        dub.thr_skip[ch] = 1;
+        ctl_set(id, 0);
+        app_say("THROW OFF", CH_NAME[ch]);
+        return;
+    }
+    if (dub.thr_tapped[ch] && now - dub.thr_rel_t[ch] < TAP_MS) {   /* a double tap: latched on */
+        dub.thr_tapped[ch] = 0;
+        dub.thr_latched[ch] = 1;
+        dub.thr_skip[ch] = 1;
+        ctl_set(id, 1);
+        app_say("THROW LATCHED", CH_NAME[ch]);
+        return;
+    }
+    dub.thr_skip[ch] = 0;
+    ctl_set(id, 1);
+    app_say("THROW", CH_NAME[ch]);
+}
+
+static void throw_release(uint32_t ch, uint32_t now)
+{
+    if (dub.thr_skip[ch]) {
+        dub.thr_skip[ch] = 0;
+        return;
+    }
+    ctl_set(P_CH(ch, CHF_THROW), 0);
+    dub.thr_tapped[ch] = 1;
+    dub.thr_rel_t[ch] = now;
+}
+
 static void quant_step(int32_t d)
 {
     int32_t q = ctl_get(P_QUANT) + d;
@@ -233,6 +274,15 @@ static int32_t held_mute(void)          /* the mute key held (the lowest), -1 no
     return -1;
 }
 
+static int32_t held_throw(void)         /* the throw key held (the lowest), -1 none */
+{
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++)
+        if (dub.keys >> WK[NCH + ch] & 1u)
+            return (int32_t)ch;
+    return -1;
+}
+
 static void t60_text(char *t)            /* "4.2s", "HOLD", "PUSH", "INF" */
 {
     float s = echo_t60(ctl_get(P_ECHO_FB));
@@ -265,7 +315,12 @@ static void t60_text(char *t)            /* "4.2s", "HOLD", "PUSH", "INF" */
 
 static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as the footer shows it */
 {
+    int32_t tc = held_throw();
     t[0] = 0;
+    if (tc >= 0) {                       /* a throw key held: K1 its destination */
+        text_cat(t, i == 0u ? DEST_WORD[ctl_get(P_CH(tc, CHF_THROW_DEST))] : "");
+        return;
+    }
     if (ch >= 0) {
         static const uint8_t F[3] = {CHF_LEVEL, CHF_ECHO_SEND, CHF_SPRING_SEND};
         if (i < 3u)
@@ -282,8 +337,21 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
-    int32_t ch = held_mute(), id = -1, step = 2;
+    int32_t ch = held_mute(), id = -1, step = 2, tc = held_throw();
     char t[16];
+    if (tc >= 0) {                       /* a throw key held: K1 its destination (the throw cancelled) */
+        uint32_t did = P_CH(tc, CHF_THROW_DEST);
+        if (i != 0u)
+            return;
+        if (!dub.thr_skip[tc]) {
+            dub.thr_skip[tc] = 1;
+            ctl_set(P_CH(tc, CHF_THROW), 0);
+        }
+        ctl_set(did, (ctl_get(did) + e % DEST_N + DEST_N) % DEST_N);
+        app_say("THROW TO", DEST_WORD[ctl_get(did)]);
+        dub.dirty_strips = dub.dirty_foot = 1;
+        return;
+    }
     if (ch >= 0) {                       /* hold-to-focus: the held channel's strip */
         static const uint8_t F[3] = {CHF_LEVEL, CHF_ECHO_SEND, CHF_SPRING_SEND};
         if (!dub.dbl[ch]) {              /* the hold is for editing: the mute stays as it was */
@@ -362,9 +430,12 @@ void dub_input(void)
             if (k < NCH)
                 mute_press(k, now);
             else
-                app_say("THROW", CH_NAME[k - NCH]);
-        } else if (!(keys & bit) && (dub.keys & bit) && k < NCH) {
-            mute_release(k, now);
+                throw_press(k - NCH, now);
+        } else if (!(keys & bit) && (dub.keys & bit)) {
+            if (k < NCH)
+                mute_release(k, now);
+            else
+                throw_release(k - NCH, now);
         }
     }
     for (k = 0; k < 11u; k++) {          /* black keys: 2 echo freeze, 3 dub push (while held); the rest to come */
@@ -406,8 +477,11 @@ static void lights(void)
         else
             dim |= bit;
     }
-    for (k = NCH; k < 16u; k++)
-        dim |= 1u << WK[k];
+    for (k = NCH; k < 16u; k++)          /* throw keys: bright while throwing (or latched) */
+        if (ctl_get(P_CH(k - NCH, CHF_THROW)))
+            bright |= 1u << WK[k];
+        else
+            dim |= 1u << WK[k];
     for (k = 0; k < 11u; k++)
         dim |= 1u << BK[k];
     if (eng_playing())
@@ -511,10 +585,14 @@ static void draw_strips(void)
     int solo_any = any_solo(1);
     cv_begin(240, STRIP_H, C_BLACK);
     for (ch = 0; ch < NCH; ch++) {
-        int32_t x = 1 + (int32_t)ch * 30, bx = x + 5, by = 32, bw = 18, bh = 52;
+        int32_t x = 1 + (int32_t)ch * 30, bx = x + 5, by = 30, bw = 18, bh = 46;
         int on = audible(ch), soloed = eng_param(P_CH(ch, CHF_SOLO)) != 0;
+        int thrown = eng_param(P_CH(ch, CHF_THROW)) != 0;
         char num[2] = {(char)('1' + ch), 0};
-        cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, on ? C_WHITE : C_GRAY);
+        const char *dg = DEST_NAME[eng_param(P_CH(ch, CHF_THROW_DEST))];
+        if (thrown)                      /* a throw flashes its channel (spec 5.2) */
+            cv_rect(x + 4, 0, 20, 17, C_HI);
+        cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, thrown ? C_BLACK : on ? C_WHITE : C_GRAY);
         cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
         if (on) {                        /* filled = playing; the meter brighter over it */
             int32_t m = meter_px(eng_ch_peak(ch), bh);
@@ -529,8 +607,9 @@ static void draw_strips(void)
         }
         if (cued(ch) && blink_on())
             outline(bx - 2, by - 2, bw + 4, bh + 4, C_WHITE);
+        cv_text(x + 3, by + bh + 3, &FONT_T, dg, thrown ? C_HI : C_DIM);   /* the throw's destination */
         if (soloed)
-            cv_text(x + (28 - text_w(&FONT_XS, "S")) / 2, by + bh + 2, &FONT_XS, "S", C_AMB);
+            cv_text(x + 19, by + bh + 3, &FONT_T, "S", C_AMB);
         if ((int32_t)ch == dub.focus)
             cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
     }
@@ -601,7 +680,10 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
     cv_rect(0, 0, 240, 1, C_LINE);
     for (i = 0; i < 4u; i++) {
         int32_t x = 6 + (int32_t)i * 59;
-        cv_text(x, 4, &FONT_XS, ch >= 0 ? FOCUS_LABEL[i] : KNOB_LABEL[i], ch >= 0 ? C_AMB : C_GRAY);
+        if (held_throw() >= 0)
+            cv_text(x, 4, &FONT_XS, i == 0u ? "DEST" : "", C_AMB);
+        else
+            cv_text(x, 4, &FONT_XS, ch >= 0 ? FOCUS_LABEL[i] : KNOB_LABEL[i], ch >= 0 ? C_AMB : C_GRAY);
         knob_value(i, ch, t);
         cv_text(x, 18, &FONT_B, t, i == 1u && ch < 0 && eng_echo_g() >= 1.0f ? C_RED : C_HI);
     }
@@ -613,7 +695,7 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
 
 static uint32_t foot_sig(void)           /* changes whenever what the footer shows does */
 {
-    uint32_t h = (uint32_t)(held_mute() + 1), i;
+    uint32_t h = (uint32_t)(held_mute() + 1) * 17u + (uint32_t)(held_throw() + 1), i;
     for (i = 0; i < 4u; i++) {
         char t[16], *p;
         knob_value(i, held_mute(), t);

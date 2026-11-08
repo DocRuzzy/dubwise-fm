@@ -13,6 +13,8 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_SOLO] = {"solo", 0, 1, 0},
     [CHF_ECHO_SEND] = {"echo", 0, 127, 0},          /* post-fader, post-mute (throws are pre-fader: P0.2) */
     [CHF_SPRING_SEND] = {"spring", 0, 127, 0},
+    [CHF_THROW] = {"throw", 0, 1, 0},               /* pre-fader, pre-mute: a muted channel can be thrown (P0.2) */
+    [CHF_THROW_DEST] = {"dest", 0, DEST_N - 1, DEST_ECHO},   /* per channel: param_def */
 };
 static const pdesc_t VOICE_FIELDS[VF_N] = {
     [VF_WAVE] = {"wave", 0, 1, 0},                  /* the template's key voice: 0 sine, 1 triangle */
@@ -75,6 +77,18 @@ const pdesc_t *param_desc(uint32_t id)
     if (id >= P_VOICE_BASE && id < P_VOICE_BASE + NCH * VOICE_STRIDE && (id - P_VOICE_BASE) % VOICE_STRIDE < VF_N)
         return &VOICE_FIELDS[(id - P_VOICE_BASE) % VOICE_STRIDE];
     return 0;
+}
+
+int32_t param_def(uint32_t id)
+{
+    static const uint8_t DEST[NCH] = {DEST_ECHO, DEST_BOTH, DEST_ECHO, DEST_ECHO, DEST_SPRING, DEST_SPRING,
+                                      DEST_ECHO, DEST_ECHO};   /* spec 3's throw destinations */
+    const pdesc_t *d = param_desc(id);
+    if (!d)
+        return 0;
+    if (id >= P_CH_BASE && id < P_BUS_BASE && (id - P_CH_BASE) % CH_STRIDE == CHF_THROW_DEST)
+        return DEST[(id - P_CH_BASE) / CH_STRIDE];
+    return d->def;
 }
 
 int32_t param_clamp(uint32_t id, int32_t v)

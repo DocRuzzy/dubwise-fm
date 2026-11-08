@@ -1,0 +1,82 @@
+# Throws (P0.2): white keys 9-16 throw channels 1-8 to their destination, in full, pre-fader and pre-mute; a
+# throw into the echo lifts its loop (halfway to unity, capped at 0.95) and brings in the 2T head. Destinations by
+# default as spec 3: kick, hats, bass, lead, vox to the echo; snare to both; skank and organ to the spring.
+wait 600
+listen
+param dev.tones 1
+param ch1.mute 1
+wait 50
+expect eng.ch3.dest 0
+expect eng.ch2.dest 2
+expect eng.ch6.dest 1
+expect echo_db -120
+expect echo_g <200
+# held: a muted channel thrown into the echo
+key w8 down
+wait 50
+said THROW KICK
+expect eng.ch1.throw 1
+expect echo_db >-22
+expect spring_db -120
+expect echo_g >500
+expect echo_g <951
+key w8 up
+wait 50
+expect eng.ch1.throw 0
+expect echo_db -120
+expect echo_g <200
+# pre-fader: the fader down does not matter
+param ch1.level 0
+key w8 down
+wait 50
+expect echo_db >-22
+key w8 up
+wait 50
+param ch1.level 100
+param ch1.mute 0
+# a double tap latches (snare: both buses); a tap lets it go
+tapkey w9
+wait 100
+tapkey w9
+wait 50
+said THROW LATCHED SNARE
+expect eng.ch2.throw 1
+expect echo_db >-22
+expect spring_db >-22
+wait 600
+expect eng.ch2.throw 1
+tapkey w9
+wait 50
+said THROW OFF SNARE
+expect eng.ch2.throw 0
+# the destination: held throw key + K1 (the throw cancelled while choosing)
+key w12 down
+wait 50
+turn K1 1
+wait 30
+said THROW TO BOTH
+expect ui.ch5.dest 2
+expect eng.ch5.throw 0
+key w12 up
+wait 50
+expect eng.ch5.throw 0
+key w12 down
+wait 50
+expect echo_db >-22
+expect spring_db >-22
+key w12 up
+wait 50
+# a word thrown: a short note on the bass channel, its mute on, thrown for 80 ms, rings on in the echo (the
+# channel is muted, so the first sound is the first repeat; the next comes a little late on the onset detector)
+param dev.tones 0
+param ch4.mute 1
+param echo.fb 40
+wav throw.wav
+midi 90 3C 64
+key w11 down
+wait 80
+key w11 up
+midi 80 3C 00
+wait 2500
+wavstop
+#wav throw.wav peak<-1 dc<-60 click<-40 repeat_ms>590 repeat_ms<625
