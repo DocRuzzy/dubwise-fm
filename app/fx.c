@@ -19,6 +19,7 @@ static const fx_bank_t FX_BANK[] = {
     {"DRIVE", {P_DRIVE_ON, P_DRIVE_AMT, P_DRIVE_MIX, 0}, {"ON", "DRIVE", "BLEND", ""}},
     {"GATE", {P_SGATE_ON, P_SGATE_HOLD, P_SGATE_REL, 0}, {"SPRING GATE", "HOLD", "RELEASE", ""}},
     {"WIDTH", {P_ECHO_WIDTH, P_PH_SHAPE, P_ECHO_PP, 0}, {"ECHO WIDTH", "PH SHAPE", "PING-PONG", ""}},
+    {"BI-PHASE", {P_PH_MODE, P_PH_RATE2, 0, 0}, {"MODE", "RATE 2", "", ""}},
 };
 #define FX_NBANKS (sizeof FX_BANK / sizeof FX_BANK[0])
 static uint32_t fx_bank, fx_sig;
@@ -51,11 +52,14 @@ static void fx_value(uint16_t id, char *t)       /* a value as the page shows it
         int_text(v * 14 / 127, n);
         text_cat(t, n);
         text_cat(t, "DB");
+    } else if (id == P_PH_MODE) {
+        static const char *const M[PHM_N] = {"SINGLE", "CASCADE", "STEREO"};
+        text_cat(t, M[v]);
     } else if (id == P_ECHO_PP) {
         text_cat(t, v ? "ON" : "OFF");
     } else if (id == P_PH_SHAPE) {
         text_cat(t, v ? "SQUARE" : "SINE");
-    } else if (id == P_PH_RATE) {                /* 0.1 .. 18 Hz */
+    } else if (id == P_PH_RATE || id == P_PH_RATE2) {   /* 0.1 .. 18 Hz */
         int32_t d = (int32_t)(fm_exp2f((float)v * (7.49f / 127.0f)) + 0.5f);   /* x 0.1 Hz */
         int_text(d / 10, n);
         text_cat(t, n);
@@ -107,9 +111,9 @@ static void fx_knob(uint32_t i, int32_t e)
     char t[16];
     if (!b->id[i])
         return;
-    ctl_set(b->id[i], ctl_get(b->id[i]) + (b->id[i] == P_ECHO_TIME || b->id[i] == P_ECHO_FB || b->id[i] == P_PH_ON
-                                           || b->id[i] == P_PH_SHAPE || b->id[i] == P_DRIVE_ON || b->id[i] == P_SGATE_ON
-                                       ? e : 2 * e));
+    const pdesc_t *d = param_desc(b->id[i]);
+    int one = b->id[i] == P_ECHO_TIME || b->id[i] == P_ECHO_FB || (d && d->max - d->min < 16);   /* (a choice: a step) */
+    ctl_set(b->id[i], ctl_get(b->id[i]) + (one ? e : 2 * e));
     set_dirty = 1;
     fx_value(b->id[i], t);
     app_say(b->label[i], t);

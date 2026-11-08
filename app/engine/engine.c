@@ -68,7 +68,7 @@ static ramp_t echo_ret, spring_ret;              /* the returns' levels */
 static int16_t kick_last;
 static float bus_echo_g;
 static int dive_back;
-static int ph_on;
+static int ph_on, ph_mode;
 static int drive_on;
 /* the snare-keyed spring gate (P2.5; C13): a snare opens it for HOLD, then it closes over RELEASE */
 static float sg_env;                             /* 0 closed .. 1 open */
@@ -486,13 +486,18 @@ static void bus_update(void)                     /* the echo's and the voices' s
         pc.depth = (float)ev[P_PH_DEPTH] * (1.0f / 127.0f);
         pc.fb = (float)ev[P_PH_FB] * (0.7f / 127.0f);
         pc.square = ev[P_PH_SHAPE] != 0;
-        phaser_config(&pc);
+        pc.rate2 = 0.1f * fm_exp2f((float)ev[P_PH_RATE2] * (7.49f / 127.0f));
         {
             int on = tier_now == TIER_STUDIO ? ev[P_PH_ON] : PH_OFF;
-            if (on != ph_on)                     /* moved: both sides from the same rest (no stereo from the past) */
+            pc.mode = ev[P_PH_MODE];
+            if (pc.mode == PHM_STEREO && on != PH_ECHO)   /* stereo on a return only: the dry path stays mono */
+                pc.mode = PHM_CASCADE;
+            if (on != ph_on || pc.mode != ph_mode)   /* moved: both sides from the same rest (no stereo from the past) */
                 phaser_reset();
             ph_on = on;
+            ph_mode = pc.mode;
         }
+        phaser_config(&pc);
     }
     sg_hold_n = (uint32_t)((10.0f + 390.0f * (float)ev[P_SGATE_HOLD] * (1.0f / 127.0f)) * 44.1f);
     sg_rel = fm_exp2f(-9.966f / ((5.0f + 295.0f * (float)ev[P_SGATE_REL] * (1.0f / 127.0f)) * 44.1f));

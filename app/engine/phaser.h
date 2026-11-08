@@ -10,6 +10,8 @@
 typedef struct {
     float rate, depth, fb;                       /* Hz; 0..1 of the sweep; 0..0.7 */
     int square;
+    int mode;                                    /* PHM_* (P3.2: the dual Bi-Phase) */
+    float rate2;                                 /* phaser B's, Hz (cascade) */
 } phaser_cfg_t;
 
 typedef struct {
@@ -19,4 +21,8 @@ typedef struct {
 void phaser_config(const phaser_cfg_t *c);
 /* n samples in place; two sides (r may be 0: one side). The LFO moves once a call. */
 void phaser_run(float *l, float *r, uint32_t n);
+/* P3.2, the dual Bi-Phase: a second six-stage phaser (B). CASCADE: A then B, B at its own rate (twelve stages, two
+ * sweeps crossing); STEREO (the Bi-Phase's reverse sync): the left through A, the right through B on A's sweep
+ * reversed. STEREO needs two sides (the echo's return); given one, or on the mix (the dry path stays mono), the
+ * engine asks for CASCADE. */
 void phaser_reset(void);

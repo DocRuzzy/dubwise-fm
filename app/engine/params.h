@@ -124,6 +124,8 @@ enum {
     P_PH_DEPTH,               /* 0..127 */
     P_PH_FB,                  /* 0..127: feedback 0 .. 0.7 */
     P_PH_SHAPE,               /* 0 sine, 1 square */
+    P_PH_MODE,                /* the dual Bi-Phase (P3.2): PHM_SINGLE, PHM_CASCADE (A then B), PHM_STEREO (B reversed) */
+    P_PH_RATE2,               /* phaser B's own rate (cascade), 0..127: 0.1 .. 18 Hz */
     P_PH_END,
     P_DRIVE_ON = 0x0F8,       /* tape drive (P2.4): DRIVE_OFF, DRIVE_BASS, DRIVE_MIX */
     P_DRIVE_AMT,              /* 0..127: into the tape 0 .. +14 dB */
@@ -141,6 +143,7 @@ const char *echo_div_name(int32_t d);                 /* "1/8." */
 float echo_t60(int32_t fb);                          /* seconds */
 enum { HPF_ON_MIX, HPF_ON_ECHO, HPF_ON_N };
 enum { PH_OFF, PH_HATS, PH_SKANK, PH_ECHO, PH_MIX, PH_N };
+enum { PHM_SINGLE, PHM_CASCADE, PHM_STEREO, PHM_N };   /* STEREO on the echo's return only; elsewhere CASCADE */
 enum { DRIVE_OFF, DRIVE_BASS, DRIVE_MIX, DRIVE_N };
 #define HPF_STEPS 10
 float hpf_hz(int32_t step);                          /* a step's cutoff, Hz (0: off) */

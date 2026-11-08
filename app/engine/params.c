@@ -135,6 +135,8 @@ static const pdesc_t PH[P_PH_END - P_PH_ON] = {
     {"ph.depth", 0, 127, 90},
     {"ph.fb", 0, 127, 50},
     {"ph.shape", 0, 1, 0},
+    {"ph.mode", 0, PHM_N - 1, PHM_SINGLE},
+    {"ph.rate2", 0, 127, 22},
 };
 static const pdesc_t XS[P_XS_END - P_XS_E2S] = {
     {"xs.e2s", 0, 127, 0},
