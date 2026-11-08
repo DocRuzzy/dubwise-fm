@@ -4,6 +4,7 @@
   "kinds": [
     "groove"
   ],
+  "play": "https://docruzzy.github.io/dubwise-fm/emu/",
   "image": "app/docs/img/screen-playing.png",
   "color": "#F27848"
 }

@@ -7,7 +7,7 @@
 | 3 | Our own identity | **Done.** `FM-1_382` (releases `FM-1_382XXYYZZ`); free on the hub when chosen |
 | 4 | The update loader in the package, so players can uninstall | **Done.** The package carries felucca-bsp's update loader (`loader/ota.bin`, 11.8 KB; its marker is in the `.fwsc`). It doesn't check the flash ID, so it installs on the newer UC25HQ80 chip (JEDEC `0xB36014`) as well as the older one (`0x856014`). The platform's own check (`fm1_flash_ok.h`) accepts both. Simulated with fm1-base's installer test against our real `dubwise.fwsc`, all three passing (0 bad reads; the loader runs; the FM-1 comes back as `FM-1_38200`): from stock V15 on the older chip, from V15 on the newer chip, and from another firmware on the newer chip |
 | 5 | Tested on a real FM-1 | **Owner's to do** (emulator results don't count): see below |
-| 6 | `fmhub.json` in the root | **Done.** `what` (254 of 300 characters, plain text), `author`, `kinds: ["groove"]`, `image` (240×240 PNG, 173 KB), `color` `#F27848`. `play` was taken out until the browser version is published (the link was a 404) |
+| 6 | `fmhub.json` in the root | **Done.** `what` (254 of 300 characters, plain text), `author`, `kinds: ["groove"]`, `image` (240×240 PNG, 173 KB), `color` `#F27848`. `play` points at the browser version, which `.github/workflows/pages.yml` builds and publishes from `main` (Settings → Pages → Source: GitHub Actions, once) |
 
 ## The hardware test (requirement 5)
 
@@ -32,4 +32,5 @@
   - a short description
   - the picture (`app/docs/img/screen-playing.png`)
   - confirmation of the hardware test
-- Later, optional: publish the browser version (GitHub Pages) and put `play` back; add a `cheat` sheet.
+- Once, after the merge: Settings → Pages → Source: **GitHub Actions**; the browser version then goes live at https://docruzzy.github.io/dubwise-fm/emu/ and follows every merge.
+- Later, optional: a `cheat` sheet.
