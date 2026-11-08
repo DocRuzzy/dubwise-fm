@@ -19,30 +19,38 @@ static int32_t ctl_tpl_t = -1;                   /* a template the full queue re
 static uint32_t ctl_tpl_mask, ctl_tpl_beats;
 static uint8_t ctl_stamp[P_NIDS];                /* the frame a parameter was last set by hand (ctl_follow) */
 static uint8_t ctl_frame;
-static uint8_t ctl_mot_clear;                    /* a motion clear the full queue refused */
+#define MOT_PEND 4u
+static uint8_t ctl_mot[MOT_PEND], ctl_mot_n;     /* motion commands the full queue refused, in order */
 
-static int mot_push(void)
+static int mot_push(void)                        /* the oldest waiting: 1 sent */
 {
     cmd_t c;
+    uint32_t i;
     c.op = CMD_MOTION;
     c.beats = 0;
-    c.id = 0;
+    c.id = ctl_mot[0];
     c.v = 0;
     if (!cmdq_push(&eng_q, c)) {
         ctl_stats.refused++;
         return 0;
     }
     ctl_stats.sent++;
-    ctl_mot_clear = 0;
+    for (i = 1; i < ctl_mot_n; i++)
+        ctl_mot[i - 1u] = ctl_mot[i];
+    ctl_mot_n--;
     return 1;
 }
 
-void ctl_motion_clear(void)
+void ctl_motion(uint32_t what)                   /* CMD_MOTION: 0 clear, 1 hand over, 2 take back */
 {
-    ctl_mot_clear = 1;
-    if (!ctl_stats.pending)
-        mot_push();
+    if (ctl_mot_n == MOT_PEND)
+        return;
+    ctl_mot[ctl_mot_n++] = (uint8_t)what;
+    while (ctl_mot_n && !ctl_stats.pending && mot_push())
+        ;
 }
+
+void ctl_motion_clear(void) { ctl_motion(0); }
 
 void ctl_follow(void)                            /* the moves motion played: the desired values follow them */
 {
@@ -188,8 +196,9 @@ void ctl_flush(void)
 {
     uint32_t w;
     ctl_frame++;
-    if (ctl_mot_clear && !mot_push())
-        return;
+    while (ctl_mot_n)
+        if (!mot_push())
+            return;
     if (ctl_tpl_t >= 0 && !tpl_push())
         return;
     if (ctl_scn >= 0 && !scene_push())

@@ -16,6 +16,7 @@ int32_t ctl_get(uint32_t id);              /* the desired value */
 void ctl_flush(void);                      /* resend what is pending, in ID order, until the queue is full */
 void ctl_follow(void);                     /* every frame: the values the song's motion played back (P2.7) */
 void ctl_motion_clear(void);               /* the song's motion, all of it, cleared (in the queue's order) */
+void ctl_motion(uint32_t what);            /* CMD_MOTION: 0 clear, 1 handed to the main loop (mot_suspended), 2 back */
 
 /* the patterns (riddim.h): the UI's mirror, each change sent as CMD_STEP (pending and resent like parameters) */
 void ctl_step(uint32_t ch, uint32_t i, step_t st);

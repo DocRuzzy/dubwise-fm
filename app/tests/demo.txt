@@ -1,6 +1,6 @@
-# The demo song (demo.c): loaded from SETUP (DEMO SONG, KNOB 2), played through once (72 BPM: a bar is 3.33 s, the
-# rim on beat 3 of each bar at +1.67 s), with live moves on top: snare throws into the echo, a spring crash on the
-# DUB section's downbeat, a dub push, a tape dive, a skank throw to the spring. It stops by itself after 16 bars.
+# The demo song, RIGHTEOUS DUB (demo.c): loaded from SETUP (DEMO SONG, KNOB 2), played through once (72 BPM: a bar
+# is 3.33 s; 32 bars, 1 min 47 s). Its own moves are the song's motion (throws, crashes, a freeze, an echo swell, the
+# Big Knob climbing, a dub push, a tape dive, the drop to wet); a few live ones go on top (a siren in the DROP, a HEY).
 # The recording, demo.wav, is the thing to listen to.
 wait 600
 listen
@@ -11,57 +11,64 @@ turn K1 -2
 wait 30
 said DEMO SONG
 turn K2 1
-wait 50
-said DEMO SONG LOADED: PRESS PLAY
+wait 100
+said RIGHTEOUS DUB LOADED: PRESS PLAY
 expect ui.tempo 720
 expect ui.song 1
+expect ui.song.len 32
+expect mot_total 40
+expect mot_bar20 4
 tap HOME
 wait 300
 wav demo.wav
 tap PLAY
-# INTRO: bars 1-4; a snare throw on bar 3's rim
-wait 8250
-key w9 down
-wait 500
-key w9 up
-# VERSE: bars 5-8; another on bar 7's
-wait 14500
-key w9 down
-wait 700
-key w9 up
-# DUB: bar 9's downbeat (26.67 s): the spring struck
-wait 3220
-key b0 down
-wait 100
-key b0 up
+wait 3373
+# INTRO: drum and bass
+expect eng.ch7.mute 1
 expect eng.ch5.mute 1
-# bar 10's rim: a long throw
-wait 4880
-key w9 down
-wait 1200
-key w9 up
-# bar 12: a dub push, the Big Knob up by the song
-wait 5100
-key b2 down
-wait 100
-expect eng.hpf 5
-wait 1400
-key b2 up
-# DROP: bar 13 (40 s): the bass out; a tape dive
-wait 1300
+wait 8433
+expect eng.ch2.throw 1
+wait 4900
+# VERSE: the band and the melodica
+expect eng.ch7.mute 0
+expect eng.ch5.mute 0
+wait 23533
+# VERSION: the melodica out
+expect eng.ch7.mute 1
+wait 12800
+# the freeze into the DUB
+expect eng.echo.freeze 1
+wait 633
+# DUB: drum and bass
+expect eng.echo.freeze 0
+expect eng.ch5.mute 1
+wait 12500
+# the Big Knob climbed
+expect eng.hpf 8
+wait 833
+# DROP: the bass out; the Big Knob back
+expect eng.hpf 0
 expect eng.ch4.mute 1
-key b3 down
-wait 1500
-key b3 up
-# bar 14's beat 3: the skank thrown to the spring
-wait 3400
-key w12 down
-wait 600
-key w12 up
-# OUTRO: bar 16; the song ends at 53.3 s and the transport stops
-wait 9500
+# siren A, live
+key b5 down 90
+wait 3033
+key b5 up
+wait 2467
+expect eng.echo.push 1
+wait 5033
+expect eng.echo.dive 1
+wait 3000
+# VERSE again; a HEY, live
+expect eng.ch4.mute 0
+tapkey b7
+wait 22000
+# the drop to wet
+expect eng.wet 1
+wait 4667
+# the end: stopped, the wet let go
 expect t_playing 0
 expect ui.play 0
-wait 3500
+expect eng.wet 0
+wait 4000
 wavstop
-#wav demo.wav peak<-0.5 dc<-50 side_lo<-60 seconds>55
+#wav demo.wav peak<-0.5 dc<-50 side_lo<-60 seconds>110

@@ -1173,6 +1173,7 @@ void dub_draw(void)
 {
     uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
     int drew = 0;
+    demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     song_sync();
     if (saver_draw(now)) {               /* the screen saver: the whole screen its own */
         lights();
