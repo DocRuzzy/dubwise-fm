@@ -6,6 +6,7 @@ expect q_pending 0
 # every channel at unity (the skank's spring send, on by default, off for these checks)
 param dev.tones 1
 param ch5.spring 0
+param ch8.echo 0
 wait 30
 expect eng.dev.tones 1
 expect ch1_db >-22

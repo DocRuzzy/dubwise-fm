@@ -12,6 +12,7 @@
 #include "chordv.h"
 #include "scenes.h"
 #include "song.h"
+#include "fxv.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -375,6 +376,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev, tier_now);
     chordv_config(ev, tier_now);
+    fxv_config(ev);
     {                                            /* the spring: its decay as loop feedback (~40 ms a pass), damping */
         spring_cfg_t sc;
         float t60 = 0.5f + 5.5f * (float)ev[P_SPRING_DECAY] * (1.0f / 127.0f);
@@ -424,7 +426,13 @@ static void drain(void)                          /* every queued command, at the
             cue_add(CMD_TEMPLATE, c.id, c.v, c.beats);
         else if (c.op == CMD_SCENE)
             cue_add(CMD_SCENE, c.id, 0, c.beats);
-        else if (c.op == CMD_NOTE && c.id < NCH) {
+        else if (c.op == CMD_NOTE && c.id == CH_VOX) {   /* channel 8: the sirens, held (note: which) */
+            int32_t which = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
+            if (vel)
+                fxv_on(which, (uint32_t)vel);
+            else
+                fxv_off(which);
+        } else if (c.op == CMD_NOTE && c.id < NCH) {
             int32_t note = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
             if (vel)
                 voice_trig(c.id, note, (uint32_t)vel);
@@ -465,6 +473,7 @@ void eng_init(void)
     echo_init();
     voices_init();
     chordv_init();
+    fxv_init();
     bigknob_init(&bk);
     bigknob_init(&bkr);
     bk_step = -1;
@@ -589,7 +598,8 @@ static int source(uint32_t ch, float *o, uint32_t n)   /* the channel's sound, m
 {
     uint32_t i;
     int any = 0;
-    any = ch == CH_SKANK || ch == CH_ORGAN ? chordv_render(ch, o, n) : voice_render(ch, o, n);
+    any = ch == CH_SKANK || ch == CH_ORGAN ? chordv_render(ch, o, n) : ch == CH_VOX ? fxv_render(o, n)
+                                                                                  : voice_render(ch, o, n);
     if (ev[P_DEV_TONES]) {                       /* a sine per channel: 110 Hz x (channel + 1), -20 dBFS */
         strip_t *s = &strip[ch];
         float inc = 110.0f * (float)(ch + 1u) / 44100.0f;

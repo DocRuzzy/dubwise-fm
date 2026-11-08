@@ -78,6 +78,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | Black key 3 | Dub push, while held: feedback past endless, so the echo builds and rings. The tape's saturation and the limiter keep it from blowing up. |
 | White keys 9–16 | Throw channels 1–8: while you hold the key, the channel goes to its destination at full level, whatever its fader and even when it's muted, and the echo's feedback lifts so the throw rings on. Tap twice quickly to latch a throw on; tap again to let it go. |
 | Hold white key 9–16 + KNOB 1 | That channel's throw destination: ECHO, SPRING or BOTH. Choosing doesn't throw. By default the kick, hats, bass, lead and vox go to the echo, the snare to both, the skank and organ to the spring. |
+| Black keys 6 · 7 | Siren A (two tones) and siren B (a rising sweep), on channel 8, while held, louder the harder you press. They go into the echo by default. Their pitch, rate, depth and wave: the SOUND view of channel 8 (ALGORITHM to VOX, then EDIT). |
 | Black key 4 | Tape dive, while held: the echo's tape slows, so its repeats bend down in pitch; let go and they come back up. How far and how fast: FX page, TAPE bank (DIVE ×1.00–2.00, DIVE TIME 0.1–3 s). |
 | (Stereo) | The dry sound is mono. Only the echo and the spring are stereo: the spring always, the echo with WIDTH. Below about 150 Hz both sides stay the same, so the bass stays solid and mono. |
 | Black key 1 | Spring crash: strikes the spring tank, a thunderclap even with nothing sent to it. Held while you hold a throw key, it sends that throw to the spring as well. |
@@ -218,6 +219,7 @@ The voices:
 | Bass | INDEX (the pluck's brightness), IDECAY (how fast the pluck fades to a pure tone), DECAY, CUTOFF, RATIO (1:1 or 2:1, hollow), SUB (an octave below), SUSTAIN |
 | Skank | INDEX (the chop's bite), DECAY, TONE (where its band sits), RATIO (1:1 or 1:3, nasal). It sends to the spring by default. |
 | Organ | DRAWBAR (how much of the upper partials), DECAY (the bubble's length), CLICK (the key click) |
+| Vox (sirens) | PITCH, RATE (how fast it moves), DEPTH (how far, 1–24 semitones), WAVE (sine or triangle) |
 
 The keys sense how hard you play them, with no change to the FM-1. The 20 lowest keys
 (F3 to C5) give velocity and pressure. The top seven give velocity only.

@@ -1,0 +1,34 @@
+# The sirens (P2.1; C9, D3) on channel 8: black 6 (A: two tones, a square LFO) and black 7 (B: a rising sweep),
+# held to sound; the channel sends to the echo by default. Defaults: PITCH 537 Hz, DEPTH 7.5 semitones (the other
+# tone 829 Hz), RATE 1.75 Hz.
+wait 600
+listen
+wav siren-a.wav
+key b5 down
+wait 50
+said SIREN A
+expect ch8_db >-30
+wait 2000
+expect echo_db >-40
+key b5 up
+wait 300
+expect ch8_db <-80
+wavstop
+wav siren-b.wav
+key b6 down
+wait 2000
+key b6 up
+wait 300
+wavstop
+# the SOUND view: channel 8's siren settings
+turn ALGO -1
+wait 30
+expect focus 8
+tap EDIT
+wait 30
+said SOUND VOX
+turn K1 10
+wait 30
+expect ui.v8.pitch 80
+#wav siren-a.wav peak<-1 dc<-50 click<-30 zc_hz>550 zc_hz<850
+#wav siren-b.wav peak<-1 dc<-50 click<-30

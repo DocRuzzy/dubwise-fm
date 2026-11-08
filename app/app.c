@@ -10,6 +10,7 @@
 #include "engine/echo.h"
 #include "engine/scenes.h"
 #include "engine/song.h"
+#include "engine/fxv.h"
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
