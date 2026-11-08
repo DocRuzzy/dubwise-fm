@@ -1,0 +1,67 @@
+# The demo song (demo.c): loaded from SETUP (DEMO SONG, KNOB 2), played through once (72 BPM: a bar is 3.33 s, the
+# rim on beat 3 of each bar at +1.67 s), with live moves on top: snare throws into the echo, a spring crash on the
+# DUB section's downbeat, a dub push, a tape dive, a skank throw to the spring. It stops by itself after 16 bars.
+# The recording, demo.wav, is the thing to listen to.
+wait 600
+listen
+master 3400
+tap GLO
+wait 30
+turn K1 10
+wait 30
+said DEMO SONG
+turn K2 1
+wait 50
+said DEMO SONG LOADED: PRESS PLAY
+expect ui.tempo 720
+expect ui.song 1
+tap HOME
+wait 300
+wav demo.wav
+tap PLAY
+# INTRO: bars 1-4; a snare throw on bar 3's rim
+wait 8250
+key w9 down
+wait 500
+key w9 up
+# VERSE: bars 5-8; another on bar 7's
+wait 14500
+key w9 down
+wait 700
+key w9 up
+# DUB: bar 9's downbeat (26.67 s): the spring struck
+wait 3220
+key b0 down
+wait 100
+key b0 up
+expect eng.ch5.mute 1
+# bar 10's rim: a long throw
+wait 4880
+key w9 down
+wait 1200
+key w9 up
+# bar 12: a dub push, the Big Knob up by the song
+wait 5100
+key b2 down
+wait 100
+expect eng.hpf 5
+wait 1400
+key b2 up
+# DROP: bar 13 (40 s): the bass out; a tape dive
+wait 1300
+expect eng.ch4.mute 1
+key b3 down
+wait 1500
+key b3 up
+# bar 14's beat 3: the skank thrown to the spring
+wait 3400
+key w12 down
+wait 600
+key w12 up
+# OUTRO: bar 16; the song ends at 53.3 s and the transport stops
+wait 9500
+expect t_playing 0
+expect ui.play 0
+wait 3500
+wavstop
+#wav demo.wav peak<-0.5 dc<-50 side_lo<-60 seconds>55

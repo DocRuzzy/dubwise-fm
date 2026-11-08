@@ -4,11 +4,13 @@
  * reduced motion and the test tones. KNOB 1 (or SELECT) moves through the list, KNOB 2 (or PRESET) changes the
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
-enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_TONES, SU_N };
+enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_TONES, SU_DEMO,
+       SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
-                                          "REDUCED MOTION", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "TEST TONES"};
+                                          "REDUCED MOTION", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "TEST TONES",
+                                          "DEMO SONG"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_LEAD,
-                                     P_LOCK_MIDI, P_HPF_ON, P_DEV_TONES};
+                                     P_LOCK_MIDI, P_HPF_ON, P_DEV_TONES, 0};
 static int32_t su_cur;
 static uint32_t su_sig;
 
@@ -21,6 +23,8 @@ static void su_value(uint32_t i, char *t)
         int_text((int32_t)(i == SU_CYCLE ? cycle_bars(v) : runway_bars(v)), n);
         text_cat(t, n);
         text_cat(t, v == 0 && i == SU_RUNWAY ? " BAR" : " BARS");
+    } else if (i == SU_DEMO) {
+        text_cat(t, "K2: LOAD");
     } else if (i == SU_HPF_ON) {
         text_cat(t, v == HPF_ON_ECHO ? "ECHO RETURN" : "MIX");
     } else if (i == SU_LEAD) {
@@ -47,6 +51,10 @@ static void setup_move(int32_t e)
 static void setup_change(int32_t e)
 {
     uint32_t id = SU_ID[su_cur];
+    if (su_cur == SU_DEMO) {                     /* the demo song (demo.c) */
+        demo_load();
+        return;
+    }
     ctl_set(id, ctl_get(id) + e);
     if (su_cur != SU_TONES)
         set_dirty = 1;
@@ -72,9 +80,9 @@ static void setup_draw(int all)          /* the list in the strips' and centre's
     cv_begin(240, PAGE_H, C_BLACK);      /* (a canvas holds 144 rows: the rest of the area below, cleared) */
     cv_text(6, 2, &FONT_XS, "SETUP", C_GRAY);
     for (i = 0; i < SU_N; i++) {
-        int32_t y = 16 + (int32_t)i * 12, cur = (int32_t)i == su_cur;
+        int32_t y = 14 + (int32_t)i * 11, cur = (int32_t)i == su_cur;
         if (cur)
-            cv_rect(0, y - 1, 240, 12, C_LINE);
+            cv_rect(0, y - 1, 240, 11, C_LINE);
         cv_text(10, y, &FONT_T, SU_NAME[i], cur ? C_WHITE : C_GRAY);
         su_value(i, t);
         cv_text(232 - text_w(&FONT_T, t), y, &FONT_T, t, cur ? C_HI : C_AMB);

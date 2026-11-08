@@ -60,6 +60,7 @@ static void song_rec_toggle(void);
 static void song_undo_last(void);
 static void song_sync(void);
 static int song_section(uint32_t *from, uint32_t *to);
+static void demo_load(void);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
 
 static struct {
@@ -476,6 +477,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 
 #include "fx.c"                          /* the FX page (GPL-3.0-only) */
 #include "arrange.c"                     /* the ARRANGE page (GPL-3.0-only) */
+#include "demo.c"                        /* the demo song (GPL-3.0-only) */
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {

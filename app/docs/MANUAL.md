@@ -112,6 +112,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | LOCK MIDI IN | The key lock filters MIDI notes coming in, too (off by default). |
 | BIG KNOB ON | Where the Big Knob sits: the whole MIX, or only the ECHO RETURN. |
 | TEST TONES | A test tone on every channel (not saved). |
+| DEMO SONG | Turn KNOB 2 to load the demo: an original riddim and dub in the 1970s Kingston manner, 72 BPM in A minor, 16 bars (INTRO, VERSE, a DUB section of drum and bass that thins out under the Big Knob, a DROP without the bass, OUTRO). It replaces the patterns, scenes and song (until you SAVE, nothing is lost: switch off to get yours back). Press PLAY: the song plays once. Throw the snare into the echo on beat 3, crash the spring on the DUB section's downbeat, push the echo, dive the tape. |
 
 ## 3c. The STEPS page (SEQ)
 
