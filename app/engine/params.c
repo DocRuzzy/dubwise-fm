@@ -63,6 +63,7 @@ static const pdesc_t VOX_F[VX_N] = {
     [VX_RATE] = {"rate", 0, 127, 50},               /* 0.5 .. 12 Hz */
     [VX_DEPTH] = {"depth", 0, 127, 36},             /* 1 .. 24 semitones */
     [VX_WAVE] = {"wave", 0, 1, 0},                  /* sine, triangle */
+    [VX_LIVE] = {"live", 0, 127, 0},                /* the live input (P2.8): 0 off, 100 as it comes, 127 +2 dB */
 };
 static const pdesc_t LEAD_F[VL_N] = {
     [VL_INST] = {"inst", 0, INST_N - 1, INST_MELODICA},

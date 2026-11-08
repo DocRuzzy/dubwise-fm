@@ -18,6 +18,9 @@ extern cmdq_t eng_q;                         /* control.c pushes, eng_render pop
 
 void eng_init(void);                         /* boot: every parameter at its default, everything silent */
 void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12);   /* audio interrupt; n <= ENG_BLOCK */
+/* the live input (P2.8) for the block about to render: n stereo frames (int32, full scale `full`), on channel 8 as
+ * mono, mutable and throwable like any channel; NULL: none. Audio interrupt, before eng_render */
+void eng_live_in(const int32_t *lr, uint32_t n, float full);
 void eng_panic(void);                        /* silence now */
 
 /* the voices (voices.h): a hit or a note on channel ch, from the audio interrupt (MIDI in, the sequencer) */

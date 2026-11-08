@@ -713,6 +713,35 @@ static uint32_t until_cue(void)                  /* samples to the first cue's m
 }
 
 /* ---------------------------------------------------------------- sources --- */
+static const int32_t *live_lr;                   /* the live input this block (P2.8), its frames, its scale */
+static uint32_t live_n, live_at;
+static float live_k, live_dc;
+
+void eng_live_in(const int32_t *lr, uint32_t n, float full)
+{
+    live_lr = lr;
+    live_n = lr ? n : 0u;
+    live_k = full > 0.0f ? 0.5f / full : 0.0f;   /* (L + R) / 2, to -1..1 */
+}
+
+static int live_add(float *o, uint32_t n, int any)   /* the live input into channel 8 (after a DC block) */
+{
+    uint32_t i;
+    float g;
+    int32_t v = ev[P_VOICE(CH_VOX, VX_LIVE)];
+    if (!v || !live_lr || live_at >= live_n)
+        return any;
+    g = (float)v * (1.0f / 100.0f);
+    g *= g * live_k;                             /* a square law: 100 as it comes */
+    for (i = 0; i < n; i++) {
+        uint32_t k = live_at + i < live_n ? live_at + i : live_n - 1u;
+        float x = (float)(live_lr[2u * k] + live_lr[2u * k + 1u]) * g;
+        live_dc = undenorm(live_dc + (x - live_dc) * 0.0028f);   /* ~20 Hz: no DC on the low end */
+        o[i] = any ? o[i] + x - live_dc : x - live_dc;
+    }
+    return 1;
+}
+
 void eng_trig(uint32_t ch, int32_t note, uint32_t vel) { trig(ch, note, vel); }
 void eng_release(uint32_t ch, int32_t note) { voice_release(ch, note); }
 int32_t eng_note(void) { return voice_note(CH_BASS); }
@@ -723,6 +752,8 @@ static int source(uint32_t ch, float *o, uint32_t n)   /* the channel's sound, m
     int any = 0;
     any = ch == CH_SKANK || ch == CH_ORGAN ? chordv_render(ch, o, n) : ch == CH_VOX ? fxv_render(o, n)
                                                                                   : voice_render(ch, o, n);
+    if (ch == CH_VOX)
+        any = live_add(o, n, any);
     if (ev[P_DEV_TONES]) {                       /* a sine per channel: 110 Hz x (channel + 1), -20 dBFS */
         strip_t *s = &strip[ch];
         float inc = 110.0f * (float)(ch + 1u) / 44100.0f;
@@ -909,6 +940,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         prof_mark(PART_CMD);
         if (pos >= n)
             break;
+        live_at = pos;
         render_seg(lr + 2u * pos, d, gain);
         if (t_playing)
             t_step(d);

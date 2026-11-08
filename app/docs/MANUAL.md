@@ -233,7 +233,7 @@ The voices:
 | Skank | INDEX (the chop's bite), DECAY, TONE (where its band sits), RATIO (1:1 or 1:3, nasal). It sends to the spring by default. |
 | Organ | DRAWBAR (how much of the upper partials), DECAY (the bubble's length), CLICK (the key click) |
 | Lead | INST (MELODICA: two reeds beating, vibrato after a moment; BRASS: brighter as it gets louder, a scoop up into each note, doubled like a section), BRIGHT, ATTACK, RELEASE, VIBRATO. It sends to the echo by default. Play it from the STEPS page (REC, two octaves above the bass) or MIDI channel 2. |
-| Vox (sirens) | PITCH, RATE (how fast it moves), DEPTH (how far, 1–24 semitones), WAVE (sine or triangle) |
+| Vox (sirens) | PITCH, RATE (how fast it moves), DEPTH (how far, 1–24 semitones), WAVE (sine or triangle); second bank (EDIT again): LIVE, the live input's level (0 off, 100 as it comes) |
 
 The keys sense how hard you play them, with no change to the FM-1. The 20 lowest keys
 (F3 to C5) give velocity and pressure. The top seven give velocity only.
@@ -241,6 +241,12 @@ The keys sense how hard you play them, with no change to the FM-1. The 20 lowest
 Over the USB cable, the FM-1 is also a sound card. Your computer can record what it plays from an input named
 "DUBWISE FM-1". It can also play through the FM-1: choose "DUBWISE FM-1" as the output, and you'll hear it from
 the FM-1's speaker and headphones, mixed with the FM-1's own sound, at MASTER's volume.
+
+**Live input (coming).** In a future firmware, your computer's audio will come in on channel 8 instead, so you can mix
+a vocal or a stem like any other channel: drop it with its mute, throw it into the echo, capture its moves in the song.
+Turn it up with channel 8's LIVE (SOUND view, second bank). This needs a small change to the FM-1 platform, which has
+been proposed upstream. Until that change lands, the computer's audio is mixed in as described above, and LIVE does
+nothing.
 
 ---
 

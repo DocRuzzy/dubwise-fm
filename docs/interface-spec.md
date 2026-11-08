@@ -178,7 +178,7 @@ Dirty regions only. Meters at 20–30 Hz, echo panel at ~20 Hz, runway border on
 
 ## 8. External audio input
 - **No analog input** exists in the BSP. fm1-base's USB audio from a host is mixed **after** the app.
-- **Plan (P2.8):** tap USB audio-in into channel 8 "Live in" (mono), so it can be muted, soloed and thrown into the echo and spring.
+- **P2.8:** USB audio from the computer feeds channel 8 "Live in" (mono) at VOX's LIVE level, so it can be muted, soloed and thrown into the echo and spring. The app side is done. It needs fm1-base's proposed `usb_audio_out_app` (`docs/upstream/usb-audio-to-app.md`).
   - Needs a small fm1-base change (upstream, MPL-2.0).
   - Cost: ~2–4 KB ring buffer plus jitter handling. Latency: a few ms plus one block.
 - **Out of scope:** USB host audio (host mode is MIDI only) and Bluetooth audio in.

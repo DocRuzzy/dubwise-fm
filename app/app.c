@@ -192,9 +192,45 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
     }
 }
 
+/* The live input (P2.8): the computer's audio over USB, on channel 8. It needs fm1-base's proposed
+ * usb_audio_out_app option (docs/upstream/usb-audio-to-app.md): the computer's audio handed to the render, resampled to
+ * its clock, and not mixed in after it. Without it, the platform mixes the computer's audio in after the render (not
+ * mutable, not throwable) and channel 8 has no live input. The host simulator: a test tone (`livein HZ DB`). */
+#ifdef PLAT_HOST
+static float host_live_hz, host_live_amp, host_live_ph;
+static int32_t host_live[2u * ENG_BLOCK];
+#endif
+
+static void live_in(uint32_t n)
+{
+#if defined(PLAT_HOST)
+    uint32_t i;
+    if (host_live_hz <= 0.0f) {
+        eng_live_in(0, 0, 0.0f);
+        return;
+    }
+    for (i = 0; i < n && i < ENG_BLOCK; i++) {
+        int32_t v = (int32_t)(host_live_amp * 8388607.0f * fm_sin_turns(host_live_ph));
+        host_live[2u * i] = host_live[2u * i + 1u] = v;
+        host_live_ph += host_live_hz * (1.0f / 44100.0f);
+        if (host_live_ph >= 1.0f)
+            host_live_ph -= 1.0f;
+    }
+    eng_live_in(host_live, i, 8388608.0f);
+#elif FM1B_UAC_OUT_APP
+    uint32_t frames = 0;
+    const int32_t *p = plat_usb_play_in(&frames);   /* proposed upstream: full scale 1 << 23 */
+    eng_live_in(p, frames < n ? frames : n, 8388608.0f);
+#else
+    (void)n;
+    eng_live_in(0, 0, 0.0f);
+#endif
+}
+
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     midi_in();
+    live_in(n);
     eng_render(lr, n, master_q12);       /* the commands queued, the channels, the mix (engine/engine.c) */
 }
 
@@ -423,6 +459,11 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         }
         printf("perf: total    %7.2f  %7.2f   %5.2f\n", tot / 384.0, totmax / 24.0,
                tot / 16.0 * 80.0 * 100.0 / ENG_BLOCK_TICKS);
+        return 1;
+    }
+    if (!strcmp(cmd, "livein")) {        /* livein HZ DB: the live input's stand-in, a sine (HZ 0: none) */
+        host_live_hz = (float)atof(a);
+        host_live_amp = fm_exp2f((float)atof(b) * (1.0f / 6.0206f));
         return 1;
     }
     if (strcmp(cmd, "param") && strcmp(cmd, "flood") && strcmp(cmd, "cue"))

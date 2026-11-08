@@ -1,0 +1,54 @@
+# The live input (P2.8; spec 8): the computer's audio over USB on channel 8, mono, mutable and throwable. On the
+# device it needs fm1-base's proposed usb_audio_out_app (docs/upstream/usb-audio-to-app.md); here a test tone stands
+# in (livein HZ DB). Channel 8's LIVE (the SOUND view's second bank): 0 off (the default), 100 as it comes.
+wait 600
+listen
+livein 220 -12
+param ch8.echo 0
+param ch8.spring 0
+wait 100
+expect ch8_db -120
+param v8.live 100
+wait 100
+expect ch8_db >-16
+expect ch8_db <-10
+wav livein.wav
+wait 1000
+wavstop
+# muted
+key w7 down
+wait 30
+key w7 up
+wait 100
+expect ch8_db -120
+key w7 down
+wait 30
+key w7 up
+wait 100
+expect ch8_db >-16
+# thrown into the echo (white 16)
+key w15 down
+wait 300
+expect eng.ch8.throw 1
+expect echo_db >-30
+key w15 up
+wait 30
+# off: LIVE 0, or no input
+param v8.live 0
+wait 100
+expect ch8_db -120
+param v8.live 100
+livein 0 0
+wait 100
+expect ch8_db -120
+# the SOUND view: channel 8's second bank is LIVE
+turn ALGO -1
+wait 30
+expect focus 8
+tap EDIT
+wait 30
+tap EDIT
+wait 30
+said SOUND VOX
+shot livein-sound.png
+#wav livein.wav peak<-1 dc<-50 click<-40 zc_hz>210 zc_hz<230
