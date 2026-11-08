@@ -24,6 +24,8 @@ static float dec, up_prev, up_cur;               /* half rate: the decimator's s
 static uint32_t phase;
 static float crash_env, crash_amp;               /* the strike: its burst */
 static uint32_t rng = 0x9E3779B9u;
+static uint32_t quiet;                           /* half-rate samples in a row with silence in and (almost) out */
+#define IDLE_AFTER (2u * LINE_MAX)               /* two of the longest loop: nothing left in it */
 
 static inline float noise(void)
 {
@@ -49,6 +51,7 @@ void spring_init(void)
     hp_x = hp_y = dec = up_prev = up_cur = 0.0f;
     phase = 0;
     crash_env = crash_amp = 0.0f;
+    quiet = IDLE_AFTER;                          /* (idle from the start) */
 }
 
 void spring_config(const spring_cfg_t *c) { cfg = *c; }
@@ -57,6 +60,7 @@ void spring_crash(float amount)
 {
     crash_amp = amount;
     crash_env = 1.0f;
+    quiet = 0;
 }
 
 static float half_step(float x)                  /* one 22,050 Hz sample: in, the return out */
@@ -93,6 +97,16 @@ static float half_step(float x)                  /* one 22,050 Hz sample: in, th
 void spring_run(const float *in, float *out, uint32_t n)
 {
     uint32_t i;
+    if (quiet >= IDLE_AFTER) {                   /* idle: silent in, nothing left: costs nothing */
+        for (i = 0; i < n && in[i] == 0.0f; i++)
+            ;
+        if (i == n) {
+            for (i = 0; i < n; i++)
+                out[i] = 0.0f;
+            return;
+        }
+        quiet = 0;
+    }
     for (i = 0; i < n; i++) {
         dec = undenorm(dec + 0.6f * (in[i] - dec));   /* a gentle low-pass, then every other sample */
         if (++phase == 2u) {
@@ -101,5 +115,13 @@ void spring_run(const float *in, float *out, uint32_t n)
             up_cur = half_step(dec);
         }
         out[i] = up_prev + (up_cur - up_prev) * (phase ? 0.5f : 0.0f);
+        if (phase == 0u) {                       /* counting the quiet: in silent, out under -120 dB */
+            if (in[i] == 0.0f && fm_fabsf(up_cur) < 1e-6f && crash_env < 1e-4f)
+                quiet++;
+            else
+                quiet = 0;
+        }
     }
+    if (quiet >= IDLE_AFTER)                     /* going idle: the last of it let go, so it starts clean */
+        spring_init();
 }

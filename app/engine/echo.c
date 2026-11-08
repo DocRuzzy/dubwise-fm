@@ -28,6 +28,9 @@ static float dec_s1, dec_s2;                     /* the decimator's low-pass (tw
 static float up_prev, up_cur, up_lp;             /* the interpolator's two line-rate outputs, and its smoothing */
 static uint32_t phase;                           /* 0..3: where in the line sample this 44.1 kHz sample is */
 static float lim_env = 0.0f, lim_g = 1.0f;
+static uint32_t quiet;                           /* line samples in a row: silent in, both heads read zero */
+static int last_heads_zero;
+#define IDLE_AFTER ECHO_LINE                     /* the whole tape read as zero: it is empty */
 
 void echo_init(void)
 {
@@ -49,6 +52,7 @@ void echo_init(void)
     cfg.tone = 0.5f;
     cfg.head2 = 0.0f;
     cfg.freeze = 0;
+    quiet = IDLE_AFTER;
 }
 
 void echo_config(const echo_cfg_t *c)
@@ -84,6 +88,7 @@ static float line_step(float x)                  /* one line-rate sample: the in
     t_now += (cfg.t - t_now) * 0.0005f;          /* ~180 ms: the tape's speed changes, not jumps */
     h1 = tap(t_now);
     h2 = tap(2.0f * t_now);
+    last_heads_zero = h1 == 0.0f && h2 == 0.0f;
     hl = tap(t_now - (float)AP_TOTAL);           /* the loop's own read: the all-passes' delay taken off */
     if (cfg.freeze) {                            /* held: the tape loops as it is (no filters, no new input) */
         y = h1;
@@ -123,6 +128,17 @@ write:
 void echo_run(const float *in, float *out, uint32_t n)
 {
     uint32_t i;
+    if (quiet >= IDLE_AFTER && !cfg.freeze) {    /* idle: the tape empty, nothing coming in: costs nothing */
+        for (i = 0; i < n && in[i] == 0.0f; i++)
+            ;
+        if (i == n) {
+            for (i = 0; i < n; i++)
+                out[i] = 0.0f;
+            t_now = cfg.t;                       /* (an empty tape has nothing to bend: the time is there at once) */
+            return;
+        }
+        quiet = 0;
+    }
     for (i = 0; i < n; i++) {
         float x = in[i];
         dec_s1 = undenorm(dec_s1 + 0.44f * (x - dec_s1));   /* ~4 kHz, twice: images below 5.5 kHz kept out */
@@ -131,6 +147,10 @@ void echo_run(const float *in, float *out, uint32_t n)
             phase = 0;
             up_prev = up_cur;
             up_cur = line_step(dec_s2);
+            if (x == 0.0f && dec_s2 == 0.0f && up_cur == 0.0f && last_heads_zero)
+                quiet++;
+            else
+                quiet = 0;
         }
         /* back up: linear between the last two line samples (a line sample late), then smoothed */
         up_lp = undenorm(up_lp + 0.5f * ((up_prev + (up_cur - up_prev) * (float)phase * 0.25f) - up_lp));
