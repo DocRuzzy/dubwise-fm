@@ -116,6 +116,12 @@ enum {
     P_XS_E2S = 0x0E8,         /* cross-sends (P1.3): the echo's return into the spring, 0..127 */
     P_XS_S2E,                 /* the spring's return into the echo, 0..127 (the two together capped: a loop) */
     P_XS_END,
+    P_PH_ON = 0x0F0,          /* the phaser (P2.3): PH_OFF, PH_HATS, PH_SKANK, PH_ECHO, PH_MIX */
+    P_PH_RATE,                /* 0..127: 0.1 .. 18 Hz */
+    P_PH_DEPTH,               /* 0..127 */
+    P_PH_FB,                  /* 0..127: feedback 0 .. 0.7 */
+    P_PH_SHAPE,               /* 0 sine, 1 square */
+    P_PH_END,
 };
 enum { ECHO_DIV_16, ECHO_DIV_8T, ECHO_DIV_16D, ECHO_DIV_8, ECHO_DIV_4T, ECHO_DIV_8D, ECHO_DIV_4, ECHO_DIV_2T,
        ECHO_DIV_4D, ECHO_DIV_2, ECHO_DIV_N };
@@ -123,6 +129,7 @@ float echo_div_beats(int32_t d);
 const char *echo_div_name(int32_t d);                 /* "1/8." */
 float echo_t60(int32_t fb);                          /* seconds */
 enum { HPF_ON_MIX, HPF_ON_ECHO, HPF_ON_N };
+enum { PH_OFF, PH_HATS, PH_SKANK, PH_ECHO, PH_MIX, PH_N };
 #define HPF_STEPS 10
 float hpf_hz(int32_t step);                          /* a step's cutoff, Hz (0: off) */
 const char *hpf_name(int32_t step);                  /* "500 HZ", "1K", "OFF" */

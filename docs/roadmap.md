@@ -123,7 +123,7 @@ image +6.2 KB (the page); CPU only while a cue waits (the transport stepped per 
 |---|---|---|---|
 | 2.1 | Siren | D3, C9 | **Done (2026-11-08)**, `app/engine/fxv.c`, channel 8: siren A (square LFO, two tones), B (rising ramp); black 6 / 7 held, velocity; PITCH / RATE / DEPTH / WAVE on the SOUND view; channel 8 to the echo by default. Measured: A's mean pitch 679 Hz for 683 expected |
 | 2.2 | Melodica, brass | D2, D3 | **Done (2026-11-08)**, channel 7 (`voices.c` render_lead): melodica (2 carriers +6 cents, self-fed modulator, breath attack, 4.5 Hz vibrato after 300 ms) or brass (index with loudness, a 1-semitone scoop, a 12 ms doubling for the section); steps hold notes (two steps long), REC keyboard two octaves over the bass, MIDI channel 2; echo send 60 by default. Measured: melodica A4 at 440.8 Hz |
-| 2.3 | Single phaser | C6 | |
+| 2.3 | Single phaser | C6 | **Done (2026-11-08)**, `app/engine/phaser.c`: 6 all-passes, LFO 0.1–18 Hz sine / square over 200 Hz–4 kHz, feedback, 50 % mix; an insert on the hats, the skank, the echo return or the mix (both sides one sweep; state cleared when it moves, so no stereo leaks in); off from Four-track down. Measured on a steady tone: 20.5 dB of movement, 0.1 off. wavstat `mod` |
 | 2.4 | Tape drive | C7 | |
 | 2.5 | Snare-keyed spring gate | C13 | |
 | 2.6 | Vox/FX one-shots from flash | C9, C10 | |

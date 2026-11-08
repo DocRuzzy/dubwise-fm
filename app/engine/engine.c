@@ -13,6 +13,7 @@
 #include "scenes.h"
 #include "song.h"
 #include "fxv.h"
+#include "phaser.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -64,7 +65,8 @@ static volatile float echo_peak, spring_peak, echo_ret_peak, spring_ret_peak;
 static ramp_t echo_ret, spring_ret;              /* the returns' levels */
 static int16_t kick_last;
 static float bus_echo_g;
-static int dive_back;                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
+static int dive_back;
+static int ph_on;                                /* where the phaser is this block (PH_OFF when the tier says)                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
 static float sret_last[ENG_BLOCK];               /* the spring's return a block ago: into the echo (cross-send) */
 static uint32_t sret_last_n;
 static ramp_t xs_e2s, xs_s2e;                    /* the cross-sends' levels (P1.3) */
@@ -406,6 +408,20 @@ static void bus_update(void)                     /* the echo's and the voices' s
         }
         kick_last = ev[P_SPRING_KICK];
     }
+    {                                            /* the phaser: off from the Four-track tier down */
+        phaser_cfg_t pc;
+        pc.rate = 0.1f * fm_exp2f((float)ev[P_PH_RATE] * (7.49f / 127.0f));   /* 0.1 .. 18 Hz */
+        pc.depth = (float)ev[P_PH_DEPTH] * (1.0f / 127.0f);
+        pc.fb = (float)ev[P_PH_FB] * (0.7f / 127.0f);
+        pc.square = ev[P_PH_SHAPE] != 0;
+        phaser_config(&pc);
+        {
+            int on = tier_now == TIER_STUDIO ? ev[P_PH_ON] : PH_OFF;
+            if (on != ph_on)                     /* moved: both sides from the same rest (no stereo from the past) */
+                phaser_reset();
+            ph_on = on;
+        }
+    }
     lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
     if (ev[P_HPF_STEP] != bk_step) {             /* a step: at once, unsmoothed (the detents are the sound) */
         bk_step = ev[P_HPF_STEP];
@@ -481,6 +497,7 @@ void eng_init(void)
     fxv_init();
     bigknob_init(&bk);
     bigknob_init(&bkr);
+    phaser_reset();
     bk_step = -1;
     spring_init();
     xs_e2s.g = xs_e2s.target = xs_s2e.g = xs_s2e.target = 0.0f;
@@ -642,6 +659,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         strip_t *s = &strip[ch];
         float pk = 0.0f;
         int on = source(ch, buf, n);
+        if (on && ((ph_on == PH_HATS && ch == CH_HATS) || (ph_on == PH_SKANK && ch == CH_SKANK)))
+            phaser_run(buf, 0, n);               /* the phaser on a channel (before its strip) */
         prof_mark(PART_CH0 + ch);
         if (!on) {
             ramp_jump(&s->dry);
@@ -686,6 +705,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
     if (xs_e2s.g != 0.0f || xs_e2s.left)         /* the echo's return into the spring */
         for (i = 0; i < n; i++)
             sbus[i] += ramp_next(&xs_e2s) * eret[i];
+    if (ph_on == PH_ECHO)                        /* the phaser on the echo's return */
+        phaser_run(eret, eretr, n);
     if (ev[P_HPF_ON] == HPF_ON_ECHO) {           /* the Big Knob on the echo's return */
         bigknob_run(&bk, eret, n);
         bigknob_run(&bkr, eretr, n);
@@ -708,6 +729,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             dry[i] += r + sr;
         }
         spring_ret_peak = srp;
+        if (ph_on == PH_MIX)                     /* the phaser on the whole mix: both sides the same sweep */
+            phaser_run(dry, dryr, n);
         if (ev[P_HPF_ON] == HPF_ON_MIX) {        /* the Big Knob on the whole mix */
             bigknob_run(&bk, dry, n);
             bigknob_run(&bkr, dryr, n);

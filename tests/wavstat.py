@@ -22,6 +22,8 @@ Metrics (dBFS unless noted; -200 for silence):
   zc_hz     the pitch by zero crossings over the middle half (where the sound is over -60 dBFS): a kick's or a
             bass note's fundamental
   hf        the energy above ~4 kHz against all of it, dB (0: all highs; hats near it, a kick far under)
+  mod       the spread between the loudest and the quietest 20 ms window, dB, after the first 100 ms (a phaser's
+            notches moving through a steady tone show here; a steady tone alone, about 0)
   repeat_ms the time from the first sound's onset to the next one (an echo's repeat): where a 5 ms envelope
             rises past -40 dBFS, and again after it has fallen 6 dB under that (-1 if there is no second onset)
 """
@@ -113,6 +115,12 @@ def highpass(xs, rate, fc):            # two one-pole high-passes
     return out
 
 
+def mod_db(xs, rate):
+    w = rate // 50
+    wins = [db(rms(xs[i:i + w])) for i in range(rate // 10, len(xs) - w, w)]
+    return max(wins) - min(wins) if wins else 0.0
+
+
 def metrics(path):
     rate, L, R = read(path)
     n = len(L)
@@ -135,6 +143,7 @@ def metrics(path):
         "repeat_ms": repeat_ms(L, rate),
         "zc_hz": zc_hz(L, rate),
         "hf": db(rms(highpass(L, rate, 4000.0))) - db(rms(L)) if rms(L) > 0 else -200.0,
+        "mod": mod_db(L, rate),
     }
 
 

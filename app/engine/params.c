@@ -115,6 +115,13 @@ static const pdesc_t SPRING[P_SPRING_END - P_SPRING_RET] = {
     {"spring.tone", 0, 127, 60},
     {"spring.kick", 0, 1, 0},
 };
+static const pdesc_t PH[P_PH_END - P_PH_ON] = {
+    {"ph.on", 0, PH_N - 1, PH_OFF},
+    {"ph.rate", 0, 127, 30},
+    {"ph.depth", 0, 127, 90},
+    {"ph.fb", 0, 127, 50},
+    {"ph.shape", 0, 1, 0},
+};
 static const pdesc_t XS[P_XS_END - P_XS_E2S] = {
     {"xs.e2s", 0, 127, 0},
     {"xs.s2e", 0, 127, 0},
@@ -188,6 +195,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &HPF[id - P_HPF_STEP];
     if (id >= P_XS_E2S && id < P_XS_END)
         return &XS[id - P_XS_E2S];
+    if (id >= P_PH_ON && id < P_PH_END)
+        return &PH[id - P_PH_ON];
     if (id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE < CHF_N)
         return &CH_FIELDS[(id - P_CH_BASE) % CH_STRIDE];
     if (id >= P_VOICE_BASE && id < P_VOICE_BASE + NCH * VOICE_STRIDE) {
