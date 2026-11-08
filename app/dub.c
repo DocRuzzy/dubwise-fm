@@ -631,6 +631,11 @@ void dub_input(void)
         if ((keys & bit) && !(dub.keys & bit)) {
             dub.vel[BK[k]] = (uint8_t)touch_vel(BK[k]);
             dub.last_key = BK[k];
+            if (k >= 7u && k <= 9u) {    /* black 8-10: the one-shots (P2.6), to their end */
+                ctl_note(CH_VOX, 16 + (int32_t)(k - 7u), touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
+                app_say("ONE SHOT", fxv_shot_name(k - 7u));
+                continue;
+            }
             if (k == 5u || k == 6u)      /* the sirens A, B, while held (P2.1) */
                 ctl_note(CH_VOX, k == 5u ? SIREN_A : SIREN_B, touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
             if (k == 3u) {               /* the tape dive, while held */

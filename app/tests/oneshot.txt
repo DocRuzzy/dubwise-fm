@@ -1,0 +1,30 @@
+# The one-shots (P2.6; C9, C10) on channel 8: black 8 HEY, black 9 HORN, black 10 LASER. Each plays to its end
+# from a tap; velocity sets the level. Channel 8 sends to the echo, so a one-shot repeats like a thrown word (the return, after the shot has ended).
+wait 600
+listen
+wav oneshot-hey.wav
+tapkey b7
+wait 50
+said ONE SHOT HEY
+expect ch8_db >-40
+wait 650
+expect echo_ret_db >-50
+wait 3800
+wavstop
+wav oneshot-horn.wav
+tapkey b8
+wait 40
+said ONE SHOT HORN
+expect ch8_db >-40
+wait 1500
+wavstop
+wav oneshot-laser.wav
+tapkey b9
+wait 40
+said ONE SHOT LASER
+wait 1200
+expect ch8_db <-80
+wavstop
+#wav oneshot-hey.wav peak<-1 dc<-45 click<-30
+#wav oneshot-horn.wav peak<-1 dc<-45 click<-30
+#wav oneshot-laser.wav peak<-1 dc<-45 click<-30

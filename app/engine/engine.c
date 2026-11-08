@@ -468,9 +468,12 @@ static void drain(void)                          /* every queued command, at the
             cue_add(CMD_TEMPLATE, c.id, c.v, c.beats);
         else if (c.op == CMD_SCENE)
             cue_add(CMD_SCENE, c.id, 0, c.beats);
-        else if (c.op == CMD_NOTE && c.id == CH_VOX) {   /* channel 8: the sirens, held (note: which) */
+        else if (c.op == CMD_NOTE && c.id == CH_VOX) {   /* channel 8: the sirens, held (note: which); 16+: shots */
             int32_t which = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
-            if (vel)
+            if (which >= 16) {
+                if (vel)
+                    fxv_shot((uint32_t)(which - 16), (uint32_t)vel);
+            } else if (vel)
                 fxv_on(which, (uint32_t)vel);
             else
                 fxv_off(which);
