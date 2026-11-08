@@ -8,6 +8,7 @@
 #include "voices.h"
 #include "riddim.h"
 #include "bigknob.h"
+#include "spring.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -53,9 +54,11 @@ typedef struct {
 
 static int16_t ev[P_NIDS];                       /* the applied values (the main loop reads them back); 16 bits: pdesc_t */
 static strip_t strip[NCH];
-static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], eret[ENG_BLOCK];
-static volatile float echo_peak, spring_peak, echo_ret_peak;
-static ramp_t echo_ret;                          /* the echo return's level */
+static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], eret[ENG_BLOCK], sret[ENG_BLOCK];
+static volatile float echo_peak, spring_peak, echo_ret_peak, spring_ret_peak;
+static ramp_t echo_ret, spring_ret;              /* the returns' levels */
+static int16_t kick_last;                        /* P_SPRING_KICK as it was: a strike on 0 -> 1 */
+static volatile uint32_t crashes;
 static volatile int32_t echo_div_now;
 static volatile uint32_t lock_now = 0xFFFu;
 static bigknob_t bk;                             /* the Big Knob (P1.1) */
@@ -299,6 +302,20 @@ static void bus_update(void)                     /* the echo's and the voices' s
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev);
+    {                                            /* the spring: its decay as loop feedback (~40 ms a pass), damping */
+        spring_cfg_t sc;
+        float t60 = 0.5f + 5.5f * (float)ev[P_SPRING_DECAY] * (1.0f / 127.0f);
+        float hz = 2000.0f + 5000.0f * (float)ev[P_SPRING_TONE] * (1.0f / 127.0f);
+        sc.g = fm_exp2f(-9.966f * 0.04f / t60);
+        sc.damp = 1.0f - fm_expf(-6.2831853f * hz / 22050.0f);
+        spring_config(&sc);
+        ramp_to(&spring_ret, send(ev[P_SPRING_RET]));
+        if (ev[P_SPRING_KICK] && !kick_last) {
+            spring_crash(0.7f);
+            crashes++;
+        }
+        kick_last = ev[P_SPRING_KICK];
+    }
     lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
     if (ev[P_HPF_STEP] != bk_step) {             /* a step: at once, unsmoothed (the detents are the sound) */
         bk_step = ev[P_HPF_STEP];
@@ -360,6 +377,10 @@ void eng_init(void)
     voices_init();
     bigknob_init(&bk);
     bk_step = -1;
+    spring_init();
+    spring_ret.g = spring_ret.target = 0.0f;
+    spring_ret.left = 0;
+    kick_last = 0;
     echo_ret.g = echo_ret.target = 0.0f;
     echo_ret.left = 0;
     bus_update();
@@ -498,15 +519,19 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
     prof_mark(PART_ECHO);
     if (ev[P_HPF_ON] == HPF_ON_ECHO)             /* the Big Knob on the echo's return */
         bigknob_run(&bk, eret, n);
+    spring_run(sbus, sret, n);
+    prof_mark(PART_SPRING);
     {
-        float rp = 0.0f, op = 0.0f;
+        float rp = 0.0f, op = 0.0f, srp = 0.0f;
         for (i = 0; i < n; i++) {
-            float r = ramp_next(&echo_ret) * eret[i];
+            float r = ramp_next(&echo_ret) * eret[i], sr = ramp_next(&spring_ret) * sret[i];
             ep = fm_maxf(ep, fm_fabsf(ebus[i]));
             sp = fm_maxf(sp, fm_fabsf(sbus[i]));
             rp = fm_maxf(rp, fm_fabsf(r));
-            dry[i] += r;                         /* mono dry and the echo's return (stereo returns: P1.5) */
+            srp = fm_maxf(srp, fm_fabsf(sr));
+            dry[i] += r + sr;                    /* mono dry and the returns (stereo returns: P1.5) */
         }
+        spring_ret_peak = srp;
         if (ev[P_HPF_ON] == HPF_ON_MIX)          /* the Big Knob on the whole mix */
             bigknob_run(&bk, dry, n);
         for (i = 0; i < n; i++) {
@@ -584,6 +609,8 @@ float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
 uint32_t eng_seq_hits(void) { return seq_hits; }
 uint32_t eng_ticks(void) { return ticks; }
+float eng_spring_ret_peak(void) { return spring_ret_peak; }
+uint32_t eng_crashes(void) { return crashes; }
 float eng_out_peak(void) { return out_peak; }
 int eng_midi_allowed(int32_t note)               /* MIDI in, when the lock covers it (P_LOCK_MIDI) */
 {

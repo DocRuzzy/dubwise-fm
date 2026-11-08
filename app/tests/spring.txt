@@ -1,0 +1,69 @@
+# The spring (P1.2; C5): two dispersive springs at 22 kHz, decaying in DECAY (default 2.7 s). A rim shot sent to
+# it rings and dies away; the crash (black 1) strikes the tank on its own; black 1 held with a throw key sends that
+# throw to the spring too. FX opens the effects' page: ECHO, then SPRING.
+wait 600
+listen
+expect spring_ret_db -120
+# a rim shot into the spring: a "room shot" (C5 drill), it rings, then it is gone
+param ch2.spring 127
+wav spring-shot.wav
+midi 99 25 64
+wait 300
+expect spring_ret_db >-40
+wait 4500
+expect spring_ret_db <-60
+wavstop
+param ch2.spring 0
+# the crash: the tank struck, nothing sent
+wav spring-crash.wav
+key b0 down
+wait 50
+said SPRING CRASH
+expect crashes 1
+expect spring_ret_db >-30
+key b0 up
+wait 3000
+wavstop
+# black 1 with a throw held: the kick (its destination the echo) goes to the spring as well, and back after
+param dev.tones 1
+key w8 down
+wait 50
+expect spring_db -120
+key b0 down
+wait 50
+said THROW PLUS SPRING
+expect eng.ch1.dest 2
+expect spring_db >-25
+expect crashes 1
+key b0 up
+wait 50
+expect eng.ch1.dest 0
+key w8 up
+param dev.tones 0
+# the longest decay (6 s) holds, never runs away
+param spring.decay 127
+param ch2.spring 127
+wav spring-long.wav
+midi 99 25 7F
+wait 8000
+wavstop
+param ch2.spring 0
+# the FX page: ECHO, then SPRING; KNOB 1 the spring's decay
+tap FX
+wait 30
+said FX ECHO
+expect page 4
+tap FX
+wait 30
+said FX SPRING
+turn K1 -10
+wait 30
+expect ui.spring.decay 107
+tap SAVE
+wait 30
+reboot
+wait 600
+expect ui.spring.decay 107
+#wav spring-shot.wav peak<-1 dc<-50 growth<-30
+#wav spring-crash.wav peak<-1 dc<-40 hf>-30 growth<-20
+#wav spring-long.wav peak<-1 dc<-50 growth<-6

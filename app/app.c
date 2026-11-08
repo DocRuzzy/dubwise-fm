@@ -11,7 +11,7 @@
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x44554237u            /* "DUB7": the settings record; another magic loads defaults */
+#define SET_MAGIC 0x44554238u            /* "DUB8": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
@@ -21,6 +21,7 @@ typedef struct {
     uint8_t setup[P_NGLOBAL];            /* the globals from P_LEAD on: lead, cycle, runway .. (SETUP) */
     uint8_t chords[P_CHORD_END - P_CHORD0];   /* the chord lane */
     uint8_t hpf_on;                      /* where the Big Knob sits */
+    uint8_t fx[4];                       /* the FX page's: echo tone, 2T head, spring decay, spring tone */
 } settings_t;
 /* the sounds: every voice parameter (P_VOICE_BASE..P_NIDS), in their own store object (OBJ_SOUND) */
 #define SOUND_MAGIC 0x534E4431u          /* "SND1" */
@@ -29,6 +30,7 @@ typedef struct {
     int16_t v[P_NIDS - P_VOICE_BASE];
 } sound_t;
 static sound_t snd;
+static const uint16_t SET_FX[4] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_SPRING_TONE};
 /* the patterns and their lengths (OBJ_PATTERN) */
 #define PATTERN_MAGIC 0x50415431u        /* "PAT1" */
 typedef struct {
@@ -93,6 +95,11 @@ static void settings_defaults(void)
     set.hpf_on = (uint8_t)param_def(P_HPF_ON);
     {
         uint32_t i;
+        for (i = 0; i < 4u; i++)
+            set.fx[i] = (uint8_t)param_def(SET_FX[i]);
+    }
+    {
+        uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
             set.setup[i] = (uint8_t)param_def(i);
         for (i = P_CHORD0; i < P_CHORD_END; i++)
@@ -109,6 +116,11 @@ static void settings_save(void)
     set.echo_ret = (uint8_t)ctl_get(P_ECHO_RET);
     set.spring_ret = (uint8_t)ctl_get(P_SPRING_RET);
     set.hpf_on = (uint8_t)ctl_get(P_HPF_ON);
+    {
+        uint32_t i;
+        for (i = 0; i < 4u; i++)
+            set.fx[i] = (uint8_t)ctl_get(SET_FX[i]);
+    }
     {
         uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
@@ -169,6 +181,11 @@ void app_init(void)
     ctl_set(P_ECHO_RET, set.echo_ret);
     ctl_set(P_SPRING_RET, set.spring_ret);
     ctl_set(P_HPF_ON, set.hpf_on);
+    {
+        uint32_t i;
+        for (i = 0; i < 4u; i++)
+            ctl_set(SET_FX[i], set.fx[i]);
+    }
     {
         uint32_t i;
         for (i = P_LEAD; i < P_NGLOBAL; i++)
@@ -326,6 +343,10 @@ int app_expect(const char *what, int *got)
         *got = peak_db(eng_echo_peak());
     else if (!strcmp(what, "echo_ret_db"))   /* the echo's return, after its level */
         *got = peak_db(eng_echo_ret_peak());
+    else if (!strcmp(what, "spring_ret_db"))   /* the spring's return, after its level */
+        *got = peak_db(eng_spring_ret_peak());
+    else if (!strcmp(what, "crashes"))
+        *got = (int)eng_crashes();
     else if (!strcmp(what, "echo_t"))        /* the echo's time now, line samples (11,025 a second) */
         *got = (int)(eng_echo_t() + 0.5f);
     else if (!strcmp(what, "echo_div"))

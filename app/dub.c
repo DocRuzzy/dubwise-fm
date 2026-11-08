@@ -14,6 +14,8 @@
  *   SAVE           tempo, quantise, the echo's knobs and the sounds
  *   GLO            the SETUP page (setup.c): cycle, runway, cue tick, reduced motion, cue lead, test tones
  *   ARP            the KEY & CHORDS page (keys.c); HOME + ARP: the key lock on / off from any page
+ *   FX             the FX page (fx.c): the echo's and the spring's settings, a bank at a time
+ *   black 1        the spring crash (the tank struck); held with a throw key, that throw goes to the spring too
  *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
  *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
  *                  a knob keeps the key from flipping the mute
@@ -71,6 +73,8 @@ static struct {
     uint8_t border, border_drawn;        /* the screen's border: 0 off, 1 amber (a last-bar beat), 2 green (ONE) */
     uint32_t border_until, keys_until;   /* the pulse's end; the keys' flash's end */
     uint32_t pulses, key_flashes;        /* counted (tests) */
+    int32_t spring_add;                  /* the throw black 1 added the spring to, -1 none */
+    int8_t dest_was;                     /* its destination before */
     int32_t turns[NE];                   /* detents since boot, per encoder */
     uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
     uint32_t foot_sig, centre_t;         /* what the footer shows (redrawn when it changes); the centre's last draw */
@@ -194,10 +198,11 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
     t[i] = 0;
 }
 
-enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY };
+enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX };
 #include "keys.c"                        /* the KEY & CHORDS page (GPL-3.0-only) */
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 #include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
+static void fx_next(int same_page);      /* (fx.c, included further down: it needs the echo's helpers) */
 
 /* ------------------------------------------------------------------ input --- */
 static void say_mute(uint32_t ch, int muted)
@@ -321,6 +326,9 @@ static void button_press(uint32_t k)
         app_say("KEY", ks.bank ? "CHORD LANE" : "AND LOCK");
     } else if (k == B_REC && dub.page == PAGE_STEPS) {
         steps_rec();
+    } else if (k == B_FX) {
+        fx_next(dub.page == PAGE_FX);
+        dub.page = PAGE_FX;
     }
     else if (k == B_PLAY)
         dub.play_used = 0;               /* start / stop on release, unless used as a modifier */
@@ -441,6 +449,8 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
         int_text(ctl_get(i == 2u ? P_ECHO_RET : P_SPRING_RET), t);
 }
 
+#include "fx.c"                          /* the FX page (GPL-3.0-only) */
+
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
     int32_t ch = held_mute(), id = -1, step = 2, tc = held_throw();
@@ -518,6 +528,8 @@ static void encoder(uint32_t k, int32_t e)
             dub.sound = voice_fields(dub.focus) ? 1u : 0u;
         dub.dirty_strips = 1;
         app_say("FOCUS", CH_NAME[dub.focus]);
+    } else if (dub.page == PAGE_FX && k >= EN_K1 && k <= EN_K4) {
+        fx_knob(k - EN_K1, e);
     } else if (dub.page == PAGE_KEY && k >= EN_K1 && k <= EN_K4) {
         keys_knob(k - EN_K1, e);
     } else if (dub.page == PAGE_SETUP && (k == EN_K1 || k == EN_SELECT)) {
@@ -558,6 +570,8 @@ void dub_input(void)
         goto encoders;
     if (dub.page == PAGE_KEY)            /* the keys show the lock's set; they play nothing here */
         goto encoders;
+    if (dub.page == PAGE_FX)
+        goto encoders;
     for (k = 0; k < 16u; k++) {          /* white keys: 1-8 mutes, 9-16 throws (P0.2) */
         uint32_t bit = 1u << WK[k];
         if ((keys & bit) && !(dub.keys & bit)) {
@@ -583,10 +597,27 @@ void dub_input(void)
                 ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 1);
                 dub.dirty_foot = dub.dirty_centre = 1;
             }
+            if (k == 0u) {               /* the crash; with a throw held, the spring added to that throw */
+                int32_t tc = held_throw();
+                if (tc >= 0) {
+                    dub.spring_add = tc;
+                    dub.dest_was = (int8_t)ctl_get(P_CH(tc, CHF_THROW_DEST));
+                    ctl_set(P_CH(tc, CHF_THROW_DEST), DEST_BOTH);
+                    app_say("THROW", "PLUS SPRING");
+                    continue;
+                }
+                ctl_set(P_SPRING_KICK, 1);
+            }
             app_say(BLACK_NAME[k], "");
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 1u || k == 2u)) {
             ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 0);
             dub.dirty_foot = dub.dirty_centre = 1;
+        } else if (!(keys & bit) && (dub.keys & bit) && k == 0u) {
+            if (dub.spring_add >= 0) {   /* the throw's destination as it was */
+                ctl_set(P_CH(dub.spring_add, CHF_THROW_DEST), dub.dest_was);
+                dub.spring_add = -1;
+            }
+            ctl_set(P_SPRING_KICK, 0);
         }
     }
 encoders:
@@ -956,6 +987,7 @@ static void border_draw(int force)       /* the screen's 2 px edge: the runway's
             st.sig = 0;
         su_sig = 0;
         ks.sig = 0;
+        fx_sig = 0;
         return;
     }
     if (dub.border && (force || dub.border_drawn != dub.border)) {
@@ -1016,6 +1048,7 @@ void dub_draw(void)
             st.sig = 0;
         su_sig = 0;
         ks.sig = 0;
+        fx_sig = 0;
     }
     if (dub.page == PAGE_STEPS) {
         uint32_t sg = st.sig;
@@ -1031,6 +1064,11 @@ void dub_draw(void)
         uint32_t sg = ks.sig;
         keys_draw(0);
         drew |= sg != ks.sig;
+        dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
+    } else if (dub.page == PAGE_FX) {
+        uint32_t sg = fx_sig;
+        fx_draw(0);
+        drew |= sg != fx_sig;
         dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
     } else {
         if (dub.dirty_strips) {
@@ -1059,6 +1097,7 @@ void dub_init(void)
 {
     dub.dirty_hdr = dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 1;
     dub.last_lands = -1;
+    dub.spring_add = -1;
 }
 
 /* a screen reader that has just started listening (or asks) hears the whole page */

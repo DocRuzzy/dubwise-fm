@@ -76,7 +76,12 @@ static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
     [P_ECHO_FREEZE - P_ECHO_TIME] = {"echo.freeze", 0, 1, 0},
     [P_ECHO_PUSH - P_ECHO_TIME] = {"echo.push", 0, 1, 0},
 };
-static const pdesc_t SPRING_RET = {"spring.ret", 0, 127, 90};
+static const pdesc_t SPRING[P_SPRING_END - P_SPRING_RET] = {
+    {"spring.ret", 0, 127, 90},
+    {"spring.decay", 0, 127, 50},
+    {"spring.tone", 0, 127, 60},
+    {"spring.kick", 0, 1, 0},
+};
 static const pdesc_t HPF[P_HPF_END - P_HPF_STEP] = {
     {"hpf", 0, HPF_STEPS, 0},
     {"hpf.on", 0, HPF_ON_N - 1, HPF_ON_MIX},
@@ -132,8 +137,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &DEV_TONES;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)
         return &ECHO[id - P_ECHO_TIME];
-    if (id == P_SPRING_RET)
-        return &SPRING_RET;
+    if (id >= P_SPRING_RET && id < P_SPRING_END)
+        return &SPRING[id - P_SPRING_RET];
     if (id >= P_HPF_STEP && id < P_HPF_END)
         return &HPF[id - P_HPF_STEP];
     if (id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE < CHF_N)

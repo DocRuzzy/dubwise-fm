@@ -71,13 +71,15 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | KNOB 1 · TIME | The echo's time, in steps of the beat: 1/16, 1/8T, 1/16., 1/8, 1/4T, 1/8. (dotted eighth, the default), 1/4, 1/2T, 1/4., 1/2. At slow tempos the longest don't fit, so you get the longest that does. A change glides like tape, bending the pitch. |
 | KNOB 2 · FB | How long the repeats last: the time they take to fall 60 dB, from 0.1 s to endless (INF). |
 | KNOB 3 · ECHO | The echo's return level. |
-| KNOB 4 · SPRG | The spring's return level (the spring comes later). |
+| KNOB 4 · SPRG | The spring's return level. |
 | Hold white key 1–8 + KNOB 1–3 | That channel's level, echo send and spring send. Turning a knob while you hold the key keeps the key from flipping the mute. |
 | Black key 2 | Echo hold, while held: no new sound goes in, and the tape loops as it is. |
 | Black key 3 | Dub push, while held: feedback past endless, so the echo builds and rings. The tape's saturation and the limiter keep it from blowing up. |
 | White keys 9–16 | Throw channels 1–8: while you hold the key, the channel goes to its destination at full level, whatever its fader and even when it's muted, and the echo's feedback lifts so the throw rings on. Tap twice quickly to latch a throw on; tap again to let it go. |
 | Hold white key 9–16 + KNOB 1 | That channel's throw destination: ECHO, SPRING or BOTH. Choosing doesn't throw. By default the kick, hats, bass, lead and vox go to the echo, the snare to both, the skank and organ to the spring. |
-| Other black keys | Show their names. The spring and the rest come next. |
+| Black key 1 | Spring crash: strikes the spring tank, a thunderclap even with nothing sent to it. Held while you hold a throw key, it sends that throw to the spring as well. |
+| FX | The FX page: ECHO (time, feedback, tone, 2T head), then SPRING (decay, tone, return); press FX again for the next. KNOB 1–4 change them. |
+| Other black keys | Show their names. The rest come next. |
 
 The keys light by one rule: bright is playing, dim is muted or not in use yet, and a slow blink means waiting.
 

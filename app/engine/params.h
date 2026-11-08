@@ -86,6 +86,9 @@ enum {
     P_ECHO_PUSH,              /* 1: the loop past unity (capped): "dub push" */
     P_ECHO_END,
     P_SPRING_RET = 0x0D0,     /* the spring's return (P1.2), 0..127 */
+    P_SPRING_DECAY,           /* its decay: 0.5 .. 6 s */
+    P_SPRING_TONE,            /* its damping: 2 .. 7 kHz */
+    P_SPRING_KICK,            /* 0 -> 1: the tank struck (the crash) */
     P_SPRING_END,
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..10 = HPF_HZ */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */
