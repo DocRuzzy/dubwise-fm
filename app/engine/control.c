@@ -3,12 +3,15 @@
 /* control.h. Part of the unity build: app.c includes it. */
 #include "control.h"
 #include "engine.h"
+#include "scenes.h"
 
 static int16_t ctl_val[P_NIDS];             /* every range fits in 16 bits (pdesc_t) */
 static uint8_t ctl_beats[P_NIDS];            /* a pending parameter's quantum: 0 now, else CMD_CUE's beats */
 static uint32_t ctl_pend[P_NIDS / 32u];      /* a bit per parameter waiting for room in the queue */
 ctl_stats_t ctl_stats;
 static step_t ctl_pat[NCH][NSTEPS];
+static int32_t ctl_scn;
+static int scene_push(void);
 static uint32_t ctl_step_pend[NCH * NSTEPS / 32u];
 static uint32_t ctl_steps_pending;
 static int32_t ctl_tpl_t = -1;                   /* a template the full queue refused */
@@ -29,6 +32,7 @@ void ctl_init(void)
         ctl_step_pend[id] = 0;
     ctl_steps_pending = 0;
     ctl_tpl_t = -1;
+    ctl_scn = -1;
 }
 
 static int step_push(uint32_t k)
@@ -148,6 +152,8 @@ void ctl_flush(void)
     uint32_t w;
     if (ctl_tpl_t >= 0 && !tpl_push())
         return;
+    if (ctl_scn >= 0 && !scene_push())
+        return;
     for (w = 0; w < NCH * NSTEPS / 32u && ctl_steps_pending; w++) {   /* steps waiting, in order */
         while (ctl_step_pend[w]) {
             uint32_t b = 0, m = ctl_step_pend[w];
@@ -192,3 +198,33 @@ void ctl_note(uint32_t ch, int32_t note, uint32_t vel)
 }
 
 const int16_t *ctl_vals(void) { return ctl_val; }
+
+/* (ctl_scn: a recall the full queue refused, -1 none) */
+static uint32_t ctl_scn_beats;
+
+static int scene_push(void)
+{
+    cmd_t c;
+    c.op = CMD_SCENE;
+    c.beats = (uint8_t)ctl_scn_beats;
+    c.id = (uint16_t)ctl_scn;
+    c.v = 0;
+    if (!cmdq_push(&eng_q, c)) {
+        ctl_stats.refused++;
+        return 0;
+    }
+    ctl_stats.sent++;
+    ctl_scn = -1;
+    return 1;
+}
+
+void ctl_scene_store(uint32_t s, uint32_t scope) { scene_capture(s, scope, ctl_val, (const step_t (*)[NSTEPS])ctl_pat); }
+
+void ctl_scene_recall(uint32_t s, uint32_t beats)
+{
+    scene_apply(s, ctl_val, ctl_pat);            /* the mirror at once (the strips show it cued) */
+    ctl_scn = (int32_t)(s % NSCENES);
+    ctl_scn_beats = beats > 128u ? 128u : beats;
+    if (!ctl_stats.pending && !ctl_steps_pending)
+        scene_push();
+}

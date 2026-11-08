@@ -13,8 +13,10 @@
 /* no radio (fm1.toml ble = false, roadmap P0.0): its RAM goes to the dub bus */
 
 /* the store: the app's objects and the panel calibration (the platform's), and their flash offsets */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SOUND, OBJ_PATTERN, OBJ_NOBJ };
-#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u}
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SOUND, OBJ_PATTERN, OBJ_SCENES, OBJ_SCNPAT0, OBJ_SCNPAT5 = OBJ_SCNPAT0 + 5,
+       OBJ_NOBJ };
+#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u, 0xCA000u, 0xCC000u, 0xCE000u, 0xD0000u, 0xD2000u, \
+                       0xD4000u, 0xD6000u}
 
 /* the contract: the platform calls these */
 void app_init(void);                     /* boot: the engine, then the saved settings (or defaults) */

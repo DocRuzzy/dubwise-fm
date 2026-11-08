@@ -10,6 +10,7 @@
 #include "bigknob.h"
 #include "spring.h"
 #include "chordv.h"
+#include "scenes.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -178,6 +179,8 @@ static void fire_due(int all)                    /* the cues now due (all: every
         if (all || cue_due(&cues[i])) {
             if (cues[i].op == CMD_TEMPLATE)
                 load_template(cues[i].id, (uint16_t)cues[i].v);
+            else if (cues[i].op == CMD_SCENE)
+                scene_apply(cues[i].id, ev, pat);
             else
                 set_param(cues[i].id, cues[i].v);
             t_fire_at = t_samples;
@@ -198,6 +201,8 @@ static void cue_add(uint32_t op, uint32_t id, int32_t v, uint32_t beats)
             cue_overflows++;
         if (op == CMD_TEMPLATE)
             load_template((int32_t)id, (uint32_t)v);
+        else if (op == CMD_SCENE)
+            scene_apply(id, ev, pat);
         else
             set_param(id, v);
         return;
@@ -208,7 +213,7 @@ static void cue_add(uint32_t op, uint32_t id, int32_t v, uint32_t beats)
     c->id = (uint16_t)id;
     c->v = (int16_t)v;
     c->op = (uint8_t)op;
-    if (op == CMD_TEMPLATE)                      /* a pattern change lands on the line itself, not early */
+    if (op == CMD_TEMPLATE || op == CMD_SCENE)   /* a pattern change lands on the line itself, not early */
         lead = 0;
     if (lead) {                                  /* (lead < a beat: 50 ms at 180 BPM is a sixth of one) */
         c->fb = b - 1u;
@@ -368,6 +373,8 @@ static void drain(void)                          /* every queued command, at the
             pat[c.id / NSTEPS][c.id % NSTEPS] = step_unpack(c.v);
         else if (c.op == CMD_TEMPLATE)
             cue_add(CMD_TEMPLATE, c.id, c.v, c.beats);
+        else if (c.op == CMD_SCENE)
+            cue_add(CMD_SCENE, c.id, 0, c.beats);
         else if (c.op == CMD_NOTE && c.id < NCH) {
             int32_t note = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
             if (vel)

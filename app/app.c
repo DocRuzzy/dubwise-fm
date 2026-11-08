@@ -8,6 +8,7 @@
 #include "engine/engine.h"
 #include "engine/control.h"
 #include "engine/echo.h"
+#include "engine/scenes.h"
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
@@ -40,6 +41,89 @@ typedef struct {
     step_t steps[NCH][NSTEPS];
 } pattern_store_t;
 static pattern_store_t pst;
+/* the scenes: their desks in one object, their patterns three scenes an object (each under PLAT_STORE_MAX) */
+#define SCENES_MAGIC 0x53434E31u         /* "SCN1" */
+typedef struct {
+    uint32_t magic;
+    uint8_t used[NSCENES], scope[NSCENES];
+    int16_t desk[NSCENES][SCENE_DESK];
+} scene_store_t;
+#define SCNPAT_MAGIC 0x53435031u         /* "SCP1" */
+#define SCNPAT_PER 3u
+typedef struct {
+    uint32_t magic;
+    uint8_t len[SCNPAT_PER][NCH];
+    step_t pat[SCNPAT_PER][NCH][NSTEPS];
+} scnpat_store_t;
+typedef char scene_store_fits[(sizeof(scene_store_t) <= PLAT_STORE_MAX && sizeof(scnpat_store_t) <= PLAT_STORE_MAX
+                               && (NSCENES + SCNPAT_PER - 1) / SCNPAT_PER <= OBJ_SCNPAT5 - OBJ_SCNPAT0 + 1) ? 1 : -1];
+static union {                           /* (one at a time) */
+    scene_store_t d;
+    scnpat_store_t p;
+} sst;
+static uint16_t scenes_dirty;            /* (arrange.c sets the bits; saved and cleared by SAVE) */
+
+static int scenes_save(void)             /* the desks if anything changed; the pattern groups that changed */
+{
+    uint32_t s, g, ok = 1;
+    if (!scenes_dirty)
+        return 1;
+    sst.d.magic = SCENES_MAGIC;
+    for (s = 0; s < NSCENES; s++) {
+        uint32_t k;
+        sst.d.used[s] = scenes[s].used;
+        sst.d.scope[s] = scenes[s].scope;
+        for (k = 0; k < SCENE_DESK; k++)
+            sst.d.desk[s][k] = scenes[s].desk[k];
+    }
+    ok &= plat_store_save(OBJ_SCENES, &sst.d, sizeof sst.d) == 0;
+    for (g = 0; g * SCNPAT_PER < NSCENES; g++) {
+        uint32_t mask = ((1u << SCNPAT_PER) - 1u) << (g * SCNPAT_PER), j;
+        if (!(scenes_dirty & mask))
+            continue;
+        sst.p.magic = SCNPAT_MAGIC;
+        for (j = 0; j < SCNPAT_PER; j++) {
+            uint32_t sn = g * SCNPAT_PER + j, ch, i;
+            for (ch = 0; ch < NCH; ch++) {
+                sst.p.len[j][ch] = sn < NSCENES ? scenes[sn].len[ch] : 16u;
+                for (i = 0; i < NSTEPS; i++)
+                    sst.p.pat[j][ch][i] = sn < NSCENES ? scenes[sn].pat[ch][i] : (step_t){0, 0};
+            }
+        }
+        ok &= plat_store_save(OBJ_SCNPAT0 + g, &sst.p, sizeof sst.p) == 0;
+    }
+    if (ok)
+        scenes_dirty = 0;
+    return (int)ok;
+}
+
+static void scenes_load(void)
+{
+    uint32_t s, g;
+    if (plat_store_load(OBJ_SCENES, &sst.d, sizeof sst.d) != (int)sizeof sst.d || sst.d.magic != SCENES_MAGIC)
+        return;
+    for (s = 0; s < NSCENES; s++) {
+        uint32_t k;
+        scenes[s].used = 0;
+        scenes[s].scope = sst.d.scope[s] < SCOPE_N ? sst.d.scope[s] : SCOPE_DESK;
+        for (k = 0; k < SCENE_DESK; k++)
+            scenes[s].desk[k] = sst.d.desk[s][k];
+        scenes[s].used = sst.d.used[s] ? 1u : 0u;
+    }
+    for (g = 0; g * SCNPAT_PER < NSCENES; g++) {
+        uint32_t j;
+        if (plat_store_load(OBJ_SCNPAT0 + g, &sst.p, sizeof sst.p) != (int)sizeof sst.p || sst.p.magic != SCNPAT_MAGIC)
+            continue;
+        for (j = 0; j < SCNPAT_PER && g * SCNPAT_PER + j < NSCENES; j++) {
+            uint32_t sn = g * SCNPAT_PER + j, ch, i;
+            for (ch = 0; ch < NCH; ch++) {
+                scenes[sn].len[ch] = sst.p.len[j][ch];
+                for (i = 0; i < NSTEPS; i++)
+                    scenes[sn].pat[ch][i] = sst.p.pat[j][ch][i];
+            }
+        }
+    }
+}
 static settings_t set;
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
 
@@ -145,7 +229,7 @@ static void settings_save(void)
         }
     }
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
-        && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0) {
+        && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0 && scenes_save()) {
         set_dirty = 0;
         app_say("SAVED", "");
     } else {
@@ -157,6 +241,7 @@ void app_init(void)
 {
     eng_init();                          /* every parameter at its default, on both sides of the queue */
     ctl_init();
+    scenes_load();
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC
         || set.tempo != param_clamp(P_TEMPO, set.tempo) || set.quant >= QUANT_N)
         settings_defaults();

@@ -18,6 +18,7 @@ enum {
     CMD_STEP,                     /* a pattern step: id = ch x NSTEPS + step, v = step_pack (riddim.h); now */
     CMD_TEMPLATE,                 /* a riddim template: id = TPL_*, v = the channels (a mask); quantised as CMD_CUE */
     CMD_NOTE,                     /* a played note (the keyboard): id = channel, v = note | velocity << 8 (0: off) */
+    CMD_SCENE,                    /* a scene recalled (scenes.h): id = the scene; quantised as CMD_CUE */
 };
 
 typedef struct {

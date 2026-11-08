@@ -15,6 +15,7 @@
  *   GLO            the SETUP page (setup.c): cycle, runway, cue tick, reduced motion, cue lead, test tones
  *   ARP            the KEY & CHORDS page (keys.c); HOME + ARP: the key lock on / off from any page
  *   FX             the FX page (fx.c): the echo's and the spring's settings, a bank at a time
+ *   HOME again     the ARRANGE page (arrange.c): scenes; PRESET on the DUB page cues the next stored scene
  *   black 1        the spring crash (the tank struck); held with a throw key, that throw goes to the spring too
  *   black 4        the tape dive, while held: the echo's time glides longer (FX page, TAPE: depth, glide)
  *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
@@ -65,7 +66,7 @@ static struct {
     uint32_t thr_rel_t[NCH];             /* a throw key's last release */
     uint8_t thr_tapped[NCH], thr_latched[NCH], thr_skip[NCH];   /* a tap's release; latched; this release ignored */
     int32_t last_key;
-    uint8_t play_used, home_used;        /* held as a modifier: its own press does nothing on release */
+    uint8_t play_used, home_used, save_used;   /* held as a modifier: its own press does nothing on release */
     int32_t focus;                       /* ALGORITHM's channel */
     uint8_t sound;                       /* the SOUND view: 0 off, else its bank (1, 2) */
     uint8_t page, page_drawn;            /* PAGE_DUB, PAGE_STEPS; the one on the screen */
@@ -199,11 +200,13 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
     t[i] = 0;
 }
 
-enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX };
+enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX, PAGE_ARRANGE };
 #include "keys.c"                        /* the KEY & CHORDS page (GPL-3.0-only) */
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 #include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
 static void fx_next(int same_page);      /* (fx.c, included further down: it needs the echo's helpers) */
+static void arr_mark(void);              /* (arrange.c: its page redrawn) */
+static uint32_t blink_on(void);
 
 /* ------------------------------------------------------------------ input --- */
 static void say_mute(uint32_t ch, int muted)
@@ -336,7 +339,7 @@ static void button_press(uint32_t k)
     else if (k == B_HOME)
         dub.home_used = 0;
     else if (k == B_SAVE)
-        settings_save();
+        dub.save_used = 0;               /* saved on release, unless held to store a scene (ARRANGE) */
     else if (k == B_EDIT) {              /* the SOUND view, a bank at a time, then back */
         uint32_t nf = voice_fields(dub.focus);
         dub.sound = (uint8_t)(dub.sound + 1u);
@@ -360,9 +363,12 @@ static void button_release(uint32_t k)
         int on = !ctl_get(P_PLAY);
         ctl_set(P_PLAY, on);
         app_say(on ? "PLAY" : "STOP", "");
-    } else if (k == B_HOME && !dub.home_used) {
-        dub.page = PAGE_DUB;
-        app_say("DUB", "PAGE");
+    } else if (k == B_HOME && !dub.home_used) {   /* HOME: the DUB page; again: ARRANGE (spec 4) */
+        dub.page = dub.page == PAGE_DUB ? PAGE_ARRANGE : PAGE_DUB;
+        arr_mark();
+        app_say(dub.page == PAGE_ARRANGE ? "ARRANGE" : "DUB", "PAGE");
+    } else if (k == B_SAVE && !dub.save_used) {
+        settings_save();
     }
 }
 
@@ -451,6 +457,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 }
 
 #include "fx.c"                          /* the FX page (GPL-3.0-only) */
+#include "arrange.c"                     /* the ARRANGE page (GPL-3.0-only) */
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
@@ -529,6 +536,10 @@ static void encoder(uint32_t k, int32_t e)
             dub.sound = voice_fields(dub.focus) ? 1u : 0u;
         dub.dirty_strips = 1;
         app_say("FOCUS", CH_NAME[dub.focus]);
+    } else if (dub.page == PAGE_ARRANGE && k >= EN_K1 && k <= EN_K4) {
+        arr_knob(k - EN_K1, e);
+    } else if (k == EN_PRESET && dub.page == PAGE_DUB) {   /* PRESETS on the DUB page: cue the next scene (spec 4.1) */
+        arr_step(e);
     } else if (dub.page == PAGE_FX && k >= EN_K1 && k <= EN_K4) {
         fx_knob(k - EN_K1, e);
     } else if (dub.page == PAGE_KEY && k >= EN_K1 && k <= EN_K4) {
@@ -573,6 +584,10 @@ void dub_input(void)
         goto encoders;
     if (dub.page == PAGE_FX)
         goto encoders;
+    if (dub.page == PAGE_ARRANGE) {
+        arr_keys(keys, dub.keys);
+        goto encoders;
+    }
     for (k = 0; k < 16u; k++) {          /* white keys: 1-8 mutes, 9-16 throws (P0.2) */
         uint32_t bit = 1u << WK[k];
         if ((keys & bit) && !(dub.keys & bit)) {
@@ -649,6 +664,10 @@ static void lights(void)
     }
     if (dub.page == PAGE_KEY) {
         bright = kb_lights(&dim);
+        goto buttons;
+    }
+    if (dub.page == PAGE_ARRANGE) {
+        bright = arr_lights(&dim);
         goto buttons;
     }
     for (ch = 0; ch < NCH; ch++) {
@@ -995,6 +1014,7 @@ static void border_draw(int force)       /* the screen's 2 px edge: the runway's
         su_sig = 0;
         ks.sig = 0;
         fx_sig = 0;
+        arr.sig = 0;
         return;
     }
     if (dub.border && (force || dub.border_drawn != dub.border)) {
@@ -1056,6 +1076,7 @@ void dub_draw(void)
         su_sig = 0;
         ks.sig = 0;
         fx_sig = 0;
+        arr.sig = 0;
     }
     if (dub.page == PAGE_STEPS) {
         uint32_t sg = st.sig;
@@ -1076,6 +1097,11 @@ void dub_draw(void)
         uint32_t sg = fx_sig;
         fx_draw(0);
         drew |= sg != fx_sig;
+        dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
+    } else if (dub.page == PAGE_ARRANGE) {
+        uint32_t sg = arr.sig;
+        arr_draw(0);
+        drew |= sg != arr.sig;
         dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
     } else {
         if (dub.dirty_strips) {
@@ -1188,7 +1214,7 @@ static int dub_expect(const char *what, int *got)
         *got = (int)dub.pulses;
     else if (!strcmp(what, "key_flashes"))
         *got = (int)dub.key_flashes;
-    else if (steps_expect(what, got) || keys_expect(what, got))
+    else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got))
         return 1;
     else
         return setup_expect(what, got);

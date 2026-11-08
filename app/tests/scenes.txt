@@ -1,0 +1,112 @@
+# Scenes (P1.7; C2, spec 4.2): HOME twice for ARRANGE; SAVE held + a white key stores the desk (or the desk and the
+# patterns: KNOB 4) into that scene; a white key recalls it, on the line like a mute (a scene, its patterns with it,
+# lands on the line itself: at 75 BPM bar 2 is sample 141120).
+wait 600
+listen
+param dev.tones 1
+param ch1.mute 1
+param ch3.mute 1
+param ch2.echo 80
+param hpf 3
+wait 50
+tap HOME
+wait 30
+said ARRANGE PAGE
+expect page 5
+press SAVE
+tapkey w0
+wait 30
+release SAVE
+wait 30
+said SCENE 1 STORED
+expect scene_used1 1
+expect store_writes 0
+# another desk: everything open, Big Knob off
+param ch1.mute 0
+param ch3.mute 0
+param ch2.echo 0
+param hpf 0
+wait 30
+press SAVE
+tapkey w1
+wait 30
+release SAVE
+wait 30
+# stopped: a recall lands at once
+tapkey w0
+wait 50
+said SCENE 1
+expect eng.ch1.mute 1
+expect eng.ch3.mute 1
+expect eng.ch2.echo 80
+expect eng.hpf 3
+expect scene 1
+# playing: on the bar line (quantise 1 bar), the strips cued till then
+tap PLAY
+wait 100
+tapkey w1
+wait 50
+expect ui.ch1.mute 0
+expect eng.ch1.mute 1
+wait 3300
+expect eng.ch1.mute 0
+expect eng.hpf 0
+expect t_fire 141120
+tap PLAY
+wait 30
+# a scene with the patterns: ROCKERS stored, STEPPERS loaded, the scene brings ROCKERS back
+param ch1.len 16
+tap SEQ
+turn K4 1
+wait 30
+expect step1_1 3
+tap HOME
+tap HOME
+wait 30
+turn K4 1
+wait 30
+said SCOPE DESK AND PATTERNS
+press SAVE
+tapkey w2
+wait 30
+release SAVE
+wait 30
+said SCENE 3 STORED WITH PATTERNS
+tap SEQ
+turn K4 1
+wait 30
+expect step1_1 3
+expect step1_5 3
+tap HOME
+tap HOME
+wait 30
+tapkey w2
+wait 50
+expect eng_step1_5 0
+expect step1_5 0
+# an empty scene says so
+tapkey w9
+wait 30
+said SCENE 10 EMPTY
+# PRESET on the DUB page: the next stored scene
+tap HOME
+wait 30
+expect page 0
+turn PRESET 1
+wait 50
+said SCENE 1
+expect scene 1
+# SAVE keeps them (written on release: SAVE held for a store does not save)
+tap SAVE
+wait 30
+reboot
+wait 600
+expect scene_used1 1
+expect scene_used3 1
+expect scene_used10 0
+tap HOME
+wait 30
+expect page 5
+tapkey w0
+wait 50
+expect eng.ch3.mute 1

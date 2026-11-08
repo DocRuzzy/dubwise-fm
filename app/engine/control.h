@@ -25,6 +25,11 @@ void ctl_template(int32_t t, uint32_t mask, uint32_t beats);   /* the mirror at 
 void ctl_note(uint32_t ch, int32_t note, uint32_t vel);
 const int16_t *ctl_vals(void);             /* the desired values, by ID (lock_mask and the like) */
 
+/* scenes (scenes.h): store the desk (and the patterns) as they are asked for now; recall one: the mirror at once,
+ * the engine on the line (one CMD_SCENE) */
+void ctl_scene_store(uint32_t s, uint32_t scope);
+void ctl_scene_recall(uint32_t s, uint32_t beats);
+
 typedef struct {
     uint32_t sent;                         /* commands queued */
     uint32_t refused;                      /* pushes the full queue refused */

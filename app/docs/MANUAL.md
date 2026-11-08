@@ -138,6 +138,21 @@ The riddims: ONE DROP has the kick and rim on beat 3 only. ROCKERS puts the kick
 STEPPERS has the kick on every beat. FLYERS opens the hat on every off-beat and closes it on the beat. All four bring a skank on 2 and 4 and an organ
 bubble: low on the off-beat eighths, high on the sixteenth after.
 
+## 3e. ARRANGE (HOME, then HOME again): scenes
+
+A scene is a snapshot of the desk: every channel's level, mute, solo, echo and spring sends and throw destination,
+the Big Knob and both returns. A scene with patterns (P) keeps every channel's pattern too, so one scene can be the
+"dub" and another the "vocal" version of the same riddim.
+
+| Control | What it does |
+| --- | --- |
+| White keys 1–16 | Recall that scene. Like a mute, it lands on the next line of the quantise setting (hold PLAY for now); the strips blink until then. |
+| SAVE held + a white key | Store the desk as it is now into that scene. |
+| KNOB 4 | What the next store keeps: DESK, or DESK+PAT (the patterns too, marked P). |
+| PRESET (on the DUB page) | Step to the next or previous stored scene, on the line. |
+
+SAVE on its own (pressed and let go) saves everything to the FM-1, scenes included.
+
 ## 3d. KEY & CHORDS (ARP): the lock
 
 The lock makes wrong notes impossible: keys outside the allowed notes are silent. They're never moved to a
@@ -158,7 +173,7 @@ IN makes the lock filter MIDI notes coming in too.
 
 ## 4. Saving
 
-Press SAVE to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the key, its lock and the chord lane, the sounds and the patterns. They come back the next time the FM-1 starts. The
+Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the key, its lock and the chord lane, the sounds, the patterns and the scenes. They come back the next time the FM-1 starts. The
 mutes and solos aren't saved: scenes will do that.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")
