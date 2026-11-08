@@ -10,14 +10,11 @@
 #define APP_SPLASH_RGB RGB(242, 120, 72)
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 #define APP_TOUCH                        /* velocity and pressure from the keys (lib/touch.h) */
-#define APP_BTDEV                        /* Bluetooth MIDI devices (lib/btdev.h) */
-#define APP_BLE_AT_BOOT (!template_ble_off())   /* Bluetooth at power-on: as the player left it (REC held) */
-int template_ble_off(void);
+/* no radio (fm1.toml ble = false, roadmap P0.0): its RAM goes to the dub bus */
 
-/* the store: the app's objects, the panel calibration (the platform's) and Bluetooth's address and pairing among
- * them, and their flash offsets */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
-#define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDE000u}
+/* the store: the app's objects and the panel calibration (the platform's), and their flash offsets */
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_NOBJ };
+#define APP_STORE_MAP {0xFC000u, 0xDC000u}
 
 /* the contract: the platform calls these */
 void app_init(void);                     /* boot: the engine, then the saved settings (or defaults) */
