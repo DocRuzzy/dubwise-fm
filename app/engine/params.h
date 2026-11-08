@@ -26,6 +26,8 @@ enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, V
 enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_N };                                   /* skank (P1.6) */
 enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_N };                                          /* organ bubble */
 enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_N };                                    /* vox / fx: the sirens (P2.1) */
+enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_N };                   /* lead: melodica / brass (P2.2) */
+enum { INST_MELODICA, INST_BRASS, INST_N };
 /* the chord channels' steps hold a voicing, not a note: the notes are the chord lane's (P_CHORD0..) */
 enum { VOICING_LO, VOICING_MID, VOICING_HI, VOICING_N };
 /* a chord code (root x 8 + quality) voiced: three notes from base up (MIDI), the root's octave by the voicing */

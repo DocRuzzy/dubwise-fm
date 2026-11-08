@@ -183,9 +183,9 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
             if (on && ch >= 0)
                 eng_trig((uint32_t)ch, (int32_t)d1, d2);
         } else if (on && eng_midi_allowed((int32_t)d1))   /* the key lock, if it covers MIDI in */
-            eng_trig(CH_BASS, (int32_t)d1, d2);
+            eng_trig(mch == 1u ? CH_LEAD : CH_BASS, (int32_t)d1, d2);   /* channel 2 the lead, the rest the bass */
         else if (off)
-            eng_release(CH_BASS, (int32_t)d1);
+            eng_release(mch == 1u ? CH_LEAD : CH_BASS, (int32_t)d1);
     }
 }
 

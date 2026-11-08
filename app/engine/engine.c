@@ -102,6 +102,8 @@ static volatile uint32_t cue_overflows;
 static step_t pat[NCH][NSTEPS];
 static int32_t last_tick = -1;                   /* the sixteenth last played since the start */
 static int32_t seq_bass = -1;                    /* the bass note the sequencer holds */
+static int32_t seq_lead = -1;                    /* the lead's, and the sixteenth it ends on */
+static uint32_t seq_lead_end;
 static volatile uint32_t seq_hits;               /* steps played since boot (tests) */
 static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */
 static volatile int32_t chord_last[NCH];         /* the chord a chord channel last played (tests) */
@@ -451,6 +453,9 @@ static void drain(void)                          /* every queued command, at the
         if (seq_bass >= 0)
             voice_release(CH_BASS, seq_bass);
         seq_bass = -1;
+        if (seq_lead >= 0)
+            voice_release(CH_LEAD, seq_lead);
+        seq_lead = -1;
     }
 }
 
@@ -542,6 +547,10 @@ static void seq_play(uint32_t tick)              /* sixteenth `tick` since the s
         voice_release(CH_BASS, seq_bass);
         seq_bass = -1;
     }
+    if (seq_lead >= 0 && tick >= seq_lead_end) { /* the lead: two steps long, or until its next note */
+        voice_release(CH_LEAD, seq_lead);
+        seq_lead = -1;
+    }
     if (tick % 4u == 0u)
         runway_tick(tick / 4u);
     for (ch = 0; ch < NCH; ch++) {
@@ -560,6 +569,10 @@ static void seq_play(uint32_t tick)              /* sixteenth `tick` since the s
         seq_hit_at[ch] = t_samples;
         if (ch == CH_BASS)
             seq_bass = st.note;
+        if (ch == CH_LEAD) {
+            seq_lead = st.note;
+            seq_lead_end = tick + 2u;
+        }
     }
 }
 

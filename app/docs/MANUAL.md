@@ -206,8 +206,8 @@ mutes and solos aren't saved: scenes will do that.
 ## 5. MIDI and audio
 
 MIDI comes in over USB and the TRS jack. On channel 10, General MIDI's drum notes play the drums: 35 or 36 the kick,
-37 to 40 the rim, 42 or 44 the closed hat, 46 the open hat (a closed hat cuts an open one short). On any other
-channel, notes play the bass, one at a time. DUBWISE has no Bluetooth.
+37 to 40 the rim, 42 or 44 the closed hat, 46 the open hat (a closed hat cuts an open one short). On channel 2, notes
+play the lead; on any other channel, the bass, one at a time. DUBWISE has no Bluetooth.
 
 The voices:
 
@@ -219,6 +219,7 @@ The voices:
 | Bass | INDEX (the pluck's brightness), IDECAY (how fast the pluck fades to a pure tone), DECAY, CUTOFF, RATIO (1:1 or 2:1, hollow), SUB (an octave below), SUSTAIN |
 | Skank | INDEX (the chop's bite), DECAY, TONE (where its band sits), RATIO (1:1 or 1:3, nasal). It sends to the spring by default. |
 | Organ | DRAWBAR (how much of the upper partials), DECAY (the bubble's length), CLICK (the key click) |
+| Lead | INST (MELODICA: two reeds beating, vibrato after a moment; BRASS: brighter as it gets louder, a scoop up into each note, doubled like a section), BRIGHT, ATTACK, RELEASE, VIBRATO. It sends to the echo by default. Play it from the STEPS page (REC, two octaves above the bass) or MIDI channel 2. |
 | Vox (sirens) | PITCH, RATE (how fast it moves), DEPTH (how far, 1–24 semitones), WAVE (sine or triangle) |
 
 The keys sense how hard you play them, with no change to the FM-1. The 20 lowest keys

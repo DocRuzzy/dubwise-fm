@@ -6,6 +6,7 @@ listen
 param dev.tones 1
 param ch5.spring 0
 param ch8.echo 0
+param ch7.echo 0
 param ch1.mute 1
 wait 50
 expect eng.ch3.dest 0

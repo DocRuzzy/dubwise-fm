@@ -64,8 +64,15 @@ static const pdesc_t VOX_F[VX_N] = {
     [VX_DEPTH] = {"depth", 0, 127, 36},             /* 1 .. 24 semitones */
     [VX_WAVE] = {"wave", 0, 1, 0},                  /* sine, triangle */
 };
-static const pdesc_t *const VOICE_T[NCH] = {KICK_F, RIM_F, HAT_F, BASS_F, SKANK_F, ORGAN_F, 0, VOX_F};
-static const uint8_t VOICE_N[NCH] = {VK_N, VR_N, VH_N, VB_N, VS_N, VO_N, 0, VX_N};
+static const pdesc_t LEAD_F[VL_N] = {
+    [VL_INST] = {"inst", 0, INST_N - 1, INST_MELODICA},
+    [VL_BRIGHT] = {"bright", 0, 127, 64},           /* the FM index, with velocity */
+    [VL_ATTACK] = {"attack", 0, 127, 30},           /* 10 .. 150 ms */
+    [VL_RELEASE] = {"release", 0, 127, 40},         /* 30 .. 600 ms */
+    [VL_VIBRATO] = {"vibrato", 0, 127, 40},         /* 0 .. 40 cents at 4.5 Hz, after 300 ms */
+};
+static const pdesc_t *const VOICE_T[NCH] = {KICK_F, RIM_F, HAT_F, BASS_F, SKANK_F, ORGAN_F, LEAD_F, VOX_F};
+static const uint8_t VOICE_N[NCH] = {VK_N, VR_N, VH_N, VB_N, VS_N, VO_N, VL_N, VX_N};
 static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_TEMPO] = {"tempo", 400, 1800, 750},          /* 40.0 .. 180.0 BPM */
     [P_PLAY] = {"play", 0, 1, 0},
@@ -203,6 +210,8 @@ int32_t param_def(uint32_t id)
         return 40;
     if (id == P_CH(CH_VOX, CHF_ECHO_SEND))       /* the sirens into the echo by default (D3) */
         return 80;
+    if (id == P_CH(CH_LEAD, CHF_ECHO_SEND))      /* the melodica, heavy echo (D2) */
+        return 60;
     if (id >= P_CHORD0 && id < P_CHORD_END) {     /* the lane: Am Dm Am Em, then Am */
         static const uint8_t L[4] = {9 * 8 + CHORD_MIN, 2 * 8 + CHORD_MIN, 9 * 8 + CHORD_MIN, 4 * 8 + CHORD_MIN};
         return (id - P_CHORD0) < 4u ? L[id - P_CHORD0] : 9 * 8 + CHORD_MIN;

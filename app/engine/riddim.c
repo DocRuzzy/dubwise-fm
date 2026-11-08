@@ -11,7 +11,7 @@ const char *template_name(int32_t t)
 
 int8_t default_note(uint32_t ch)
 {
-    static const int8_t N[NCH] = {36, 37, 42, 33, VOICING_MID, VOICING_MID, 60, 60};   /* chord channels: a voicing */
+    static const int8_t N[NCH] = {36, 37, 42, 33, VOICING_MID, VOICING_MID, 69, 60};   /* chord channels: a voicing */
     return ch < NCH ? N[ch] : 60;
 }
 

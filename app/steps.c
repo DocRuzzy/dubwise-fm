@@ -27,8 +27,11 @@ static struct {
     uint32_t recorded;                   /* notes recorded (tests) */
 } st = {CH_KICK, 0, -1, TPL_ONE_DROP, -2, 0, 0, 0, {0}, 0};
 
-static int tonal(int32_t ch) { return ch == CH_BASS; }   /* (skank, organ, lead: P1.6, P2.2) */
-static int32_t kb_note(uint32_t k) { return 53 + (int32_t)k + 12 * (ctl_get(P_KB_OCT) - 3); }
+static int tonal(int32_t ch) { return ch == CH_BASS || ch == CH_LEAD; }   /* (the chord channels take voicings) */
+static int32_t kb_note(uint32_t k)       /* the key's note: KEY's octave (set for the bass), the lead two up */
+{
+    return 53 + (int32_t)k + 12 * (ctl_get(P_KB_OCT) - 3) + (st.ch == CH_LEAD ? 24 : 0);
+}
 
 static const char *const LVL_NAME[LVL_N] = {"OFF", "GHOST", "ON", "ACCENT"};
 

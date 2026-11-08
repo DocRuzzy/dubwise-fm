@@ -58,8 +58,25 @@ static struct {
     int on;
 } bass;
 
+/* ------------------------------------------------------------------- lead --- */
+/* the lead (P2.2; D2, D3): melodica (two carriers a few cents apart, a self-fed modulator: a reed; a breath for an
+ * attack, vibrato after 300 ms) or brass (Chowning's: its index follows its loudness, a scoop up into the note, a
+ * 12 ms doubling for a section). Mono, the last note wins */
+#define DOUBLE_N 530u                            /* 12 ms */
+static struct {
+    float pc, pc2, pm, mprev, f, amp, vel, vib, scoop, t;
+    float inst, bright, att, rel, vdepth;
+    int32_t note;                                /* held, -1 none */
+    int on;
+} lead;
+static float dbl[DOUBLE_N];
+static uint32_t dbl_pos;
+
 void voices_init(void)
 {
+    lead.on = 0;
+    lead.note = -1;
+    lead.amp = 0.0f;
     kick.on = rim.on = hat.on = bass.on = 0;
     bass.note = -1;
     kick.amp = rim.amp = hat.amp = bass.amp = 0.0f;
@@ -97,6 +114,12 @@ void voices_config(const int16_t *ev, int tier)
     bass.ratio = ev[P_VOICE(CH_BASS, VB_RATIO)] ? 2.0f : 1.0f;
     bass.sub = tier >= TIER_SEVEN ? 0.0f : lin(ev[P_VOICE(CH_BASS, VB_SUB)], 0.0f, 1.0f);
     bass.sus = lin(ev[P_VOICE(CH_BASS, VB_SUSTAIN)], 0.0f, 1.0f);
+    lead.inst = ev[P_VOICE(CH_LEAD, VL_INST)] ? 1.0f : 0.0f;
+    lead.bright = lin(ev[P_VOICE(CH_LEAD, VL_BRIGHT)], 0.3f, 3.0f);
+    lead.att = 1.0f / (lin(ev[P_VOICE(CH_LEAD, VL_ATTACK)], 10.0f, 150.0f) * 0.001f * SR);
+    lead.rel = t60k(lin(ev[P_VOICE(CH_LEAD, VL_RELEASE)], 30.0f, 600.0f));
+    lead.vdepth = lin(ev[P_VOICE(CH_LEAD, VL_VIBRATO)], 0.0f, 40.0f) * (1.0f / 1200.0f);   /* octaves */
+    (void)tier;
 }
 
 void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
@@ -122,6 +145,14 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
         hat.vel = v;
         hat.on = 1;
         break;
+    case CH_LEAD:                                /* mono, the last note wins; the phases run on */
+        lead.note = note;
+        lead.f = midi_hz(note);
+        lead.vel = v;
+        lead.t = 0.0f;
+        lead.scoop = 1.0f;
+        lead.on = 1;
+        break;
     case CH_BASS:                                /* mono, the last note wins; the phases run on (no click) */
         bass.note = note;
         bass.f = midi_hz(note);
@@ -137,11 +168,13 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
 
 void voice_release(uint32_t ch, int32_t note)
 {
+    if (ch == CH_LEAD && lead.note == note)
+        lead.note = -1;
     if (ch == CH_BASS && bass.note == note)
         bass.note = -1;
 }
 
-int32_t voice_note(uint32_t ch) { return ch == CH_BASS ? bass.note : -1; }
+int32_t voice_note(uint32_t ch) { return ch == CH_BASS ? bass.note : ch == CH_LEAD ? lead.note : -1; }
 
 void voices_panic(void)
 {
@@ -258,6 +291,57 @@ static int render_bass(float *o, uint32_t n)
     return 1;
 }
 
+static int render_lead(float *o, uint32_t n)
+{
+    uint32_t i;
+    if (!lead.on)
+        return 0;
+    for (i = 0; i < n; i++) {
+        float f = lead.f, s, env, idx, vib = 0.0f;
+        /* the envelope: up over ATTACK while held, down over RELEASE after */
+        if (lead.note >= 0)
+            lead.amp = fm_minf(1.0f, lead.amp + lead.att);
+        else
+            lead.amp *= lead.rel;
+        env = lead.amp;
+        lead.t += INV_SR;
+        if (lead.t > 0.3f)                       /* vibrato, after 300 ms (the player's breath settles) */
+            vib = lead.vdepth * fm_sin_turns(lead.vib);
+        lead.vib = wrap(lead.vib + 4.5f * INV_SR);
+        if (lead.inst > 0.5f) {                  /* brass: a scoop up into the note, the index with the loudness */
+            lead.scoop *= 0.9994f;               /* ~40 ms */
+            f *= fm_exp2f(vib - lead.scoop * (1.0f / 12.0f));
+            lead.pc = wrap(lead.pc + f * INV_SR);
+            idx = lead.bright * env * (0.4f + 0.6f * lead.vel);
+            s = fm_sin_turns(lead.pc + idx * 0.15915494f * fm_sin_turns(lead.pc));
+            {                                    /* the doubling: a second player, 12 ms behind */
+                float d = dbl[dbl_pos];
+                dbl[dbl_pos] = s;
+                dbl_pos = dbl_pos + 1u == DOUBLE_N ? 0u : dbl_pos + 1u;
+                s = 0.7f * s + 0.45f * d;
+            }
+        } else {                                 /* melodica: a self-fed modulator, two carriers beating */
+            float m;
+            f *= fm_exp2f(vib);
+            lead.pm = wrap(lead.pm + f * INV_SR);
+            m = fm_sin_turns(lead.pm + 0.12f * lead.mprev);   /* feedback: a reedy, saw-like spectrum */
+            lead.mprev = m;
+            idx = lead.bright * (0.5f + 0.5f * lead.vel);
+            lead.pc = wrap(lead.pc + f * INV_SR);
+            lead.pc2 = wrap(lead.pc2 + f * 1.0035f * INV_SR);   /* +6 cents: the free reeds beating */
+            s = 0.5f * (fm_sin_turns(lead.pc + idx * 0.15915494f * m) + fm_sin_turns(lead.pc2 + idx * 0.15915494f * m));
+        }
+        o[i] = s * env * lead.vel * 0.3f;
+    }
+    lead.amp = undenorm(lead.amp);
+    lead.mprev = undenorm(lead.mprev);
+    if (lead.note < 0 && lead.amp < 1e-4f) {
+        lead.on = 0;
+        lead.amp = 0.0f;
+    }
+    return 1;
+}
+
 int voice_render(uint32_t ch, float *o, uint32_t n)
 {
     switch (ch) {
@@ -269,6 +353,8 @@ int voice_render(uint32_t ch, float *o, uint32_t n)
         return render_hats(o, n);
     case CH_BASS:
         return render_bass(o, n);
+    case CH_LEAD:
+        return render_lead(o, n);
     default:
         return 0;
     }
