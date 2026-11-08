@@ -5,13 +5,13 @@
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
 enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_THROW_VEL,
-       SU_TIER, SU_PERF, SU_TONES, SU_DEMO, SU_N };
+       SU_TIER, SU_PERF, SU_TONES, SU_DEMO, SU_TECHNO, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
                                           "REDUCED MOTION", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON",
                                           "THROW VELOCITY", "GUARD TIER",
-                                          "PERFORMANCE", "TEST TONES", "DEMO SONG"};
+                                          "PERFORMANCE", "TEST TONES", "DEMO SONG", "DUB TECHNO"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_LEAD,
-                                     P_LOCK_MIDI, P_HPF_ON, P_THROW_VEL, P_TIER_LOCK, 0, P_DEV_TONES, 0};
+                                     P_LOCK_MIDI, P_HPF_ON, P_THROW_VEL, P_TIER_LOCK, 0, P_DEV_TONES, 0, 0};
 static int32_t su_cur;
 static uint32_t su_sig;
 
@@ -28,7 +28,7 @@ static void su_value(uint32_t i, char *t)
         text_cat(t, v ? tier_name(v - 1) : "AUTO");
     } else if (i == SU_PERF) {
         text_cat(t, "K2: VIEW");
-    } else if (i == SU_DEMO) {
+    } else if (i == SU_DEMO || i == SU_TECHNO) {
         text_cat(t, "K2: LOAD");
     } else if (i == SU_HPF_ON) {
         text_cat(t, v == HPF_ON_ECHO ? "ECHO RETURN" : "MIX");
@@ -58,6 +58,10 @@ static void setup_change(int32_t e)
     uint32_t id = SU_ID[su_cur];
     if (su_cur == SU_DEMO) {                     /* the demo song (demo.c) */
         demo_load();
+        return;
+    }
+    if (su_cur == SU_TECHNO) {                   /* the dub techno desk (P3.4; demo.c) */
+        techno_load();
         return;
     }
     if (su_cur == SU_PERF) {                     /* the PERF page */
@@ -90,7 +94,7 @@ static void setup_draw(int all)          /* the list in the strips' and centre's
     cv_begin(240, PAGE_H, C_BLACK);      /* (a canvas holds 144 rows: the rest of the area below, cleared) */
     cv_text(6, 2, &FONT_XS, "SETUP", C_GRAY);
     for (i = 0; i < SU_N; i++) {
-        int32_t y = 14 + (int32_t)i * 9, cur = (int32_t)i == su_cur;   /* (14 rows in the 144) */
+        int32_t y = 13 + (int32_t)i * 9, cur = (int32_t)i == su_cur;   /* (15 rows in the 144) */
         if (cur)
             cv_rect(0, y - 1, 240, 9, C_LINE);
         cv_text(10, y, &FONT_T, SU_NAME[i], cur ? C_WHITE : C_GRAY);

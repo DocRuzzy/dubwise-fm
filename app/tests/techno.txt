@@ -1,0 +1,48 @@
+# Dub techno (P3.4): SETUP's DUB TECHNO loads a desk (not a song): 120 BPM, A dorian, one Am7 stab on the
+# off-beats into a long dark ping-pong echo, the kick on every beat, a sub bass, the slow cascaded Bi-Phase on the
+# mix. Played for 16 bars (2 s each) with a few moves: the stab thrown, the kick out for a bar, a freeze.
+# The recording, techno.wav, is the thing to listen to.
+wait 600
+listen
+master 3400
+tap GLO
+wait 30
+turn K1 -1
+wait 30
+said DUB TECHNO
+turn K2 1
+wait 50
+said DUB TECHNO LOADED: PRESS PLAY
+expect ui.tempo 1200
+expect ui.song 0
+expect ui.ph.mode 1
+expect eng.ph.mode 1
+tap HOME
+wait 300
+wav techno.wav
+tap PLAY
+wait 8000
+# the stab thrown into the echo for a bar (white 13)
+key w12 down 110
+wait 2000
+key w12 up
+wait 6000
+# the kick out (a bar, quantised), then back
+key w0 down
+wait 30
+key w0 up
+wait 2500
+expect eng.ch1.mute 1
+key w0 down
+wait 30
+key w0 up
+wait 4000
+# a freeze on the stab's echo (black 2), held for a bar, then the riddim plays out
+key b1 down
+wait 2000
+key b1 up
+wait 9500
+tap PLAY
+wait 3000
+wavstop
+#wav techno.wav peak<-1 dc<-45 side_lo<-60 growth<0 repeat_ms>0

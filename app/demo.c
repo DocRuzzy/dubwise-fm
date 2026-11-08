@@ -105,6 +105,60 @@ static void demo_load(void)
     ctl_set(P_SONG_LEN, 16);
     ctl_set(P_SONG_MODE, SONG_ONCE);
     ctl_set(P_SONG_REC, 0);
+    ctl_motion_clear();                          /* (the song's: another song's moves would play over this one) */
     set_dirty = 1;
     app_say("DEMO SONG", "LOADED: PRESS PLAY");
+}
+
+/* Dub techno (P3.4): a desk for it, the riddim's patterns, sounds and effects, not a song (the song left as it is,
+ * its mode OFF). 120 BPM, A minor, one minor-seventh chord (the stab); the stab long and dark into a long, dark
+ * echo, ping-pong; the slow cascaded Bi-Phase on the mix (the mastery guide's drill); the kick dry and mono. */
+static void techno_load(void)
+{
+    uint32_t ch;
+    ctl_set(P_TEMPO, 1200);
+    ctl_set(P_KEY_ROOT, 9);
+    ctl_set(P_SCALE, SCALE_DORIAN);
+    ctl_set(P_CHORD_LEN, 1);
+    ctl_set(P_CHORD0, 9 * 8 + CHORD_M7);
+    ctl_set(P_ECHO_TIME, ECHO_DIV_8D);
+    ctl_set(P_ECHO_FB, 72);
+    ctl_set(P_ECHO_TONE, 30);
+    ctl_set(P_ECHO_RET, 104);
+    ctl_set(P_ECHO_PP, 1);
+    ctl_set(P_SPRING_RET, 40);
+    ctl_set(P_HPF_STEP, 0);
+    ctl_set(P_PH_ON, PH_MIX);
+    ctl_set(P_PH_MODE, PHM_CASCADE);
+    ctl_set(P_PH_RATE, 8);                       /* ~0.15 Hz */
+    ctl_set(P_PH_RATE2, 2);                      /* ~0.11 Hz */
+    ctl_set(P_PH_DEPTH, 70);
+    ctl_set(P_PH_FB, 40);
+    for (ch = 0; ch < NCH; ch++) {
+        ctl_set(P_CH(ch, CHF_MUTE), 0);
+        ctl_set(P_CH(ch, CHF_SOLO), 0);
+        ctl_set(P_CH(ch, CHF_LEN), 16);
+        ctl_set(P_CH(ch, CHF_ECHO_SEND), 0);
+        ctl_set(P_CH(ch, CHF_SPRING_SEND), 0);
+    }
+    ctl_set(P_CH(CH_KICK, CHF_LEVEL), 92);
+    ctl_set(P_CH(CH_SNARE, CHF_LEVEL), 70);
+    ctl_set(P_CH(CH_HATS, CHF_LEVEL), 72);
+    ctl_set(P_CH(CH_HATS, CHF_ECHO_SEND), 30);
+    ctl_set(P_CH(CH_BASS, CHF_LEVEL), 86);
+    ctl_set(P_CH(CH_SKANK, CHF_LEVEL), 80);
+    ctl_set(P_CH(CH_SKANK, CHF_ECHO_SEND), 112);
+    ctl_set(P_CH(CH_SKANK, CHF_SPRING_SEND), 30);
+    ctl_set(P_VOICE(CH_SKANK, VS_DECAY), 110);   /* the stab: long .. */
+    ctl_set(P_VOICE(CH_SKANK, VS_TONE), 34);     /* .. and dark */
+    ctl_set(P_VOICE(CH_SKANK, VS_INDEX), 50);
+    ctl_set(P_VOICE(CH_BASS, VB_SUB), 90);       /* the bass all sub */
+    ctl_set(P_VOICE(CH_BASS, VB_CUTOFF), 15);
+    ctl_set(P_VOICE(CH_BASS, VB_DECAY), 60);
+    ctl_set(P_VOICE(CH_HATS, VH_OPEN), 30);
+    ctl_template(TPL_DUBTECHNO, 0xFFu, 0);
+    ctl_set(P_SONG_MODE, SONG_OFF);
+    ctl_set(P_SONG_REC, 0);
+    set_dirty = 1;
+    app_say("DUB TECHNO", "LOADED: PRESS PLAY");
 }

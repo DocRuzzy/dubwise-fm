@@ -118,6 +118,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
 | DEMO SONG | Turn KNOB 2 to load the demo: an original riddim and dub in the 1970s Kingston manner, 72 BPM in A minor, 16 bars (INTRO, VERSE, a DUB section of drum and bass that thins out under the Big Knob, a DROP without the bass, OUTRO). It replaces the patterns, scenes and song (until you SAVE, nothing is lost: switch off to get yours back). Press PLAY: the song plays once. Throw the snare into the echo on beat 3, crash the spring on the DUB section's downbeat, push the echo, dive the tape. |
+| DUB TECHNO | Turn KNOB 2 to set the desk up for dub techno: 120 BPM, A dorian, the DUB TECHNO riddim, an Am7 stab on the off-beats going into a long, dark ping-pong echo, a sub bass, and two slow phasers in a row on the whole mix. It changes the patterns, sounds and effects, not your song or scenes. Press PLAY, then throw the stab, freeze its echo, take the kick out. |
 
 ## 3c. The STEPS page (SEQ)
 
@@ -134,15 +135,16 @@ channel you're editing, bigger, with its notes.
 | OCT− · OCT+ | The page of 16 steps: 1–16, 17–32, 33–48, 49–64. |
 | KNOB 1 · LEN | The pattern's length, 1 to 64 steps. |
 | KNOB 2 · NOTE | The note of the step you hold, or the last one you touched: a semitone a click. On the hats, closed or open. |
-| KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS or FLYERS. It lands on the next bar line, and then it's just steps you can change. |
+| KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS, FLYERS or DUB TECHNO. It lands on the next bar line, and then it's just steps you can change. |
 | REC (on the bass) | The keyboard: all 27 keys play the bass, from F in the octave set on the KEY page. While playing, each note you play is recorded at the nearest step. While stopped, notes go in one step after another. Press REC again for the steps. |
 
 On the skank and organ, a step doesn't hold a note: it holds a voicing, LO, MD or HI (KNOB 2), and the notes are
 the chord lane's chord for that bar. Change the chords and the parts follow.
 
 The riddims: ONE DROP has the kick and rim on beat 3 only. ROCKERS puts the kick on 1 and 3 and doubles the rim.
-STEPPERS has the kick on every beat. FLYERS opens the hat on every off-beat and closes it on the beat. All four bring a skank on 2 and 4 and an organ
-bubble: low on the off-beat eighths, high on the sixteenth after.
+STEPPERS has the kick on every beat. FLYERS opens the hat on every off-beat and closes it on the beat. These four bring a skank on 2 and 4 and an organ
+bubble: low on the off-beat eighths, high on the sixteenth after. DUB TECHNO is the Berlin descendant: the kick on every
+beat, open hats and a chord stab on the off-beats, a sub bass, no organ.
 
 ## 3e. ARRANGE (HOME, then HOME again): scenes
 

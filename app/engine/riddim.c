@@ -5,7 +5,7 @@
 
 const char *template_name(int32_t t)
 {
-    static const char *const N[TPL_N] = {"ONE DROP", "ROCKERS", "STEPPERS", "FLYERS"};
+    static const char *const N[TPL_N] = {"ONE DROP", "ROCKERS", "STEPPERS", "FLYERS", "DUB TECHNO"};
     return t >= 0 && t < TPL_N ? N[t] : "";
 }
 
@@ -25,25 +25,30 @@ uint32_t lvl_vel(uint32_t lvl)
 typedef struct {
     const char *kick, *rim, *hat;
     int8_t bass[16];                             /* 0: no step */
+    const char *skank, *organ;                   /* 0: the reggae ones (SKANK, BUBBLE) */
 } tpl_t;
+static const char SKANK[] = "....x.......x...";
+static const char BUBBLE[] = "..lh..lh..lh..lh";
 
 static const tpl_t TPL[TPL_N] = {
     /* one drop: kick and cross-stick on beat 3 only; hats in eighths */
     {"........X.......", "........X.......", "x.x.x.x.x.x.x.x.",
-     {0, 0, 33, 33, 0, 0, 36, 0, 0, 0, 40, 38, 0, 0, 36, 0}},
+     {0, 0, 33, 33, 0, 0, 36, 0, 0, 0, 40, 38, 0, 0, 36, 0}, 0, 0},
     /* rockers: kick on 1 and 3 with a pickup, rim on 3 with Sly's double tap, busier hats */
     {"X.......X.....x.", ".......gX.......", "x.xgx.xgx.xgx.xg",
-     {0, 0, 33, 0, 33, 0, 36, 0, 0, 0, 40, 0, 38, 0, 36, 31}},
+     {0, 0, 33, 0, 33, 0, 36, 0, 0, 0, 40, 0, 38, 0, 36, 31}, 0, 0},
     /* steppers: kick on every beat, rim on 3, hats on the off-beats */
     {"X...X...X...X...", "........X.......", "..x...x...x...x.",
-     {33, 0, 0, 33, 0, 0, 36, 0, 33, 0, 0, 40, 0, 38, 0, 0}},
+     {33, 0, 0, 33, 0, 0, 36, 0, 33, 0, 0, 40, 0, 38, 0, 0}, 0, 0},
     /* flyers: the flying cymbal: open on the "and", choked by a closed hit on the beat; one drop underneath */
     {"........X.......", "........X.......", "x.o.x.o.x.o.x.o.",
-     {0, 0, 33, 33, 0, 0, 36, 0, 0, 0, 40, 38, 0, 0, 36, 0}},
+     {0, 0, 33, 33, 0, 0, 36, 0, 0, 0, 40, 38, 0, 0, 36, 0}, 0, 0},
+    /* dub techno (P3.4; the mastery guide's Basic Channel lineage): the kick on every beat, a ghost rim on 2 and 4,
+     * open hats on the off-beats, the chord stab on the off-beats too (into a long echo: the stab is the dub), a sub
+     * bass on 1 and the "and" of 3; no bubble */
+    {"X...X...X...X...", "....g.......g...", "..o...o...o...o.",
+     {33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33, 0, 0, 0, 0, 0}, "..x...x...x...x.", "................"},
 };
-
-static const char SKANK[] = "....x.......x...";
-static const char BUBBLE[] = "..lh..lh..lh..lh";
 
 static uint8_t lvl_of(char c)
 {
@@ -69,10 +74,11 @@ void template_fill(int32_t t, uint32_t ch, step_t *dst)
             dst[i].lvl = LVL_NORMAL;
             dst[i].note = p->bass[k];
         } else if (ch == CH_SKANK) {             /* the skank on 2 and 4 (D2), a chop */
-            dst[i].lvl = lvl_of(SKANK[k]);
+            dst[i].lvl = lvl_of((p->skank ? p->skank : SKANK)[k]);
         } else if (ch == CH_ORGAN) {             /* the bubble: low on the off-beat eighths, high on the sixteenth after */
-            dst[i].lvl = BUBBLE[k] == '.' ? LVL_OFF : BUBBLE[k] == 'h' ? LVL_GHOST : LVL_NORMAL;
-            dst[i].note = BUBBLE[k] == 'h' ? VOICING_HI : VOICING_LO;
+            const char *o = p->organ ? p->organ : BUBBLE;
+            dst[i].lvl = o[k] == '.' ? LVL_OFF : o[k] == 'h' ? LVL_GHOST : LVL_NORMAL;
+            dst[i].note = o[k] == 'h' ? VOICING_HI : VOICING_LO;
         }
     }
 }
