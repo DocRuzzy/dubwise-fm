@@ -22,6 +22,7 @@ Dubwise FM is an open-source (GPL-3.0-only) firmware that turns the M-VAVE FM-1 
 - Browser emulator: `./build.sh --web` (needs emscripten).
 - Device package: `./build.sh` (needs the JieLi Linux toolchain via `base/tools/get_toolchain.sh` and the AC79 SDK files; see fm1-base's README). Normally built by CI or locally, not in the cloud sandbox.
 - Prefer changes that can be checked in the host simulator: scenario scripts, WAV output, screenshots.
+- WAV checks: a scenario line `#wav FILE peak<-1 click<-40 ...` runs `tests/wavstat.py` after it (metrics: peak, rms, dc, click, side_lo, tail, head, growth). CPU: the `perf` command prints per-part cost (host µs and the device estimate by ×80); `expect perf_pct <N` bounds it.
 
 ## Hard rules (firmware)
 - AC79 dual-core at 360 MHz, single-precision FPU. **Floats only: no `double`, no double literals or libm double calls.** Use `1.0f`.

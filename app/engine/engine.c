@@ -3,6 +3,7 @@
 /* engine.h. Compiled on its own at -O2 (fm1.toml o2). Floats only: single-precision FPU (no double). */
 #include "engine.h"
 #include "fastmath.h"
+#include "plat.h"                                /* plat_ticks24: the profiler */
 
 cmdq_t eng_q;
 
@@ -74,6 +75,41 @@ static volatile uint32_t cue_overflows;          /* a cue the full list could no
 static volatile int32_t voice_note = -1;
 static volatile float voice_vel = 1.0f;
 static float voice_phase, voice_level;
+
+/* -------------------------------------------------------------- profiler --- */
+static uint32_t prof_acc[NPARTS];                /* this block's ticks, per part */
+static eng_prof_t prof[NPARTS];
+static uint32_t prof_t;                          /* the last mark */
+static inline void prof_mark(uint32_t part)      /* the time since the last mark goes to part */
+{
+    uint32_t t = plat_ticks24();
+    prof_acc[part] += t - prof_t;
+    prof_t = t;
+}
+static void prof_block(void)                     /* the block done: averages and maxima */
+{
+    uint32_t i;
+    for (i = 0; i < NPARTS; i++) {
+        uint32_t a = prof_acc[i];
+        prof[i].avg = prof[i].avg - (prof[i].avg >> 4) + a;   /* (x16: 1/16-tick resolution) */
+        if (a > prof[i].max)
+            prof[i].max = a;
+        prof_acc[i] = 0;
+    }
+}
+eng_prof_t eng_prof(uint32_t part) { return part < NPARTS ? prof[part] : prof[0]; }
+void eng_prof_reset(void)
+{
+    uint32_t i;
+    for (i = 0; i < NPARTS; i++)
+        prof[i].max = 0;
+}
+const char *eng_part_name(uint32_t part)
+{
+    static const char *const N[NPARTS] = {"cmd", "ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8", "mix",
+                                          "echo", "spring", "out"};
+    return part < NPARTS ? N[part] : "";
+}
 
 /* ------------------------------------------------------------- transport --- */
 static int cue_due(const cue_t *c) { return t_beat > c->fb || (t_beat == c->fb && t_phase >= c->fp); }
@@ -272,10 +308,13 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         return;
     for (i = 0; i < n; i++)
         dry[i] = ebus[i] = sbus[i] = 0.0f;
+    prof_mark(PART_MIX);
     for (ch = 0; ch < NCH; ch++) {               /* a fixed order: the same sum on one core or two */
         strip_t *s = &strip[ch];
         float pk = 0.0f;
-        if (!source(ch, buf, n)) {
+        int on = source(ch, buf, n);
+        prof_mark(PART_CH0 + ch);
+        if (!on) {
             ramp_jump(&s->dry);
             ramp_jump(&s->echo);
             ramp_jump(&s->spring);
@@ -306,6 +345,7 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
                     sbus[i] += gs * buf[i];
         }
         s->peak = pk;                            /* (the block's last part: a meter, not a measurement) */
+        prof_mark(PART_MIX);
     }
     for (i = 0; i < n; i++) {
         float y;
@@ -318,6 +358,7 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
     }
     echo_peak = ep;
     spring_peak = sp;
+    prof_mark(PART_OUT);
 }
 
 void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
@@ -326,8 +367,10 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     float gain = (float)master_q12 * (8300000.0f / 4096.0f);
     if (n > ENG_BLOCK)
         n = ENG_BLOCK;
+    prof_t = plat_ticks24();
     drain();
     strips_update();
+    prof_mark(PART_CMD);
     if (t_playing && ncues) {                    /* a cue lands on its sample: the block is split there */
         for (i = 0; i < n; i++) {
             uint32_t k;
@@ -338,6 +381,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 render_seg(lr + 2u * seg, i - seg, gain);
                 fire_due(0);
                 strips_update();
+                prof_mark(PART_CMD);
                 seg = i;
             }
             t_step(1);
@@ -345,7 +389,9 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     } else if (t_playing) {
         t_step(n);
     }
+    prof_mark(PART_CMD);
     render_seg(lr + 2u * seg, n - seg, gain);
+    prof_block();
 }
 
 void eng_panic(void)

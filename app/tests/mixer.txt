@@ -60,6 +60,33 @@ wait 30
 expect spring_db >-22
 expect echo_db -120
 param ch7.spring 0
+# mutes, solos and faders never click: every change ramps (the 8 tones' own curvature is at most about -46 dBFS)
+wav desk.wav
+wait 50
+param ch1.mute 1
+param ch4.mute 1
+wait 50
+param ch2.solo 1
+wait 50
+param ch2.solo 0
+param ch1.mute 0
+param ch5.level 0
+wait 50
+param ch5.level 127
+param ch4.mute 0
+wait 50
+param ch5.level 100
+wait 50
+wavstop
+#wav desk.wav peak<-1 dc<-50 click<-40
+# the cost: every channel playing and sending (P0.7: printed for the log; a loose bound, the host's speed varies)
+param ch1.echo 100
+param ch2.spring 100
+wait 500
+perf
+expect perf_pct <50
+param ch1.echo 0
+param ch2.spring 0
 # the queue: 291 sets at once (more than its 256), the parameter's latest value wins
 flood ch8.level -200 90
 expect q_pending 1

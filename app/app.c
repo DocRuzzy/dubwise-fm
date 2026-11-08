@@ -162,11 +162,31 @@ static int peak_db(float pk) { return pk > 1e-6f ? (int)floorf(20.0f * log10f(pk
 /* the simulator's commands (app.h APP_HOST_CMD), through the same queue as the UI:
  *   param NAME VALUE      set a parameter (ch1.mute, v4.wave, tempo, dev.tones ...: engine/params.c)
  *   flood NAME FROM TO    set it to FROM, FROM+1 .. TO, all at once (more than the queue holds: overflow)
- *   cue NAME VALUE BEATS  set it at the next multiple of BEATS beats (launch quantise) */
+ *   cue NAME VALUE BEATS  set it at the next multiple of BEATS beats (launch quantise)
+ *   perf [reset]          print the engine's per-part profile (P0.7): host us a block, and the device's share of a
+ *                         block by the x80 rule; "reset" restarts the maxima */
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     int id;
     (void)d;
+    if (!strcmp(cmd, "perf")) {
+        uint32_t i, tot = 0, totmax = 0;
+        if (!strcmp(a, "reset")) {
+            eng_prof_reset();
+            return 1;
+        }
+        printf("perf: part      avg us   max us   device %% (x80, avg)\n");
+        for (i = 0; i < NPARTS; i++) {
+            eng_prof_t p = eng_prof(i);
+            tot += p.avg;
+            totmax += p.max;
+            printf("perf: %-8s %7.2f  %7.2f   %5.2f\n", eng_part_name(i), p.avg / 384.0, p.max / 24.0,
+                   p.avg / 16.0 * 80.0 * 100.0 / ENG_BLOCK_TICKS);
+        }
+        printf("perf: total    %7.2f  %7.2f   %5.2f\n", tot / 384.0, totmax / 24.0,
+               tot / 16.0 * 80.0 * 100.0 / ENG_BLOCK_TICKS);
+        return 1;
+    }
     if (strcmp(cmd, "param") && strcmp(cmd, "flood") && strcmp(cmd, "cue"))
         return 0;
     if ((id = param_find(a)) < 0) {
@@ -228,6 +248,12 @@ int app_expect(const char *what, int *got)
         *got = (int)eng_beat();
     else if (!strcmp(what, "t_playing"))
         *got = eng_playing();
+    else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */
+        uint32_t i, tot = 0;
+        for (i = 0; i < NPARTS; i++)
+            tot += eng_prof(i).avg;
+        *got = (int)(tot / 16.0 * 80.0 * 100.0 / ENG_BLOCK_TICKS + 0.5);
+    }
     else
         return dub_expect(what, got);        /* the page's own (dub.c) */
     return 1;

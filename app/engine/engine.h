@@ -38,3 +38,16 @@ uint32_t eng_cues(void);                     /* cues waiting */
 uint32_t eng_cue_overflows(void);
 
 #define ENG_BLOCK 256u
+
+/* per-part profiling (P0.7): plat_ticks24 ticks (24 a microsecond) each part took in a block, a running average
+ * (1/16 a block) and the most since the last eng_prof_reset. The device's budget for a block is
+ * ENG_BLOCK / 44100 s = 139,320 ticks; the host runs ~80x faster than the device */
+enum { PART_CMD, PART_CH0, PART_MIX = PART_CH0 + NCH, PART_ECHO, PART_SPRING, PART_OUT, NPARTS };
+typedef struct {
+    uint32_t avg;                            /* x16: ticks a block = avg / 16 */
+    uint32_t max;                            /* ticks */
+} eng_prof_t;
+eng_prof_t eng_prof(uint32_t part);
+const char *eng_part_name(uint32_t part);
+void eng_prof_reset(void);
+#define ENG_BLOCK_TICKS 139320u

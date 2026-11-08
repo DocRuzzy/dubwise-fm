@@ -92,7 +92,7 @@ So the dub bus starts with ~70 KB of `.data+.bss` and ~266 KB of pool free.
 | 0.4 | Riddim templates + choke | D1 | One drop, rockers, steppers, flyers, as editable steps |
 | 0.5 | Core voices | D3, C11 | FM bass, kick, rim, hats |
 | 0.6 | Phrase counter, cycle bar and runway | spec 5.4 | Shared launch quantiser. Countdown in the last 4 bars, beat pulses in the last bar, "ONE" flash. Cued actions land on the boundary |
-| 0.7 | Host scenario tests + WAV analysis + per-part CPU profiling | — | |
+| 0.7 | Host scenario tests + WAV analysis + per-part CPU profiling | — | **Done (2026-11-08).** `tests/wavstat.py` (peak, RMS, DC, click, low-band side, head/tail/growth) from `#wav` lines in scenarios; engine profiler on `plat_ticks24` (per channel, mix, echo, spring, out; avg and max), `perf` command, `perf_pct` bound. The profiler runs on the device too (for the PERF page, 1.9) |
 | 0.8 | **Key / scale / chord lock** | spec 4.5 | Off / Scale / Chord. Out-of-set keys are silent, never remapped. Reggae-oriented scale list. Key LEDs show the allowed set. HOME + ARP toggles. An input filter only. UI cost only |
 
 **P0.1 status (2026-11-08):** built and host-tested (`app/dub.c`, the transport and cues in `app/engine/engine.c`;

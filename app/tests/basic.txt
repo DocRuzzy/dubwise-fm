@@ -53,6 +53,9 @@ tap OCT-
 wait 30
 said QUANTISE 1 BAR
 # MASTER turned while a note plays: the gain glides, so no sample jumps further than the wave itself does
+turn PRESET 1
+wait 30
+expect wave 0
 midi 90 45 64
 wait 100
 wav master.wav
@@ -76,3 +79,5 @@ midi USB 90 40 50
 wait 20
 expect midi_in_usb 5
 midi USB 80 40 00
+#wav note.wav peak<-1 dc<-60 click<-50
+#wav master.wav peak<-1 click<-50
