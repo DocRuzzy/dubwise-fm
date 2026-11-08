@@ -71,6 +71,7 @@ enum {
     P_SAVER,                  /* the screen saver: SAVER_OFF, SAVER_1 .. SAVER_15 (minutes untouched, stopped) */
     P_ROOTS,                  /* 1: ROOTS NAMES, the spoken homages (hidden: SETUP, black 11 three times) */
     P_HPF_RES,                /* the Big Knob's steps a turn: HPF_RES_10 (the Altec's), HPF_RES_20, HPF_RES_40 */
+    P_CLOCK,                  /* MIDI clock: CLOCK_OFF, CLOCK_IN (follow a computer or a drum machine), CLOCK_OUT (lead) */
     P_NGLOBAL,
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */
@@ -86,7 +87,8 @@ enum { CHORD_MIN, CHORD_MAJ, CHORD_7, CHORD_M7, CHORD_MAJ7, CHORD_SUS4, CHORD_DI
 enum { LOCK_OFF, LOCK_SCALE, LOCK_CHORD, LOCK_N };
 enum { TIER_STUDIO, TIER_FOUR, TIER_SEVEN, TIER_N };
 enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };
-enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };   /* a detent: 4, 2 or 1 fine steps */   /* the guard tiers (design principles 5) */
+enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };
+enum { CLOCK_OFF, CLOCK_IN, CLOCK_OUT, CLOCK_N };   /* a detent: 4, 2 or 1 fine steps */   /* the guard tiers (design principles 5) */
 const char *tier_name(int32_t t);                    /* "STUDIO", "FOUR-TRACK", "SEVEN-INCH" */
 const char *scale_name(int32_t s);                   /* "NATURAL MINOR" */
 const char *chord_name(int32_t q);                   /* "MINOR" */

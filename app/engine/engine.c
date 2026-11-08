@@ -245,6 +245,8 @@ static void set_by_hand(uint32_t id, int32_t v)
 static int spin_on, spin_last;                   /* the spin-back (P3.5): 1 spinning, 2 the gap after */
 static void spin_start(void);
 static void transport_stop(void);
+static void clk_push(uint32_t pos, uint32_t st);
+static int32_t clk_last = -1;
 
 static void mot_release(void)                    /* the stop: what motion held down, let go */
 {
@@ -566,6 +568,9 @@ static void drain(void)                          /* every queued command, at the
         t_playing = 1;
         t_beat = t_phase = t_samples = 0;
         last_tick = -1;
+        clk_last = -1;
+        if (ev[P_CLOCK] == CLOCK_OUT)
+            clk_push(0, 0xFAu);                  /* MIDI Start, then the clocks from this sample */
     } else if (!ev[P_PLAY] && t_playing) {       /* stop: what was cued happens now; the bass let go */
         transport_stop();
     }
@@ -732,8 +737,117 @@ static uint32_t spin_w, spin_acc_n, spin_gap, spin_again;
 static int32_t spin_acc;
 static float spin_pos, spin_t;
 
+/* ------------------------------------------------------------ MIDI clock --- */
+/* OUT: 24 clocks a beat on the transport's own clock. The render notes each one's moment (this block's start on
+ * plat_ticks24's clock, plus its sample); the 1 kHz tick sends it when that moment comes (app_tick: eng_clock_pop), so
+ * a clock goes out within a millisecond of its time, not bunched a block at a time. Start at the transport's start,
+ * Stop at its stop.
+ * IN: Start / Continue start the transport (from bar 1), Stop stops it; the clocks set the tempo (their spacing over
+ * the last beat) and keep the bar in phase (the tempo nudged by the beats we are ahead or behind, at most 5 %) */
+#define Q24 (BEAT_UNITS / 24u)                   /* a clock in beat units: 1,102,500 (exact) */
+#define CQ 64u
+static struct {
+    uint32_t due;
+    uint8_t st;
+} cq[CQ];
+static volatile uint32_t cq_w, cq_r;
+static uint32_t blk_t24, clk_sent;
+static uint32_t ext_t, ext_dt[24], ext_n, ext_ticks;
+static int ext_have;
+
+uint32_t eng_clock_now(void)                     /* the clock's time base, 24 MHz: the device's ticks; the host's
+                                                  * simulated milliseconds (its plat_ticks24 is the computer's clock) */
+{
+#ifdef PLAT_HOST
+    return plat_ms() * 24000u;
+#else
+    return plat_ticks24();
+#endif
+}
+
+static void clk_push(uint32_t pos, uint32_t st)
+{
+    uint32_t w = cq_w;
+    if (w - cq_r >= CQ)
+        return;
+    cq[w % CQ].due = blk_t24 + pos * 5442u / 10u;   /* (24 MHz ticks: 544.2 a sample) */
+    cq[w % CQ].st = (uint8_t)st;
+    __asm__ volatile("" ::: "memory");
+    cq_w = w + 1u;
+}
+
+int eng_clock_pop(uint32_t now, uint32_t *st)    /* the 1 kHz tick: the next clock message now due (1) */
+{
+    uint32_t r = cq_r;
+    if (r == cq_w || (int32_t)(now - cq[r % CQ].due) < 0)
+        return 0;
+    *st = cq[r % CQ].st;
+    if (*st == 0xF8u)
+        clk_sent++;
+    __asm__ volatile("" ::: "memory");
+    cq_r = r + 1u;
+    return 1;
+}
+
+uint32_t eng_clocks_sent(void) { return clk_sent; }
+
+static uint32_t until_clock(void)                /* samples to the next clock's moment */
+{
+    uint32_t b = (t_phase / Q24 + 1u) * Q24, tempo = (uint32_t)ev[P_TEMPO];
+    return (b - t_phase + tempo - 1u) / tempo;
+}
+
+void eng_clock_in(uint32_t st, uint32_t t24)     /* the audio interrupt (app_render's MIDI in), before eng_render */
+{
+    if (ev[P_CLOCK] != CLOCK_IN)
+        return;
+    if (st == 0xFAu || st == 0xFBu) {            /* Start, Continue: from the top (the next block) */
+        ev[P_PLAY] = 1;
+        mot_fb_push(P_PLAY, 1);
+        ext_ticks = 0;
+        return;
+    }
+    if (st == 0xFCu) {
+        ev[P_PLAY] = 0;
+        mot_fb_push(P_PLAY, 0);
+        return;
+    }
+    if (st != 0xF8u)
+        return;
+    if (ext_have) {
+        uint32_t dt = t24 - ext_t;
+        if (dt > 6000u && dt < 4000000u) {       /* 10 .. 600 BPM's spacing: a real clock */
+            ext_dt[ext_n % 24u] = dt;
+            ext_n++;
+        }
+    }
+    ext_t = t24;
+    ext_have = 1;
+    ext_ticks++;
+    if (ext_n >= 6u) {
+        uint32_t k, m = ext_n < 24u ? ext_n : 24u;
+        float sum = 0.0f, tempo, err;
+        int32_t v;
+        for (k = 0; k < m; k++)
+            sum += (float)ext_dt[k];
+        tempo = 600000000.0f * (float)m / sum;   /* BPM x 10: 60 s x 10 x 24 MHz / (24 a beat x the spacing) */
+        if (t_playing && ext_ticks) {            /* the phase: our beats against the clocks' */
+            err = ((float)t_beat + (float)t_phase * (1.0f / (float)BEAT_UNITS)) - (float)(ext_ticks - 1u) * (1.0f / 24.0f);
+            err = err > 0.2f ? 0.2f : err < -0.2f ? -0.2f : err;
+            tempo *= 1.0f - 0.25f * err;         /* ahead: slower; behind: faster (at most 5 %) */
+        }
+        v = param_clamp(P_TEMPO, (int32_t)(tempo + 0.5f));
+        if (v != ev[P_TEMPO]) {
+            ev[P_TEMPO] = (int16_t)v;
+            mot_fb_push(P_TEMPO, v);             /* (the screen follows) */
+        }
+    }
+}
+
 static void transport_stop(void)                 /* what a stop does: the cues now, motion's holds and the notes let go */
 {
+    if (ev[P_CLOCK] == CLOCK_OUT)
+        clk_push(0, 0xFCu);
     t_playing = 0;
     fire_due(1);
     mot_release();
@@ -996,6 +1110,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     if (n > ENG_BLOCK)
         n = ENG_BLOCK;
     prof_t = plat_ticks24();
+    blk_t24 = eng_clock_now();
     drain();
     strips_update();
     bus_update();
@@ -1019,6 +1134,16 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             if (mot_play()) {                    /* the bar's motion: the moves due at this sample */
                 strips_update();
                 bus_update();
+            }
+            if (ev[P_CLOCK] == CLOCK_OUT) {      /* MIDI clock out: this sample's clock, timed for the tick */
+                int32_t ci = (int32_t)(t_beat * 24u + t_phase / Q24);
+                if (ci != clk_last) {
+                    clk_last = ci;
+                    clk_push(pos, 0xF8u);
+                }
+                u = until_clock();
+                if (u < d)
+                    d = u;
             }
             u = until_16th();
             if (u < d)

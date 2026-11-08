@@ -119,6 +119,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | BIG KNOB ON | Where the Big Knob sits: the whole MIX, or only the ECHO RETURN. |
 | BIG KNOB STEPS | 10 ALTEC (the default): the ten steps of King Tubby's filter, the stepped sound. 20 or 40: finer steps, the ten still among them (evenly between them in pitch, and down to 42 Hz under 70), for a smoother climb. A song or scene sounds the same whichever you choose. |
 | THROW VELOCITY | ON (the default): a throw is as big as the key was hit. OFF: every throw at full level. |
+| MIDI CLOCK | OFF (the default); IN: follow a computer or drum machine over USB: its Start starts Dubwise from bar 1, its Stop stops it, and its clock sets the tempo and keeps the bars in step; OUT: lead: Dubwise sends Start, 24 clocks a beat and Stop, so other gear follows it. |
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |

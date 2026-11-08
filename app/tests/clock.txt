@@ -1,0 +1,232 @@
+# MIDI clock (SETUP: MIDI CLOCK). OUT: Start, 24 clocks a beat on the transport's clock (sent by the 1 kHz tick
+# at their moments), Stop. IN: Start starts the transport, the clocks set the tempo and keep the bar in phase, Stop.
+wait 600
+listen
+# OUT at 75 BPM: 2 s is 2.5 beats, 60 clocks
+param clock 2
+wait 30
+out
+tap PLAY
+wait 2000
+expect clk_out >55
+expect clk_out <66
+expect_out USB FA 00 00
+tap PLAY
+wait 30
+expect_out USB FC 00 00
+# IN at 100 BPM (a clock every 25 ms): the transport follows (within 1.5 %: the phase lock pulls the tempo a little
+# while it catches up the start's few milliseconds)
+param clock 1
+wait 500
+midi FA
+wait 3
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+midi F8
+wait 23
+expect t_playing 1
+expect ui.play 1
+expect eng.tempo >985
+expect eng.tempo <1015
+expect ui.tempo >985
+expect ui.tempo <1015
+midi FC
+wait 30
+expect t_playing 0
+expect ui.play 0
+# the SETUP row
+tap GLO
+wait 30
+turn K1 12
+wait 30
+said MIDI CLOCK IN
+param clock 0
+wait 30

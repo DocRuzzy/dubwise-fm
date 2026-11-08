@@ -21,7 +21,12 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12);   /* audio interr
 /* the live input (P2.8) for the block about to render: n stereo frames (int32, full scale `full`), on channel 8 as
  * mono, mutable and throwable like any channel; NULL: none. Audio interrupt, before eng_render */
 void eng_live_in(const int32_t *lr, uint32_t n, float full);
-int eng_spinning(void);                          /* 1: the spin-back (P3.5) and its gap after */
+int eng_spinning(void);
+/* MIDI clock (SETUP: MIDI CLOCK): in, from app_render's MIDI; out, popped by the 1 kHz tick when due */
+void eng_clock_in(uint32_t st, uint32_t t24);
+int eng_clock_pop(uint32_t now, uint32_t *st);
+uint32_t eng_clocks_sent(void);
+uint32_t eng_clock_now(void);                    /* the clock's time base (24 MHz) */                          /* 1: the spin-back (P3.5) and its gap after */
 void eng_panic(void);                        /* silence now */
 
 /* the voices (voices.h): a hit or a note on channel ch, from the audio interrupt (MIDI in, the sequencer) */

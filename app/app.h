@@ -9,6 +9,7 @@
 #define APP_NAME "DUBWISE"
 #define APP_SPLASH_RGB RGB(242, 120, 72)
 #define APP_SPLASH                         /* app_splash (saver.c): the echo rings, drawn at boot */
+#define APP_TICK                           /* app_tick: the MIDI clock's sends, on time */
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 #define APP_TOUCH                        /* velocity and pressure from the keys (lib/touch.h) */
 /* no radio (fm1.toml ble = false, roadmap P0.0): its RAM goes to the dub bus */

@@ -183,6 +183,14 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
         int on = (st & 0xF0u) == 0x90u && d2, off = (st & 0xF0u) == 0x80u || ((st & 0xF0u) == 0x90u && !d2);
         if (st != 0xF8u && st != 0xFEu)
             midi_count++;
+        if (st >= 0xF8u) {                   /* real time: the clock, Start, Continue, Stop (SETUP: MIDI CLOCK IN) */
+#ifdef PLAT_HOST
+            eng_clock_in(st, eng_clock_now());   /* (the host: the script's time, not the computer's) */
+#else
+            eng_clock_in(st, plat_midi_in_t24());
+#endif
+            continue;
+        }
         if (mch == 9u) {                 /* drums ring out: note offs ignored */
             int32_t ch = gm_drum(d1);
             if (on && ch >= 0)
@@ -227,6 +235,13 @@ static void live_in(uint32_t n)
     (void)n;
     eng_live_in(0, 0, 0.0f);
 #endif
+}
+
+void app_tick(void)                     /* 1 kHz: the MIDI clock's messages, each at its moment */
+{
+    uint32_t st;
+    while (eng_clock_pop(eng_clock_now(), &st))
+        plat_midi_send(0x0Fu | st << 8, TO_USB);
 }
 
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
@@ -519,6 +534,8 @@ int app_expect(const char *what, int *got)
         *got = peak_db(eng_echo_ret_peak());
     else if (!strcmp(what, "spring_ret_db"))   /* the spring's return, after its level */
         *got = peak_db(eng_spring_ret_peak());
+    else if (!strcmp(what, "clk_out"))       /* MIDI clocks sent (SETUP: MIDI CLOCK OUT) */
+        *got = (int)eng_clocks_sent();
     else if (!strcmp(what, "crashes"))
         *got = (int)eng_crashes();
     else if (!strcmp(what, "echo_t"))        /* the echo's time now, line samples (11,025 a second) */
