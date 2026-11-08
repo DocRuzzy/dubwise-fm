@@ -276,6 +276,16 @@ static void mute_release(uint32_t ch, uint32_t now)
     }
 }
 
+static void throw_amount(uint32_t ch)    /* P2.9: the throw as hard as its key was hit (SETUP: THROW VELOCITY) */
+{
+    uint32_t v = dub.vel[WK[NCH + ch]];
+    int32_t amt = 127;
+    if (ctl_get(P_THROW_VEL) && v)       /* (no reading: in full) the softest 48 (-8 dB), the hardest 127 */
+        amt = 48 + (int32_t)((79u * (v > 127u ? 127u : v) + 63u) / 127u);
+    if (ctl_get(P_CH(ch, CHF_THROW_AMT)) != amt)
+        ctl_set(P_CH(ch, CHF_THROW_AMT), amt);
+}
+
 static void throw_press(uint32_t ch, uint32_t now)
 {
     uint32_t id = P_CH(ch, CHF_THROW);
@@ -290,11 +300,13 @@ static void throw_press(uint32_t ch, uint32_t now)
         dub.thr_tapped[ch] = 0;
         dub.thr_latched[ch] = 1;
         dub.thr_skip[ch] = 1;
+        throw_amount(ch);
         ctl_set(id, 1);
         app_say("THROW LATCHED", CH_NAME[ch]);
         return;
     }
     dub.thr_skip[ch] = 0;
+    throw_amount(ch);
     ctl_set(id, 1);
     app_say("THROW", CH_NAME[ch]);
 }

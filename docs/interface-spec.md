@@ -185,5 +185,5 @@ Dirty regions only. Meters at 20–30 Hz, echo panel at ~20 Hz, runway border on
 
 ## 9. Open questions
 1. Physical black-key grouping (2+3): regroup effects vs voices if needed.
-2. Velocity-scaled throws: confirm reliability first.
+2. Velocity-scaled throws (P2.9, built; SETUP: THROW VELOCITY, on by default): confirm velocity is even across the throw keys on the device.
 3. Prototype the DUB page and runway in the browser emulator; run a usability pass (C1, C4, C3, and a first-timer runway test).

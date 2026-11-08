@@ -4,13 +4,14 @@
  * reduced motion and the test tones. KNOB 1 (or SELECT) moves through the list, KNOB 2 (or PRESET) changes the
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
-enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_TIER, SU_PERF,
-       SU_TONES, SU_DEMO, SU_N };
+enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_THROW_VEL,
+       SU_TIER, SU_PERF, SU_TONES, SU_DEMO, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
-                                          "REDUCED MOTION", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "GUARD TIER",
+                                          "REDUCED MOTION", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON",
+                                          "THROW VELOCITY", "GUARD TIER",
                                           "PERFORMANCE", "TEST TONES", "DEMO SONG"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_LEAD,
-                                     P_LOCK_MIDI, P_HPF_ON, P_TIER_LOCK, 0, P_DEV_TONES, 0};
+                                     P_LOCK_MIDI, P_HPF_ON, P_THROW_VEL, P_TIER_LOCK, 0, P_DEV_TONES, 0};
 static int32_t su_cur;
 static uint32_t su_sig;
 
@@ -89,9 +90,9 @@ static void setup_draw(int all)          /* the list in the strips' and centre's
     cv_begin(240, PAGE_H, C_BLACK);      /* (a canvas holds 144 rows: the rest of the area below, cleared) */
     cv_text(6, 2, &FONT_XS, "SETUP", C_GRAY);
     for (i = 0; i < SU_N; i++) {
-        int32_t y = 14 + (int32_t)i * 10, cur = (int32_t)i == su_cur;
+        int32_t y = 14 + (int32_t)i * 9, cur = (int32_t)i == su_cur;   /* (14 rows in the 144) */
         if (cur)
-            cv_rect(0, y - 1, 240, 10, C_LINE);
+            cv_rect(0, y - 1, 240, 9, C_LINE);
         cv_text(10, y, &FONT_T, SU_NAME[i], cur ? C_WHITE : C_GRAY);
         su_value(i, t);
         cv_text(232 - text_w(&FONT_T, t), y, &FONT_T, t, cur ? C_HI : C_AMB);

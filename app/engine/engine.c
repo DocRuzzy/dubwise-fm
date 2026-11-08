@@ -378,7 +378,8 @@ static void strips_update(void)                  /* the targets from the applied
         float g = audible ? fader(ev[P_CH(ch, CHF_LEVEL)]) : 0.0f;
         /* a throw (P0.2): the channel to its destination in full, pre-fader and pre-mute, on top of its sends */
         int thr = ev[P_CH(ch, CHF_THROW)] != 0, dest = ev[P_CH(ch, CHF_THROW_DEST)];
-        float te = thr && dest != DEST_SPRING ? 1.0f : 0.0f, ts = thr && dest != DEST_ECHO ? 1.0f : 0.0f;
+        float a = (float)ev[P_CH(ch, CHF_THROW_AMT)] * (1.0f / 127.0f);   /* (P2.9: as hard as it was hit) */
+        float te = thr && dest != DEST_SPRING ? a : 0.0f, ts = thr && dest != DEST_ECHO ? a : 0.0f;
         ramp_to(&s->dry, g);
         ramp_to(&s->echo, g * send(ev[P_CH(ch, CHF_ECHO_SEND)]) + te);
         ramp_to(&s->spring, g * send(ev[P_CH(ch, CHF_SPRING_SEND)]) + ts);

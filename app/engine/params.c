@@ -15,6 +15,7 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_ECHO_SEND] = {"echo", 0, 127, 0},          /* post-fader, post-mute (throws are pre-fader: P0.2) */
     [CHF_SPRING_SEND] = {"spring", 0, 127, 0},
     [CHF_THROW] = {"throw", 0, 1, 0},               /* pre-fader, pre-mute: a muted channel can be thrown (P0.2) */
+    [CHF_THROW_AMT] = {"thramt", 0, 127, 127},      /* how much of it (P2.9: the key's velocity), linear; 127 full */
     [CHF_THROW_DEST] = {"dest", 0, DEST_N - 1, DEST_ECHO},   /* per channel: param_def */
     [CHF_LEN] = {"len", 1, 64, 16},                 /* the pattern's length, sixteenth steps (P0.4) */
 };
@@ -95,6 +96,7 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_SONG_LEN] = {"song.len", 1, 192, 16},
     [P_SONG_REC] = {"song.rec", 0, 1, 0},
     [P_TIER_LOCK] = {"tier.lock", 0, TIER_N, 0},
+    [P_THROW_VEL] = {"throw.vel", 0, 1, 1},
 };
 static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {

@@ -3,7 +3,8 @@
 # feedback keeps the throw. SAVE + REC clears the motion; SAVE keeps it over a restart.
 wait 600
 listen
-# pass 1: a throw of the kick on bar 1's third beat (held 400 ms), the feedback to 80 at 1 s
+# pass 1: a throw of the kick on bar 1's third beat (held 400 ms), the feedback to 80 at 1 s: 4 moves (the throw's
+# amount from its velocity, P2.9, then the press, the release; the feedback)
 tap REC
 wait 30
 tap PLAY
@@ -18,7 +19,7 @@ tap PLAY
 wait 30
 tap REC
 wait 30
-expect mot_bar1 3
+expect mot_bar1 4
 expect mot_bar2 0
 expect mot_drops 0
 # back to where it started by hand; played once, the moves land where they were made
@@ -55,7 +56,7 @@ tap PLAY
 wait 30
 tap REC
 wait 30
-expect mot_bar1 3
+expect mot_bar1 4
 # played: 30 from 0.5 s on (the 80 at 1 s punched out), the throw as before
 param echo.fb 45
 wait 30
@@ -86,7 +87,7 @@ tap SAVE
 wait 100
 reboot
 wait 600
-expect mot_bar1 3
+expect mot_bar1 4
 tap HOME
 wait 50
 shot motion-arrange.png

@@ -16,7 +16,8 @@
 enum { CH_KICK, CH_SNARE, CH_HATS, CH_BASS, CH_SKANK, CH_ORGAN, CH_LEAD, CH_VOX, NCH };   /* spec 3 */
 
 /* channel strip fields (append only, at most CH_STRIDE) */
-enum { CHF_LEVEL, CHF_MUTE, CHF_SOLO, CHF_ECHO_SEND, CHF_SPRING_SEND, CHF_THROW, CHF_THROW_DEST, CHF_LEN, CHF_N };
+enum { CHF_LEVEL, CHF_MUTE, CHF_SOLO, CHF_ECHO_SEND, CHF_SPRING_SEND, CHF_THROW, CHF_THROW_DEST, CHF_LEN, CHF_THROW_AMT,
+       CHF_N };
 enum { DEST_ECHO, DEST_SPRING, DEST_BOTH, DEST_N };   /* a throw's destination (spec 3) */
 /* voice fields, each channel its own (append only, at most VOICE_STRIDE; voices.h) */
 enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_N };                         /* kick */
@@ -66,6 +67,7 @@ enum {
     P_SONG_LEN,               /* its bars, 1..192 */
     P_SONG_REC,               /* 1: capturing (each bar's desk written at its line while playing) */
     P_TIER_LOCK,              /* the guard tier (P1.9): 0 automatic, else locked to TIER_* + 1 */
+    P_THROW_VEL,              /* 1: a throw as hard as the key was hit (P2.9; CHF_THROW_AMT), 0: always in full */
     P_NGLOBAL,
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */

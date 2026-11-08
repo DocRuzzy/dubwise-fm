@@ -76,7 +76,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | Hold white key 1–8 + KNOB 1–3 | That channel's level, echo send and spring send. Turning a knob while you hold the key keeps the key from flipping the mute. |
 | Black key 2 | Echo hold, while held: no new sound goes in, and the tape loops as it is. |
 | Black key 3 | Dub push, while held: feedback past endless, so the echo builds and rings. The tape's saturation and the limiter keep it from blowing up. |
-| White keys 9–16 | Throw channels 1–8: while you hold the key, the channel goes to its destination at full level, whatever its fader and even when it's muted, and the echo's feedback lifts so the throw rings on. Tap twice quickly to latch a throw on; tap again to let it go. |
+| White keys 9–16 | Throw channels 1–8: while you hold the key, the channel goes to its destination, whatever its fader and even when it's muted, and the echo's feedback lifts so the throw rings on. Hit the key harder for a bigger throw: the softest sends about −8 dB, the hardest full level (SETUP: THROW VELOCITY; off, every throw is full). Tap twice quickly to latch a throw on; tap again to let it go. |
 | Hold white key 9–16 + KNOB 1 | That channel's throw destination: ECHO, SPRING or BOTH. Choosing doesn't throw. By default the kick, hats, bass, lead and vox go to the echo, the snare to both, the skank and organ to the spring. |
 | Black keys 6 · 7 | Siren A (two tones) and siren B (a rising sweep), on channel 8, while held, louder the harder you press. They go into the echo by default. Their pitch, rate, depth and wave: the SOUND view of channel 8 (ALGORITHM to VOX, then EDIT). |
 | Black keys 8 · 9 · 10 | One-shots: HEY, HORN, LASER, on channel 8. A tap plays the whole shot; the harder you press, the louder. Like the sirens they go into the echo, so a shot comes back as a dub repeat. |
@@ -113,6 +113,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | CUE LEAD | How early a quantised change lands before its line: 0–50 ms (10 by default, so it catches the downbeat). |
 | LOCK MIDI IN | The key lock filters MIDI notes coming in, too (off by default). |
 | BIG KNOB ON | Where the Big Knob sits: the whole MIX, or only the ECHO RETURN. |
+| THROW VELOCITY | ON (the default): a throw is as big as the key was hit. OFF: every throw at full level. |
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
