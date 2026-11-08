@@ -1,0 +1,89 @@
+# The phrase counter, cycle bar and runway (P0.6; spec 5.4). An 8-bar cycle with a 4-bar runway: bars 5-8 count
+# down 4, 3, 2, 1 to the one; the last bar pulses the border each beat (amber), the one flashes green. A bar at
+# 75 BPM is 3.2 s. Quantise CYCLE lands a cue on the cycle's one: 8 x 141120 - 441 = 1128519.
+wait 600
+listen
+# SETUP (GLO): the cycle 8 bars (KNOB 2 down from 16), the cue tick on, keys flash on
+tap GLO
+wait 30
+said SETUP CYCLE
+expect page 2
+turn K2 -1
+wait 30
+said CYCLE 8 BARS
+expect ui.cycle 0
+turn K1 2
+wait 30
+said RUNWAY ON KEYS
+turn K2 1
+turn K1 2
+wait 30
+said CUE TICK
+turn K2 1
+wait 30
+expect ui.tick 1
+tap HOME
+wait 30
+expect page 0
+# quantise CYCLE
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+tap OCT+
+wait 30
+expect ui.quant 7
+tap PLAY
+wait 100
+expect cycle_bar 1
+expect runway 0
+tapkey w0
+wait 400
+expect ui.ch1.mute 1
+expect eng.ch1.mute 0
+# bar 5 (12.8 s in): the runway, 4 bars to the one
+wait 12500
+expect cycle_bar 5
+expect runway 4
+said 4 BARS
+shot runway-4.png
+wait 3200
+said 3 BARS
+wait 3200
+said 2 BARS
+expect runway 2
+# the last bar: a pulse on each of its 4 beats, the keys too, the tick sounding
+wait 3200
+said LAST BAR
+expect runway 1
+expect ticks >12
+shot runway-last.png
+wait 2600
+expect pulses 4
+expect key_flashes 4
+# the one: the cue lands on it (10 ms early), the ONE flash, the border green
+wait 450
+said ONE
+expect cycle_bar 1
+expect runway 0
+expect one 1
+expect border 2
+expect eng.ch1.mute 1
+expect t_fire 1128519
+shot runway-one.png
+# reduced motion: no pulses, no flash border (the count goes on for the reader)
+param reduced 1
+wait 23000
+expect runway 1
+wait 3000
+expect pulses 4
+tap PLAY
+# the settings persist
+tap SAVE
+wait 30
+reboot
+wait 600
+expect ui.cycle 0
+expect ui.tick 1
+expect ui.runway.keys 1

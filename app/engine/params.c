@@ -53,6 +53,12 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_PLAY] = {"play", 0, 1, 0},
     [P_QUANT] = {"quant", 0, QUANT_N - 1, QUANT_1},
     [P_LEAD] = {"lead", 0, 50, 10},                 /* ms (spec: launch quantise "fired slightly early") */
+    [P_CYCLE] = {"cycle", 0, CYCLE_N - 1, CYCLE_16},
+    [P_RUNWAY] = {"runway", 0, RUNWAY_N - 1, RUNWAY_4},
+    [P_RUNWAY_KEYS] = {"runway.keys", 0, 1, 0},
+    [P_RUNWAY_NUM] = {"runway.num", 0, 1, 1},
+    [P_TICK] = {"tick", 0, 1, 0},
+    [P_REDUCED] = {"reduced", 0, 1, 0},
 };
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
     [P_ECHO_TIME - P_ECHO_TIME] = {"echo.time", 0, ECHO_DIV_N - 1, ECHO_DIV_8D},
@@ -82,14 +88,17 @@ float echo_t60(int32_t fb) { return 0.1f * fm_exp2f((float)fb * 0.1f); }
 
 uint32_t quant_beats(int32_t q)
 {
-    static const uint8_t B[QUANT_N] = {1, 4, 8, 16, 32, 64, 128};
-    return q >= 0 && q < QUANT_N ? B[q] : 4u;
+    static const uint8_t B[QUANT_N - 1] = {1, 4, 8, 16, 32, 64, 128};
+    return q >= 0 && q < QUANT_N - 1 ? B[q] : 4u;
 }
 const char *quant_name(int32_t q)
 {
-    static const char *const N[QUANT_N] = {"BEAT", "1 BAR", "2 BARS", "4 BARS", "8 BARS", "16 BARS", "32 BARS"};
+    static const char *const N[QUANT_N] = {"BEAT", "1 BAR", "2 BARS", "4 BARS", "8 BARS", "16 BARS", "32 BARS",
+                                           "CYCLE"};
     return q >= 0 && q < QUANT_N ? N[q] : "";
 }
+uint32_t cycle_bars(int32_t c) { return 8u << (c >= 0 && c < CYCLE_N ? c : CYCLE_16); }
+uint32_t runway_bars(int32_t r) { return 1u << (r >= 0 && r < RUNWAY_N ? r : RUNWAY_4); }
 
 const pdesc_t *param_desc(uint32_t id)
 {

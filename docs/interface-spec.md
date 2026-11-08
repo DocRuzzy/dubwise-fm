@@ -82,6 +82,10 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 - Hold-to-focus (P0.3): a held mute key turns KNOB 1–3 into level / echo send / spring send; turning one cancels the key's momentary mute flip.
 - Not yet: the channel filter, the other black-key effects, the Big Knob in the centre.
 
+#### 4.1.2 As built in P0.6
+- Quantise gains **CYCLE** (after 32 bars): the next "one" of the cycle. Templates (STEPS) land on the bar line itself, not early.
+- GLO opens a first **SETUP** page (a list: KNOB 1 / SELECT moves, KNOB 2 / PRESET changes); test tones moved there.
+
 ### 4.2 ARRANGE page
 - **White 1–16:** recall scene, quantised. **SAVE held + white key:** store.
 - **Scene scope** (KNOB 4 at store time):

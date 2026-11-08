@@ -43,6 +43,7 @@ uint32_t eng_fires(void);                    /* cues fired since boot */
 uint32_t eng_cues(void);                     /* cues waiting */
 uint32_t eng_cue_overflows(void);
 uint32_t eng_seq_hits(void);
+uint32_t eng_ticks(void);                    /* runway tick blips since boot */
 int32_t eng_tick(void);                      /* the sixteenth playing since the start, -1 stopped */                 /* steps the sequencer has played since boot */
 uint32_t eng_seq_hit_at(uint32_t ch);        /* channel ch's last hit, samples since the start */
 step_t eng_step(uint32_t ch, uint32_t i);    /* the engine's copy of a step (tests) */

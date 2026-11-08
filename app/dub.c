@@ -12,7 +12,7 @@
  *   EDIT           the SOUND view: KNOB 1-4 edit the focused channel's voice, four parameters a bank; EDIT again
  *                  for the next bank, then back to the echo's knobs (P0.5)
  *   SAVE           tempo, quantise, the echo's knobs and the sounds
- *   GLO            test tones on every channel (until the SETUP page and the voices of P0.5)
+ *   GLO            the SETUP page (setup.c): cycle, runway, cue tick, reduced motion, cue lead, test tones
  *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
  *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
  *                  a knob keeps the key from flipping the mute
@@ -64,6 +64,11 @@ static struct {
     int32_t focus;                       /* ALGORITHM's channel */
     uint8_t sound;                       /* the SOUND view: 0 off, else its bank (1, 2) */
     uint8_t page, page_drawn;            /* PAGE_DUB, PAGE_STEPS; the one on the screen */
+    uint32_t one_until;                  /* the ONE flash, until then */
+    uint32_t rw_bar, rw_beat;            /* the runway's bar and beat last seen (bar x 4 + beat + 1; 0 none) */
+    uint8_t border, border_drawn;        /* the screen's border: 0 off, 1 amber (a last-bar beat), 2 green (ONE) */
+    uint32_t border_until, keys_until;   /* the pulse's end; the keys' flash's end */
+    uint32_t pulses, key_flashes;        /* counted (tests) */
     int32_t turns[NE];                   /* detents since boot, per encoder */
     uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
     uint32_t foot_sig, centre_t;         /* what the footer shows (redrawn when it changes); the centre's last draw */
@@ -99,6 +104,29 @@ static uint32_t cued_mask(void)
     return m;
 }
 
+static uint32_t q_beats(void)            /* the quantise setting in beats (CYCLE: the cycle's) */
+{
+    int32_t q = ctl_get(P_QUANT);
+    return q == QUANT_CYCLE ? cycle_bars(ctl_get(P_CYCLE)) * 4u : quant_beats(q);
+}
+
+/* the runway (spec 5.4): where the transport is in the cycle */
+typedef struct {
+    uint32_t cyc, bar, left, beat;       /* the cycle's bars, this bar in it (0..), bars to its end, beat in bar */
+    int on;                              /* in the runway's bars */
+} runway_t;
+static runway_t runway_now(void)
+{
+    runway_t r;
+    uint32_t b = eng_beat();
+    r.cyc = cycle_bars(ctl_get(P_CYCLE));
+    r.bar = eng_playing() ? (b / 4u) % r.cyc : 0u;
+    r.left = r.cyc - r.bar;
+    r.beat = eng_playing() ? b % 4u : 0u;
+    r.on = eng_playing() && r.left <= runway_bars(ctl_get(P_RUNWAY));
+    return r;
+}
+
 /* the quantum an action waits for: none with PLAY held (and while stopped the engine acts at once anyway) */
 static uint32_t act_beats(void)
 {
@@ -106,13 +134,13 @@ static uint32_t act_beats(void)
         dub.play_used = 1;
         return 0;
     }
-    return quant_beats(ctl_get(P_QUANT));
+    return q_beats();
 }
 
 /* beats until the next line of the quantise setting (0: stopped, nothing to wait for) */
 static int32_t lands_in(void)
 {
-    uint32_t q = quant_beats(ctl_get(P_QUANT)), b = eng_beat();
+    uint32_t q = q_beats(), b = eng_beat();
     if (!eng_playing())
         return 0;
     return (int32_t)((b / q + 1u) * q - b);
@@ -164,8 +192,9 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
     t[i] = 0;
 }
 
-enum { PAGE_DUB, PAGE_STEPS };
+enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP };
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
+#include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
 
 /* ------------------------------------------------------------------ input --- */
 static void say_mute(uint32_t ch, int muted)
@@ -293,10 +322,9 @@ static void button_press(uint32_t k)
             app_say("SOUND", CH_NAME[dub.focus]);
         else
             app_say(nf ? "ECHO" : "NO VOICE YET", nf ? "KNOBS" : CH_NAME[dub.focus]);
-    } else if (k == B_GLO) {               /* (until SETUP and the voices: a test tone on every channel, to hear the desk) */
-        int on = !ctl_get(P_DEV_TONES);
-        ctl_set(P_DEV_TONES, on);
-        app_say("TEST TONES", on ? "ON" : "OFF");
+    } else if (k == B_GLO) {
+        dub.page = PAGE_SETUP;
+        app_say("SETUP", SU_NAME[su_cur]);
     } else
         app_say("BUTTON", BTN_NAME[k]);
 }
@@ -470,6 +498,10 @@ static void encoder(uint32_t k, int32_t e)
             dub.sound = voice_fields(dub.focus) ? 1u : 0u;
         dub.dirty_strips = 1;
         app_say("FOCUS", CH_NAME[dub.focus]);
+    } else if (dub.page == PAGE_SETUP && (k == EN_K1 || k == EN_SELECT)) {
+        setup_move(e);
+    } else if (dub.page == PAGE_SETUP && (k == EN_K2 || k == EN_PRESET)) {
+        setup_change(e);
     } else if (k >= EN_K1 && k <= EN_K4 && dub.page == PAGE_STEPS) {
         steps_knob(k - EN_K1, e);
     } else if (k >= EN_K1 && k <= EN_K4) {
@@ -500,6 +532,8 @@ void dub_input(void)
         steps_keys(keys, dub.keys);
         goto encoders;
     }
+    if (dub.page == PAGE_SETUP)
+        goto encoders;
     for (k = 0; k < 16u; k++) {          /* white keys: 1-8 mutes, 9-16 throws (P0.2) */
         uint32_t bit = 1u << WK[k];
         if ((keys & bit) && !(dub.keys & bit)) {
@@ -568,6 +602,9 @@ static void lights(void)
     for (k = 0; k < 11u; k++)
         dim |= 1u << BK[k];
 buttons:
+    if (plat_ms() < dub.keys_until)      /* the runway's last bar on the keys: every white key, each beat */
+        for (k = 0; k < 16u; k++)
+            bright |= 1u << WK[k];
     if (eng_playing())
         bb |= LED_PLAY_GREEN;
     if (set_dirty)
@@ -596,34 +633,54 @@ static void play_glyph(int32_t x, int32_t y, int playing, uint16_t c)
         cv_rect(x, y + 1, 9, 9, c);      /* a square */
 }
 
-static void draw_header(void)
+#define C_GREEN RGB(80, 220, 120)
+
+static void draw_header(void)            /* tempo, transport, the cycle bar, bar n / cycle, quantise (spec 5.1) */
 {
     char t[24], n[12];
-    uint32_t b = eng_beat();
+    runway_t r = runway_now();
+    uint16_t rc = r.on ? C_AMB : C_GRAY;
     int32_t x;
     cv_begin(240, HDR_H, C_BLACK);
     if (plat_ms() < msg.until) {         /* a message, for a moment */
         x = cv_text(6, 4, &FONT_B, msg.text[0], C_WHITE);
         cv_text(x + 8, 4, &FONT_B, msg.text[1], C_HI);
     } else {
+        uint32_t i, gaps = r.cyc / 4u - 1u, segw, w = 98;
+        int32_t bx;
         tempo_text(t);
-        x = cv_text(6, 4, &FONT_B, t, C_WHITE);
-        x = cv_text(x + 3, 8, &FONT_XS, "BPM", C_GRAY);
-        play_glyph(x + 8, 7, eng_playing(), eng_playing() ? C_HI : C_GRAY);
-        t[0] = 0;
-        text_cat(t, "BAR ");
-        int_text(eng_playing() ? (int32_t)(b / 4u + 1u) : 1, n);
+        x = cv_text(4, 4, &FONT_B, t, C_WHITE);
+        play_glyph(x + 4, 7, eng_playing(), eng_playing() ? C_HI : C_GRAY);
+        bx = x + 18;
+        segw = (w - gaps * 2u) / r.cyc;
+        if (segw < 1u)
+            segw = 1u;
+        for (i = 0; i < r.cyc; i++) {    /* a segment a bar, in fours; this bar fills beat by beat */
+            int32_t sx = bx + (int32_t)(i * segw + (i / 4u) * 2u), sw = (int32_t)(segw > 1u ? segw - 1u : 1u);
+            if (!eng_playing() || i > r.bar)
+                cv_rect(sx, 8, sw, 10, C_LINE);
+            else if (i < r.bar)
+                cv_rect(sx, 8, sw, 10, rc);
+            else {
+                int32_t h = (int32_t)(r.beat + 1u) * 10 / 4;
+                cv_rect(sx, 8, sw, 10, C_LINE);
+                cv_rect(sx, 18 - h, sw, h, r.on ? C_AMB : C_HI);
+            }
+        }
+        t[0] = 0;                        /* the phrase counter: this bar / the cycle */
+        int_text((int32_t)r.bar + 1, n);
         text_cat(t, n);
-        text_cat(t, ".");
-        int_text(eng_playing() ? (int32_t)(b % 4u + 1u) : 1, n);
+        text_cat(t, "/");
+        int_text((int32_t)r.cyc, n);
         text_cat(t, n);
-        cv_text(x + 24, 4, &FONT_B, t, eng_playing() ? C_HI : C_GRAY);
+        x = cv_text(bx + (int32_t)w + 4, 6, &FONT_XS, t, eng_playing() ? (r.on ? C_AMB : C_HI) : C_GRAY);
         t[0] = 0;
         text_cat(t, "Q ");
         text_cat(t, quant_name(ctl_get(P_QUANT)));
-        cv_text(234 - text_w(&FONT_XS, t), 8, &FONT_XS, t, C_AMB);
+        cv_text(236 - text_w(&FONT_T, t), 8, &FONT_T, t, C_AMB);
     }
-    cv_rect(0, HDR_H - 1, 240, 1, C_LINE);
+    cv_rect(0, HDR_H - 2, 240, 2, r.on ? C_AMB : C_BLACK);   /* the header amber on the runway */
+    cv_rect(0, HDR_H - 1, 240, 1, r.on ? C_AMB : C_LINE);
     cv_blit(0, HDR_Y);
 }
 
@@ -722,7 +779,16 @@ static void draw_centre(void)
     cv_begin(240, CENTRE_H, C_BLACK);
     draw_echo();
     cv_rect(120, 4, 1, CENTRE_H - 8, C_LINE);
-    if (m && eng_playing()) {            /* what is cued, and when it lands */
+    if (dub.one_until && plat_ms() < dub.one_until) {   /* the downbeat: ONE */
+        cv_text(132, 18, &FONT_L, "ONE", C_GREEN);
+    } else if (runway_now().on && ctl_get(P_RUNWAY_NUM)) {   /* the runway: bars to the one, big */
+        runway_t r = runway_now();
+        int_text((int32_t)r.left, n);
+        cv_text(128, 4, &FONT_XS, r.left == 1u ? "LAST BAR" : "BARS TO THE ONE", C_AMB);
+        cv_text(132, 22, &FONT_L, n, C_AMB);
+        if (m)
+            cv_text(176, 40, &FONT_XS, "CUED", C_WHITE);
+    } else if (m && eng_playing()) {     /* what is cued, and when it lands */
         int32_t x = cv_text(126, 4, &FONT_XS, "CUED", C_GRAY) + 8;
         for (ch = 0; ch < NCH; ch++)
             if (m >> ch & 1u) {
@@ -793,9 +859,82 @@ static uint32_t foot_sig(void)           /* changes whenever what the footer sho
     return h;
 }
 
+static void runway_track(uint32_t now)   /* beat edges: the count to the reader, the pulses, the ONE */
+{
+    runway_t r = runway_now();
+    uint32_t pos = eng_playing() ? (eng_beat() + 1u) : 0u;
+    int reduced = ctl_get(P_REDUCED) != 0;
+    if (pos == dub.rw_beat)
+        return;
+    dub.rw_beat = pos;
+    dub.dirty_centre = 1;
+    if (!pos)
+        return;
+    if (r.bar == 0u && r.beat == 0u) {   /* the one */
+        dub.one_until = now + 600u;
+        if (!reduced) {
+            dub.border = 2;
+            dub.border_until = now + 200u;
+        }
+        if (ann_on())
+            ann_say("ONE", 0, ANN_NOW);
+        return;
+    }
+    if (!r.on)
+        return;
+    if (r.beat == 0u && ann_on()) {      /* each runway bar: the count */
+        char t[16], n[8];
+        t[0] = 0;
+        if (r.left == 1u)
+            text_cat(t, "LAST BAR");
+        else {
+            int_text((int32_t)r.left, n);
+            text_cat(t, n);
+            text_cat(t, " BARS");
+        }
+        ann_say(t, 0, ANN_NOW);
+    }
+    if (r.left == 1u) {                  /* the last bar: a pulse each beat */
+        if (!reduced) {
+            dub.border = 1;
+            dub.border_until = now + 150u;
+            dub.pulses++;
+        }
+        if (ctl_get(P_RUNWAY_KEYS)) {
+            dub.keys_until = now + 120u;
+            dub.key_flashes++;
+        }
+    }
+}
+
+static void border_draw(int force)       /* the screen's 2 px edge: the runway's pulses */
+{
+    uint16_t c = dub.border == 2u ? C_GREEN : C_AMB;
+    if (!dub.border && dub.border_drawn) {   /* off again: the regions under it repainted */
+        dub.border_drawn = 0;
+        dub.dirty_hdr = dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 1;
+        if (dub.page == PAGE_STEPS)
+            st.sig = 0;
+        su_sig = 0;
+        return;
+    }
+    if (dub.border && (force || dub.border_drawn != dub.border)) {
+        lcd_fill(0, 0, 240, 2, c);
+        lcd_fill(0, 238, 240, 2, c);
+        lcd_fill(0, 0, 2, 240, c);
+        lcd_fill(238, 0, 2, 240, c);
+        dub.border_drawn = dub.border;
+    }
+}
+
 void dub_draw(void)
 {
     uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
+    int drew = 0;
+    runway_track(now);
+    if (dub.border && now >= dub.border_until)
+        dub.border = 0;
+    border_draw(0);
     int32_t li = lands_in();
     int up = now < msg.until;
     if (msg.changed || up != dub.msg_up) {
@@ -828,32 +967,45 @@ void dub_draw(void)
     if (dub.dirty_hdr) {
         dub.dirty_hdr = 0;
         draw_header();
+        drew = 1;
     }
     if (dub.page != dub.page_drawn) {    /* a page change: all of it */
         dub.page_drawn = dub.page;
         dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 1;
         if (dub.page == PAGE_STEPS)
-            steps_draw(1);
+            st.sig = 0;
+        su_sig = 0;
     }
     if (dub.page == PAGE_STEPS) {
+        uint32_t sg = st.sig;
         steps_draw(0);
+        drew |= sg != st.sig;
         dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
-        lights();
-        return;
+    } else if (dub.page == PAGE_SETUP) {
+        uint32_t sg = su_sig;
+        setup_draw(0);
+        drew |= sg != su_sig;
+        dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
+    } else {
+        if (dub.dirty_strips) {
+            dub.dirty_strips = 0;
+            draw_strips();
+            drew = 1;
+        }
+        if (dub.dirty_centre) {
+            dub.dirty_centre = 0;
+            dub.centre_t = now;
+            draw_centre();
+            drew = 1;
+        }
+        if (dub.dirty_foot) {
+            dub.dirty_foot = 0;
+            draw_footer();
+            drew = 1;
+        }
     }
-    if (dub.dirty_strips) {
-        dub.dirty_strips = 0;
-        draw_strips();
-    }
-    if (dub.dirty_centre) {
-        dub.dirty_centre = 0;
-        dub.centre_t = now;
-        draw_centre();
-    }
-    if (dub.dirty_foot) {
-        dub.dirty_foot = 0;
-        draw_footer();
-    }
+    if (drew && dub.border)              /* the regions drawn over the border: it again */
+        border_draw(1);
     lights();
 }
 
@@ -879,6 +1031,12 @@ void dub_speak(void)
     text_cat(t, eng_playing() ? "PLAYING" : "STOPPED");
     if (dub.page == PAGE_STEPS) {
         steps_speak(t);
+        ann_say(t, 0, ANN_NOW);
+        return;
+    }
+    if (dub.page == PAGE_SETUP) {
+        text_cat(t, ". SETUP, ");
+        text_cat(t, SU_NAME[su_cur]);
         ann_say(t, 0, ANN_NOW);
         return;
     }
@@ -914,8 +1072,25 @@ static int dub_expect(const char *what, int *got)
         *got = dub.turns[atoi(what + 5) % NE];
     else if (!strcmp(what, "page"))
         *got = dub.page;
+    else if (!strcmp(what, "runway")) {  /* bars to the one while on the runway, else 0 */
+        runway_t r = runway_now();
+        *got = r.on ? (int)r.left : 0;
+    } else if (!strcmp(what, "cycle_bar"))   /* this bar in the cycle, from 1 */
+        *got = (int)runway_now().bar + 1;
+    else if (!strcmp(what, "border"))    /* 0 off, 1 amber pulse, 2 green (ONE) */
+        *got = dub.border;
+    else if (!strcmp(what, "one"))       /* the ONE flash up */
+        *got = plat_ms() < dub.one_until;
+    else if (!strcmp(what, "key_flash"))
+        *got = plat_ms() < dub.keys_until;
+    else if (!strcmp(what, "pulses"))    /* the border's last-bar pulses so far */
+        *got = (int)dub.pulses;
+    else if (!strcmp(what, "key_flashes"))
+        *got = (int)dub.key_flashes;
+    else if (steps_expect(what, got))
+        return 1;
     else
-        return steps_expect(what, got);
+        return setup_expect(what, got);
     return 1;
 }
 #endif

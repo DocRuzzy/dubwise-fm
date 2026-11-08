@@ -1,12 +1,11 @@
-# The DUB page, P0.1: quantised mutes and solo from the white keys (docs/interface-spec.md 4.1). GLO puts a test
-# tone on every channel. led_wN: 1 dim (muted), 2 bright (playing), 3 blinking (cued). Run by tests/run_tests.sh.
+# The DUB page, P0.1: quantised mutes and solo from the white keys (docs/interface-spec.md 4.1). Test tones on
+# every channel stand in for the voices. led_wN: 1 dim (muted), 2 bright (playing), 3 blinking (cued). Run by tests/run_tests.sh.
 wait 600
 listen
 wait 50
-# GLO: test tones on every channel (until SETUP and the voices)
-tap GLO
+# test tones on every channel (SETUP's last item: setup.txt)
+param dev.tones 1
 wait 30
-said TEST TONES ON
 expect eng.dev.tones 1
 # stopped: no clock, so a tap mutes at once; another tap unmutes
 tapkey w0
@@ -98,7 +97,7 @@ expect ui.quant 0
 turn ALGO 2
 wait 30
 expect focus 3
-# STOP with a cue waiting: it lands at once
+# STOP with a cue waiting: it lands at once (quantise at its far end, CYCLE)
 tap OCT+
 tap OCT+
 tap OCT+
@@ -107,7 +106,7 @@ tap OCT+
 tap OCT+
 tap OCT+
 wait 30
-expect ui.quant 6
+expect ui.quant 7
 tapkey w7
 wait 400
 expect led_w8 3

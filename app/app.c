@@ -11,13 +11,14 @@
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x44554234u            /* "DUB4": the settings record; another magic loads defaults */
+#define SET_MAGIC 0x44554235u            /* "DUB5": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
     uint8_t quant;                       /* P_QUANT */
     uint8_t rsv;
     uint8_t echo_time, echo_fb, echo_ret, spring_ret;   /* the DUB page's knobs */
+    uint8_t setup[P_NGLOBAL];            /* the globals from P_LEAD on: lead, cycle, runway .. (SETUP) */
 } settings_t;
 /* the sounds: every voice parameter (P_VOICE_BASE..P_NIDS), in their own store object (OBJ_SOUND) */
 #define SOUND_MAGIC 0x534E4431u          /* "SND1" */
@@ -87,6 +88,11 @@ static void settings_defaults(void)
     set.echo_fb = (uint8_t)param_def(P_ECHO_FB);
     set.echo_ret = (uint8_t)param_def(P_ECHO_RET);
     set.spring_ret = (uint8_t)param_def(P_SPRING_RET);
+    {
+        uint32_t i;
+        for (i = P_LEAD; i < P_NGLOBAL; i++)
+            set.setup[i] = (uint8_t)param_def(i);
+    }
 }
 
 static void settings_save(void)
@@ -97,6 +103,11 @@ static void settings_save(void)
     set.echo_fb = (uint8_t)ctl_get(P_ECHO_FB);
     set.echo_ret = (uint8_t)ctl_get(P_ECHO_RET);
     set.spring_ret = (uint8_t)ctl_get(P_SPRING_RET);
+    {
+        uint32_t i;
+        for (i = P_LEAD; i < P_NGLOBAL; i++)
+            set.setup[i] = (uint8_t)ctl_get(i);
+    }
     snd.magic = SOUND_MAGIC;
     {
         uint32_t i;
@@ -149,6 +160,11 @@ void app_init(void)
     ctl_set(P_ECHO_FB, set.echo_fb);
     ctl_set(P_ECHO_RET, set.echo_ret);
     ctl_set(P_SPRING_RET, set.spring_ret);
+    {
+        uint32_t i;
+        for (i = P_LEAD; i < P_NGLOBAL; i++)
+            ctl_set(i, set.setup[i]);
+    }
 }
 
 /* ---------------------------------------------------------------- helpers --- */
@@ -329,6 +345,8 @@ int app_expect(const char *what, int *got)
         *got = eng_playing();
     else if (!strncmp(what, "hit", 3) && what[3] >= '1' && what[3] <= '8' && !what[4])
         *got = (int)eng_seq_hit_at((uint32_t)(what[3] - '1'));   /* hitN: channel N's last hit, samples since PLAY */
+    else if (!strcmp(what, "ticks"))         /* the runway's audible ticks */
+        *got = (int)eng_ticks();
     else if (!strcmp(what, "seq_hits"))
         *got = (int)eng_seq_hits();
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */

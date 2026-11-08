@@ -41,10 +41,18 @@ enum {
     P_PLAY,                   /* the transport: 1 playing (a start counts from bar 1, beat 1) */
     P_QUANT,                  /* launch quantise: QUANT_BEAT .. QUANT_32 (the UI's setting; cues carry beats) */
     P_LEAD,                   /* a quantised action fires this many ms before the line ("a fraction early") */
+    P_CYCLE,                  /* the cycle (spec 5.4): CYCLE_8 .. CYCLE_64 bars, from the start */
+    P_RUNWAY,                 /* the runway: its last 1, 2, 4 or 8 bars (RUNWAY_*) */
+    P_RUNWAY_KEYS,            /* 1: the white keys flash the last bar's beats */
+    P_RUNWAY_NUM,             /* 1: the big countdown numeral */
+    P_TICK,                   /* 1: an audible tick on the runway's beats */
+    P_REDUCED,                /* 1: reduced motion (no pulses, no flash) */
     P_NGLOBAL,
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
-enum { QUANT_BEAT, QUANT_1, QUANT_2, QUANT_4, QUANT_8, QUANT_16, QUANT_32, QUANT_N };
+enum { QUANT_BEAT, QUANT_1, QUANT_2, QUANT_4, QUANT_8, QUANT_16, QUANT_32, QUANT_CYCLE, QUANT_N };
+enum { CYCLE_8, CYCLE_16, CYCLE_32, CYCLE_64, CYCLE_N };
+enum { RUNWAY_1, RUNWAY_2, RUNWAY_4, RUNWAY_8, RUNWAY_N };
 
 /* bus modules (append only, within 0x0C0-0x0FF) */
 enum {
@@ -64,7 +72,9 @@ enum { ECHO_DIV_16, ECHO_DIV_8T, ECHO_DIV_16D, ECHO_DIV_8, ECHO_DIV_4T, ECHO_DIV
 float echo_div_beats(int32_t d);
 const char *echo_div_name(int32_t d);                 /* "1/8." */
 float echo_t60(int32_t fb);                          /* seconds */
-uint32_t quant_beats(int32_t q);                     /* 1, 4, 8 .. 128 (4/4) */
+uint32_t quant_beats(int32_t q);                     /* 1, 4, 8 .. 128 (4/4); QUANT_CYCLE: the UI's (cycle) */
+uint32_t cycle_bars(int32_t c);                      /* 8, 16, 32, 64 */
+uint32_t runway_bars(int32_t r);                     /* 1, 2, 4, 8 */
 const char *quant_name(int32_t q);                   /* "BEAT", "1 BAR", "2 BARS" .. */
 
 typedef struct {

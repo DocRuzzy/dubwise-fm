@@ -45,7 +45,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 
 | Part | What it shows |
 | --- | --- |
-| Header | The tempo, playing (triangle) or stopped (square), the bar and beat, and the quantise setting (Q). After a change, a message shows here for a moment. |
+| Header | The tempo, playing (triangle) or stopped (square), the cycle bar (a segment a bar, in fours, this bar filling beat by beat), the bar you're in out of the cycle (5/16), and the quantise setting (Q). It turns amber on the runway. After a change, a message shows here for a moment. |
 | Channel strips | The eight channels: 1 KICK, 2 SNR (snare), 3 HAT, 4 BASS, 5 SKNK (skank), 6 ORGN (organ), 7 LEAD, 8 VOX. A filled box is playing, with its level brighter over it. An outlined box is muted. A hatched box is muted by someone else's solo. S marks a solo. A strip that blinks white has a change waiting. A line under a strip marks the focus. Under each box, where a throw sends the channel: E (echo), S (spring) or ES (both). A thrown channel's number lights up. |
 | Centre, left | The echo: its time, and its repeats as they fall. They turn amber near endless feedback and red past it. A red line underneath shows the echo's limiter at work. |
 | Centre, right | What's waiting (CUED) and when it lands: NEXT BEAT, 1 BAR, 2 BARS and so on. |
@@ -59,12 +59,12 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | --- | --- |
 | White keys 1–8 | Mute or unmute channels 1–8. A tap toggles. Hold a key to flip the channel only while you hold it. Tap twice quickly to solo it. Solos add up: solo two channels and you hear both. A muted channel stays muted when you solo it. |
 | HOME + white key 1–8 | Solo, without the double tap. |
-| OCT− · OCT+ | The quantise setting: BEAT, 1, 2, 4, 8, 16 or 32 bars. While playing, a mute or solo waits for the next line of that setting and lands on it, a hair (10 ms) early so it catches the downbeat. Its key blinks until then. |
+| OCT− · OCT+ | The quantise setting: BEAT, 1, 2, 4, 8, 16 or 32 bars, or CYCLE (the next "one"). While playing, a mute or solo waits for the next line of that setting and lands on it, a hair (10 ms) early so it catches the downbeat. Its key blinks until then. |
 | PLAY | Start and stop (when you let go). Starting counts from bar 1. Stopping makes anything waiting happen at once. Hold PLAY while you press a white key to make that change now instead of on the line. |
 | HOME + SELECT | Tempo, 1 BPM a click. |
 | ALGORITHM | Moves the focus between the channels. |
 | EDIT | The SOUND view: KNOB 1–4 edit the focused channel's voice, four settings at a time. Press EDIT again for the next four, then once more to go back to the echo's knobs. ALGORITHM picks the channel. |
-| GLO | Test tones on every channel, on or off, so you can hear the desk until the voices arrive. |
+| GLO | The SETUP page (below). |
 | MASTER | Sets the volume. |
 | SAVE | Saves the tempo, the quantise setting and the wave. SAVE lights while there's something to save. |
 | KNOB 1 · TIME | The echo's time, in steps of the beat: 1/16, 1/8T, 1/16., 1/8, 1/4T, 1/8. (dotted eighth, the default), 1/4, 1/2T, 1/4., 1/2. At slow tempos the longest don't fit, so you get the longest that does. A change glides like tape, bending the pitch. |
@@ -82,7 +82,30 @@ The keys light by one rule: bright is playing, dim is muted or not in use yet, a
 
 ---
 
-## 3a. The STEPS page (SEQ)
+## 3a. The runway
+
+The music runs in cycles of 16 bars (8, 32 or 64 on the SETUP page), counted from PLAY. Over the last 4 bars of each
+cycle (the runway), the header turns amber and a big number counts the bars to the one: 4, 3, 2, 1. In the last bar,
+the screen's border pulses on every beat (the white keys too, if you turn that on). On the one, ONE flashes green.
+A screen reader hears "4 bars", "3 bars", "2 bars", "last bar", "one". With quantise on CYCLE, a mute or solo lands on
+the one, so you can line up a drop without counting.
+
+## 3b. The SETUP page (GLO)
+
+Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to change an item. HOME goes back.
+
+| Item | What it does |
+| --- | --- |
+| CYCLE | The cycle's length: 8, 16, 32 or 64 bars. |
+| RUNWAY | How many bars count down: 1, 2, 4 or 8. |
+| RUNWAY ON KEYS | The white keys flash the last bar's beats. |
+| COUNTDOWN NUMERALS | The big countdown number on the screen. |
+| CUE TICK | A short tick on the runway's beats, higher on each bar's first. |
+| REDUCED MOTION | No pulsing border, no green flash. The count still shows, and the screen reader still hears it. |
+| CUE LEAD | How early a quantised change lands before its line: 0–50 ms (10 by default, so it catches the downbeat). |
+| TEST TONES | A test tone on every channel (not saved). |
+
+## 3c. The STEPS page (SEQ)
 
 ![The STEPS page: every channel's 16 steps at the top, the bass's below with its notes; LEN 16, RIDDIM ONE DROP](img/screen-steps.png "The STEPS page")
 
@@ -104,7 +127,7 @@ STEPPERS has the kick on every beat. FLYERS opens the hat on every off-beat and 
 
 ## 4. Saving
 
-Press SAVE to keep the tempo, the quantise setting, the echo's knobs, the sounds and the patterns. They come back the next time the FM-1 starts. The
+Press SAVE to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the sounds and the patterns. They come back the next time the FM-1 starts. The
 mutes and solos aren't saved: scenes will do that.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")

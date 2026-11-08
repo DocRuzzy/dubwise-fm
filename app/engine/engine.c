@@ -84,7 +84,21 @@ static step_t pat[NCH][NSTEPS];
 static int32_t last_tick = -1;                   /* the sixteenth last played since the start */
 static int32_t seq_bass = -1;                    /* the bass note the sequencer holds */
 static volatile uint32_t seq_hits;               /* steps played since boot (tests) */
-static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */          /* a cue the full list could not hold fired at once instead */
+static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */
+
+/* the runway's audible tick (P_TICK, P0.6): a short sine blip on each of its beats, higher on a bar's first */
+static float tick_ph, tick_inc, tick_amp;
+static volatile uint32_t ticks;                  /* blips since boot (tests) */
+static void runway_tick(uint32_t beat)
+{
+    uint32_t cyc = cycle_bars(ev[P_CYCLE]), bar = (beat / 4u) % cyc, left = cyc - bar;
+    if (!ev[P_TICK] || left > runway_bars(ev[P_RUNWAY]))
+        return;
+    tick_inc = (beat % 4u == 0u ? 1760.0f : 1320.0f) / 44100.0f;
+    tick_ph = 0.0f;
+    tick_amp = 0.25f;
+    ticks++;
+}          /* a cue the full list could not hold fired at once instead */
 
 
 /* -------------------------------------------------------------- profiler --- */
@@ -347,6 +361,8 @@ static void seq_play(uint32_t tick)              /* sixteenth `tick` since the s
         voice_release(CH_BASS, seq_bass);
         seq_bass = -1;
     }
+    if (tick % 4u == 0u)
+        runway_tick(tick / 4u);
     for (ch = 0; ch < NCH; ch++) {
         uint32_t len = (uint32_t)ev[P_CH(ch, CHF_LEN)];
         step_t st = pat[ch][tick % (len ? len : 16u)];
@@ -469,7 +485,13 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             sp = fm_maxf(sp, fm_fabsf(sbus[i]));
             rp = fm_maxf(rp, fm_fabsf(r));
             gain_now = undenorm(gain_now + (gain - gain_now) * 0.004f);   /* ~5 ms: MASTER does not click */
-            y = (dry[i] + r) * gain_now;         /* mono dry and the echo's return (stereo returns: P1.5) */
+            y = dry[i] + r;                      /* mono dry and the echo's return (stereo returns: P1.5) */
+            if (tick_amp > 1e-4f) {              /* the runway's tick, not sent anywhere */
+                y += tick_amp * fm_sin_turns(tick_ph);
+                tick_ph = tick_ph + tick_inc >= 1.0f ? tick_ph + tick_inc - 1.0f : tick_ph + tick_inc;
+                tick_amp *= 0.9985f;             /* ~15 ms */
+            }
+            y *= gain_now;
             lr[2 * i] = (int32_t)y;
             lr[2 * i + 1] = (int32_t)y;
         }
@@ -533,6 +555,7 @@ float eng_echo_peak(void) { return echo_peak; }
 float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
 uint32_t eng_seq_hits(void) { return seq_hits; }
+uint32_t eng_ticks(void) { return ticks; }
 int32_t eng_tick(void) { return t_playing ? last_tick : -1; }
 uint32_t eng_seq_hit_at(uint32_t ch) { return ch < NCH ? seq_hit_at[ch] : 0; }
 step_t eng_step(uint32_t ch, uint32_t i) { return pat[ch % NCH][i % NSTEPS]; }
