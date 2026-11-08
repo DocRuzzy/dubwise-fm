@@ -81,6 +81,7 @@ static struct {
     uint8_t border, border_drawn;        /* the screen's border: 0 off, 1 amber (a last-bar beat), 2 green (ONE) */
     uint32_t border_until, keys_until;   /* the pulse's end; the keys' flash's end */
     uint32_t pulses, key_flashes;        /* counted (tests) */
+    int tier_seen;                       /* the guard tier last shown */
     int32_t spring_add;                  /* the throw black 1 added the spring to, -1 none */
     int8_t dest_was;                     /* its destination before */
     int32_t turns[NE];                   /* detents since boot, per encoder */
@@ -214,7 +215,7 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
     t[i] = 0;
 }
 
-enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX, PAGE_ARRANGE };
+enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX, PAGE_ARRANGE, PAGE_PERF };
 #include "keys.c"                        /* the KEY & CHORDS page (GPL-3.0-only) */
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 #include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
@@ -478,6 +479,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "fx.c"                          /* the FX page (GPL-3.0-only) */
 #include "arrange.c"                     /* the ARRANGE page (GPL-3.0-only) */
 #include "demo.c"                        /* the demo song (GPL-3.0-only) */
+#include "perf.c"                        /* the PERF page (GPL-3.0-only) */
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
@@ -602,7 +604,7 @@ void dub_input(void)
         goto encoders;
     if (dub.page == PAGE_KEY)            /* the keys show the lock's set; they play nothing here */
         goto encoders;
-    if (dub.page == PAGE_FX)
+    if (dub.page == PAGE_FX || dub.page == PAGE_PERF)
         goto encoders;
     if (dub.page == PAGE_ARRANGE) {
         arr_keys(keys, dub.keys);
@@ -751,7 +753,7 @@ static void draw_header(void)            /* tempo, transport, the cycle bar, bar
         x = cv_text(6, 4, &FONT_B, msg.text[0], C_WHITE);
         cv_text(x + 8, 4, &FONT_B, msg.text[1], C_HI);
     } else {
-        uint32_t i, gaps = r.cyc / 4u - 1u, segw, w = ctl_get(P_LOCK) ? 76u : 98u;
+        uint32_t i, gaps = r.cyc / 4u - 1u, segw, w = 98u - (ctl_get(P_LOCK) ? 22u : 0u) - (eng_tier() ? 20u : 0u);
         int32_t bx;
         tempo_text(t);
         x = cv_text(4, 4, &FONT_B, t, C_WHITE);
@@ -779,6 +781,11 @@ static void draw_header(void)            /* tempo, transport, the cycle bar, bar
         int_text((int32_t)r.cyc, n);
         text_cat(t, n);
         x = cv_text(bx + (int32_t)w + 4, 6, &FONT_XS, t, eng_playing() ? (r.on ? C_AMB : C_HI) : C_GRAY);
+        if (eng_tier()) {                /* the guard tier's badge: 4T, 7" */
+            const char *c = eng_tier() == TIER_FOUR ? "4T" : "7IN";
+            cv_rect(x + 3, 5, text_w(&FONT_T, c) + 4, 14, C_RED);
+            x = cv_text(x + 5, 6, &FONT_T, c, C_BLACK);
+        }
         if (ctl_get(P_LOCK)) {           /* the key lock's chip: LOCK, or CHD in chord mode */
             const char *c = ctl_get(P_LOCK) == LOCK_CHORD ? "CHD" : "LOCK";
             cv_rect(x + 3, 5, text_w(&FONT_T, c) + 4, 14, C_AMB);
@@ -1035,6 +1042,7 @@ static void border_draw(int force)       /* the screen's 2 px edge: the runway's
         ks.sig = 0;
         fx_sig = 0;
         arr.sig = 0;
+        perf_t = 0;
         return;
     }
     if (dub.border && (force || dub.border_drawn != dub.border)) {
@@ -1051,6 +1059,11 @@ void dub_draw(void)
     uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
     int drew = 0;
     song_sync();
+    if (eng_tier() != dub.tier_seen) {   /* the guard changed the tier: a badge and a word (design principles 5) */
+        dub.tier_seen = eng_tier();
+        dub.dirty_hdr = 1;
+        app_say("TIER", tier_name(dub.tier_seen));
+    }
     runway_track(now);
     if (dub.border && now >= dub.border_until)
         dub.border = 0;
@@ -1098,6 +1111,7 @@ void dub_draw(void)
         ks.sig = 0;
         fx_sig = 0;
         arr.sig = 0;
+        perf_t = 0;
     }
     if (dub.page == PAGE_STEPS) {
         uint32_t sg = st.sig;
@@ -1123,6 +1137,11 @@ void dub_draw(void)
         uint32_t sg = arr.sig;
         arr_draw(0);
         drew |= sg != arr.sig;
+        dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
+    } else if (dub.page == PAGE_PERF) {
+        uint32_t pt = perf_t;
+        perf_draw(dub.page_drawn != dub.page);
+        drew |= pt != perf_t;
         dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
     } else {
         if (dub.dirty_strips) {

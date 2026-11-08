@@ -1,0 +1,67 @@
+# The guard tiers (P1.9; design principles 5): over 75 % of the block for 8 blocks, a tier down (Studio ->
+# Four-track -> Seven-inch); under 45 % for 2 s, a tier up. The host never runs that hot, so dev.load adds load.
+# Four-track: mono returns, a simpler spring; Seven-inch: thinner voices, no echo diffusers, heavier tape. Locked,
+# a tier stays whatever the load. The PERF page shows each part's cost.
+wait 600
+listen
+expect tier 0
+expect load <50
+param dev.load 80
+wait 70
+said TIER FOUR-TRACK
+expect tier 1
+wait 70
+said TIER SEVEN-INCH
+expect tier 2
+# Four-track and down: the returns mono, the width set or not
+param dev.load 0
+param tier.lock 2
+param echo.width 127
+param ch2.echo 127
+param ch2.spring 127
+wait 50
+expect tier 1
+wav guard-mono.wav
+midi 99 25 64
+wait 1200
+wavstop
+# unlocked and no load: a tier up every 2 s
+param tier.lock 0
+wait 100
+param dev.load 80
+wait 200
+expect tier 2
+param dev.load 0
+wait 2200
+said TIER FOUR-TRACK
+expect tier 1
+wait 2200
+said TIER STUDIO
+expect tier 0
+# Seven-inch as a sound: locked
+param tier.lock 3
+wait 50
+expect tier 2
+wav guard-seven.wav
+midi 99 25 64
+wait 1200
+wavstop
+param tier.lock 0
+# SETUP: GUARD TIER, PERFORMANCE (the PERF page)
+tap GLO
+wait 30
+turn K1 9
+wait 30
+said GUARD TIER
+turn K2 1
+wait 50
+said GUARD TIER STUDIO
+expect ui.tier.lock 1
+turn K1 1
+turn K2 1
+wait 50
+said PERF STUDIO
+expect page 6
+shot perf.png
+#wav guard-mono.wav side<-150 peak<-1
+#wav guard-seven.wav peak<-1 dc<-50

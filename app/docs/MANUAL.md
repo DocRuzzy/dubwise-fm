@@ -112,6 +112,8 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | LOCK MIDI IN | The key lock filters MIDI notes coming in, too (off by default). |
 | BIG KNOB ON | Where the Big Knob sits: the whole MIX, or only the ECHO RETURN. |
 | TEST TONES | A test tone on every channel (not saved). |
+| GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
+| PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
 | DEMO SONG | Turn KNOB 2 to load the demo: an original riddim and dub in the 1970s Kingston manner, 72 BPM in A minor, 16 bars (INTRO, VERSE, a DUB section of drum and bass that thins out under the Big Knob, a DROP without the bass, OUTRO). It replaces the patterns, scenes and song (until you SAVE, nothing is lost: switch off to get yours back). Press PLAY: the song plays once. Throw the snare into the echo on beat 3, crash the spring on the DUB section's downbeat, push the echo, dive the tape. |
 
 ## 3c. The STEPS page (SEQ)

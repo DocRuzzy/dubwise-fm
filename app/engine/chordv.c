@@ -37,8 +37,12 @@ void chordv_init(void)
     sk.on = og.on = 0;
 }
 
-void chordv_config(const int16_t *ev)
+static uint32_t nv_skank = NV, organ_full = 1;
+
+void chordv_config(const int16_t *ev, int tier)
 {
+    nv_skank = tier >= TIER_SEVEN ? 2u : NV;
+    organ_full = tier < TIER_SEVEN;
     float tone = lin(ev[P_VOICE(CH_SKANK, VS_TONE)], 600.0f, 2400.0f);
     sk.index = lin(ev[P_VOICE(CH_SKANK, VS_INDEX)], 0.0f, 4.0f);
     sk.ik = t60k(30.0f);
@@ -91,7 +95,7 @@ static int render_skank(float *o, uint32_t n)
         return 0;
     for (i = 0; i < n; i++) {
         float s = 0.0f, y;
-        for (k = 0; k < NV; k++) {
+        for (k = 0; k < nv_skank; k++) {
             cv_t *v = &sk.v[k];
             v->pm = wrap(v->pm + v->f * sk.ratio * INV_SR);
             v->pc = wrap(v->pc + v->f * INV_SR);
@@ -126,8 +130,11 @@ static int render_organ(float *o, uint32_t n)
             og.p3[k] = wrap(og.p3[k] + 3.0f * f);
             og.p4[k] = wrap(og.p4[k] + 4.0f * f);
             og.pk[k] = wrap(og.pk[k] + 12.0f * f);   /* the key click: a high partial, ~5 ms */
-            s += (fm_sin_turns(og.v[k].pc) + og.w2 * fm_sin_turns(og.p2[k]) + og.w3 * fm_sin_turns(og.p3[k])
-                  + og.w4 * fm_sin_turns(og.p4[k]) + og.click * og.cenv * fm_sin_turns(og.pk[k])) * og.v[k].amp;
+            if (organ_full)
+                s += (fm_sin_turns(og.v[k].pc) + og.w2 * fm_sin_turns(og.p2[k]) + og.w3 * fm_sin_turns(og.p3[k])
+                      + og.w4 * fm_sin_turns(og.p4[k]) + og.click * og.cenv * fm_sin_turns(og.pk[k])) * og.v[k].amp;
+            else                                 /* (Seven-inch: the fundamental and the second, no click) */
+                s += (fm_sin_turns(og.v[k].pc) + og.w2 * fm_sin_turns(og.p2[k])) * og.v[k].amp;
             og.v[k].amp *= og.ak;
         }
         og.cenv = undenorm(og.cenv * og.ck);

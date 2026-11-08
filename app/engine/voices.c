@@ -65,7 +65,7 @@ void voices_init(void)
     kick.amp = rim.amp = hat.amp = bass.amp = 0.0f;
 }
 
-void voices_config(const int16_t *ev)
+void voices_config(const int16_t *ev, int tier)
 {
     /* kick: TUNE 40..70 Hz, SWEEP 80..300 Hz, PTIME 10..120 ms, DECAY 100..1000 ms, CLICK index 0..3 */
     kick.f1 = lin(ev[P_VOICE(CH_KICK, VK_TUNE)], 40.0f, 70.0f);
@@ -95,7 +95,7 @@ void voices_config(const int16_t *ev)
     bass.att = 1.0f / (0.002f * SR);             /* 2 ms */
     bass.lp_a = onepole(lin(ev[P_VOICE(CH_BASS, VB_CUTOFF)], 300.0f, 2500.0f));
     bass.ratio = ev[P_VOICE(CH_BASS, VB_RATIO)] ? 2.0f : 1.0f;
-    bass.sub = lin(ev[P_VOICE(CH_BASS, VB_SUB)], 0.0f, 1.0f);
+    bass.sub = tier >= TIER_SEVEN ? 0.0f : lin(ev[P_VOICE(CH_BASS, VB_SUB)], 0.0f, 1.0f);
     bass.sus = lin(ev[P_VOICE(CH_BASS, VB_SUSTAIN)], 0.0f, 1.0f);
 }
 

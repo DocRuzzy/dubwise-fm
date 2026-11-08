@@ -5,7 +5,7 @@
 #include "fastmath.h"
 
 typedef char p_ch_fits[(CHF_N <= CH_STRIDE && P_CH_BASE + NCH * CH_STRIDE <= P_BUS_BASE) ? 1 : -1];
-typedef char p_globals_fit[(P_NGLOBAL <= P_CHORD0 && P_CHORD_END <= P_DEV_TONES) ? 1 : -1];
+typedef char p_globals_fit[(P_NGLOBAL <= P_CHORD0 && P_CHORD_END <= P_DEV_LOAD) ? 1 : -1];
 typedef char p_voice_fits[(VB_N <= VOICE_STRIDE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
 
 static const pdesc_t CH_FIELDS[CHF_N] = {
@@ -80,6 +80,7 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_SONG_MODE] = {"song", 0, 2, 0},
     [P_SONG_LEN] = {"song.len", 1, 192, 16},
     [P_SONG_REC] = {"song.rec", 0, 1, 0},
+    [P_TIER_LOCK] = {"tier.lock", 0, TIER_N, 0},
 };
 static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
@@ -110,6 +111,12 @@ static const pdesc_t HPF[P_HPF_END - P_HPF_STEP] = {
     {"hpf.on", 0, HPF_ON_N - 1, HPF_ON_MIX},
 };
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
+static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
+const char *tier_name(int32_t t)
+{
+    static const char *const N[TIER_N] = {"STUDIO", "FOUR-TRACK", "SEVEN-INCH"};
+    return t >= 0 && t < TIER_N ? N[t] : "";
+}
 
 float echo_div_beats(int32_t d)
 {
@@ -158,6 +165,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &CHORD_SLOT;
     if (id == P_DEV_TONES)
         return &DEV_TONES;
+    if (id == P_DEV_LOAD)
+        return &DEV_LOAD;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)
         return &ECHO[id - P_ECHO_TIME];
     if (id >= P_SPRING_RET && id < P_SPRING_END)

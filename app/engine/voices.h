@@ -14,7 +14,7 @@
 #include <stdint.h>
 
 void voices_init(void);
-void voices_config(const int16_t *ev);           /* the audio interrupt, once a block: the parameters applied */
+void voices_config(const int16_t *ev, int tier); /* once a block: the parameters applied (Seven-inch: no sub) */
 void voice_trig(uint32_t ch, int32_t note, uint32_t vel);   /* a hit / a note on (vel 1..127) */
 void voice_release(uint32_t ch, int32_t note);   /* a note off (the bass; the drums ring out) */
 int voice_render(uint32_t ch, float *o, uint32_t n);   /* 1: wrote n samples; 0: silent, nothing written */

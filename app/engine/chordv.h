@@ -9,6 +9,6 @@
 #include <stdint.h>
 
 void chordv_init(void);
-void chordv_config(const int16_t *ev);
+void chordv_config(const int16_t *ev, int tier);   /* tier: TIER_SEVEN thins them (2 skank voices, organ 1+2) */
 void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel);   /* ch: CH_SKANK or CH_ORGAN */
 int chordv_render(uint32_t ch, float *o, uint32_t n);   /* 1: wrote n samples; 0: silent */

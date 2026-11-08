@@ -125,6 +125,13 @@ static void runway_tick(uint32_t beat)
 /* -------------------------------------------------------------- profiler --- */
 static uint32_t prof_acc[NPARTS];                /* this block's ticks, per part */
 static eng_prof_t prof[NPARTS];
+/* the guard (P1.9): the load against the device's block, the tier that follows from it (or the one locked) */
+static volatile int tier_now = TIER_STUDIO;
+static volatile uint32_t load_pct, tier_changes;
+static uint32_t over_blocks, under_blocks;
+#define TIER_DOWN_PCT 75u                        /* over this for 8 blocks (46 ms): a tier down */
+#define TIER_UP_PCT 45u                          /* under this for 2 s: a tier up */
+#define UNDER_BLOCKS (2u * 44100u / 256u)
 static uint32_t prof_t;                          /* the last mark */
 static inline void prof_mark(uint32_t part)      /* the time since the last mark goes to part */
 {
@@ -132,16 +139,19 @@ static inline void prof_mark(uint32_t part)      /* the time since the last mark
     prof_acc[part] += t - prof_t;
     prof_t = t;
 }
+static void tier_track(uint32_t total16);
 static void prof_block(void)                     /* the block done: averages and maxima */
 {
-    uint32_t i;
+    uint32_t i, total = 0;
     for (i = 0; i < NPARTS; i++) {
         uint32_t a = prof_acc[i];
         prof[i].avg = prof[i].avg - (prof[i].avg >> 4) + a;   /* (x16: 1/16-tick resolution) */
         if (a > prof[i].max)
             prof[i].max = a;
         prof_acc[i] = 0;
+        total += prof[i].avg;
     }
+    tier_track(total);
 }
 eng_prof_t eng_prof(uint32_t part) { return part < NPARTS ? prof[part] : prof[0]; }
 void eng_prof_reset(void)
@@ -155,6 +165,35 @@ const char *eng_part_name(uint32_t part)
     static const char *const N[NPARTS] = {"cmd", "ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8", "mix",
                                           "echo", "spring", "out"};
     return part < NPARTS ? N[part] : "";
+}
+
+/* ----------------------------------------------------------------- guard --- */
+static void tier_track(uint32_t total16)         /* the load (avg ticks x 16) -> the tier, with some patience */
+{
+    uint32_t pct = total16 / 16u * 100u / ENG_BLOCK_TICKS + (uint32_t)ev[P_DEV_LOAD];   /* (32 bits: no 64-bit multiply) */
+    int t = tier_now;
+    load_pct = pct;
+    if (ev[P_TIER_LOCK]) {                       /* locked: a sound, chosen */
+        t = ev[P_TIER_LOCK] - 1;
+        over_blocks = under_blocks = 0;
+    } else if (pct > TIER_DOWN_PCT) {
+        under_blocks = 0;
+        if (++over_blocks >= 8u && t < TIER_SEVEN) {
+            t++;
+            over_blocks = 0;
+        }
+    } else if (pct < TIER_UP_PCT) {
+        over_blocks = 0;
+        if (++under_blocks >= UNDER_BLOCKS && t > TIER_STUDIO) {
+            t--;
+            under_blocks = 0;
+        }
+    } else
+        over_blocks = under_blocks = 0;
+    if (t != tier_now) {
+        tier_now = t;
+        tier_changes++;
+    }
 }
 
 /* ------------------------------------------------------------- transport --- */
@@ -325,20 +364,25 @@ static void bus_update(void)                     /* the echo's and the voices' s
     tone_hz = 800.0f * fm_exp2f((float)ev[P_ECHO_TONE] * (2.64f / 127.0f));
     c.tone = 1.0f - fm_expf(-6.2831853f * tone_hz / ECHO_RATE);
     c.head2 = send(ev[P_ECHO_HEAD2]);
-    c.width = ev[P_ECHO_WIDTH] ? (8.0f + 8.0f * (float)(ev[P_ECHO_WIDTH] - 1) * (1.0f / 126.0f)) * (ECHO_RATE / 1000.0f)
-                               : 0.0f;
+    c.width = ev[P_ECHO_WIDTH] && tier_now == TIER_STUDIO   /* (mono returns from the Four-track tier down) */
+              ? (8.0f + 8.0f * (float)(ev[P_ECHO_WIDTH] - 1) * (1.0f / 126.0f)) * (ECHO_RATE / 1000.0f)
+              : 0.0f;
+    c.diffuse = tier_now < TIER_SEVEN;
+    c.drive = tier_now >= TIER_SEVEN ? 1.8f : 1.0f;   /* Seven-inch: heavier tape saturation (the sound of it) */
     if (echo_thrown() && c.head2 < 0.35f)
         c.head2 = 0.35f;
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
-    voices_config(ev);
-    chordv_config(ev);
+    voices_config(ev, tier_now);
+    chordv_config(ev, tier_now);
     {                                            /* the spring: its decay as loop feedback (~40 ms a pass), damping */
         spring_cfg_t sc;
         float t60 = 0.5f + 5.5f * (float)ev[P_SPRING_DECAY] * (1.0f / 127.0f);
         float hz = 2000.0f + 5000.0f * (float)ev[P_SPRING_TONE] * (1.0f / 127.0f);
         sc.g = fm_exp2f(-9.966f * 0.04f / t60);
         sc.damp = 1.0f - fm_expf(-6.2831853f * hz / 22050.0f);
+        sc.naps = tier_now >= TIER_FOUR ? 6 : 12;
+        sc.mono = tier_now >= TIER_FOUR;
         spring_config(&sc);
         ramp_to(&spring_ret, send(ev[P_SPRING_RET]));
         {                                        /* the cross-sends, their loop capped */
@@ -724,6 +768,9 @@ float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
 uint32_t eng_seq_hits(void) { return seq_hits; }
 uint32_t eng_ticks(void) { return ticks; }
+int eng_tier(void) { return tier_now; }
+uint32_t eng_load_pct(void) { return load_pct; }
+uint32_t eng_tier_changes(void) { return tier_changes; }
 uint32_t eng_song_bar(void) { return song_bar_now; }
 int32_t eng_chord_last(uint32_t ch) { return ch < NCH ? chord_last[ch] : 0; }
 float eng_spring_ret_peak(void) { return spring_ret_peak; }

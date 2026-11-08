@@ -58,6 +58,8 @@ void echo_init(void)
     cfg.freeze = 0;
     cfg.slew = 0.0005f;
     cfg.width = 0.0f;
+    cfg.diffuse = 1;
+    cfg.drive = 1.0f;
     upr_prev = upr_cur = upr_lp = out_r = 0.0f;
     hp4_clear(&side_hp);
     quiet = IDLE_AFTER;
@@ -108,7 +110,7 @@ static float line_step(float x)                  /* one line-rate sample: the in
     hp_y1 = y;
     lp_y1 = undenorm(lp_y1 + cfg.tone * (y - lp_y1));
     y = lp_y1;
-    {
+    if (cfg.diffuse) {
         float *bp = ap_buf;
         for (k = 0; k < NAP; k++) {
             float d = bp[ap_pos[k]], v = undenorm(y + AP_G * d);
@@ -119,7 +121,7 @@ static float line_step(float x)                  /* one line-rate sample: the in
             bp += AP_LEN[k];
         }
     }
-    y = fm_tanhf(cfg.g * y + x);
+    y = cfg.drive > 1.0f ? fm_tanhf(cfg.drive * (cfg.g * y + x)) / cfg.drive : fm_tanhf(cfg.g * y + x);
 write:
     w = (int32_t)(y * LINE_FS);
     line[wpos] = (int16_t)(w > 32767 ? 32767 : w < -32768 ? -32768 : w);

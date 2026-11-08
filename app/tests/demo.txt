@@ -7,7 +7,7 @@ listen
 master 3400
 tap GLO
 wait 30
-turn K1 10
+turn K1 -1
 wait 30
 said DEMO SONG
 turn K2 1

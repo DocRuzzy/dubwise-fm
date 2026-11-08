@@ -23,6 +23,8 @@ typedef struct {
     int freeze;                                  /* 1: the input closed */
     float slew;                                  /* the time's glide, a factor a line sample (0.0005: ~180 ms) */
     float width;                                 /* the right side's extra delay, line samples (0: mono); P1.5 */
+    int diffuse;                                 /* 1: the in-loop all-passes (off at the Seven-inch tier) */
+    float drive;                                 /* the tape's saturation: 1, more at Seven-inch */
 } echo_cfg_t;
 
 void echo_init(void);

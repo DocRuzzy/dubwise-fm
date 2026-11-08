@@ -18,7 +18,7 @@ static PLAT_POOL float line[NSPR][LINE_MAX];
 static PLAT_POOL float ap_x[NSPR][NAPS][APK], ap_y[NSPR][NAPS][APK];
 static uint16_t pos[NSPR], ap_i;
 static float lp[NSPR], fb[NSPR];
-static spring_cfg_t cfg = {0.8f, 0.5f};
+static spring_cfg_t cfg = {0.8f, 0.5f, NAPS, 0};
 static float hp_x, hp_y;                         /* the input's high-pass (~200 Hz, at 22 kHz) */
 static float dec, up_prev, up_cur;               /* half rate: the decimator's state, the interpolator's two */
 static float upr_prev, upr_cur, half_r;          /* the right side's */
@@ -83,7 +83,7 @@ static float half_step(float x)                  /* one 22,050 Hz sample: in, th
     }
     for (s = 0; s < NSPR; s++) {
         float v = y + cfg.g * fb[s];             /* into the spring: the input, and its own last pass */
-        for (i = 0; i < NAPS; i++) {             /* the stretched all-passes: y = a x + x[n-K] - a y[n-K] */
+        for (i = 0; i < (uint32_t)cfg.naps; i++) {   /* the stretched all-passes: y = a x + x[n-K] - a y[n-K] */
             float xo = ap_x[s][i][ap_i], yo = ap_y[s][i][ap_i], w = AP_A * v + xo - AP_A * yo;
             ap_x[s][i][ap_i] = v;
             ap_y[s][i][ap_i] = undenorm(w);
@@ -98,7 +98,7 @@ static float half_step(float x)                  /* one 22,050 Hz sample: in, th
     }
     ap_i = (uint16_t)((ap_i + 1u) % APK);
     {                                            /* left and right: the middle, and the difference over ~120 Hz */
-        float hp = hp4_run(&side_hp, SIDE_A, 0.5f * (sp[0] - sp[1]));
+        float hp = cfg.mono ? 0.0f : hp4_run(&side_hp, SIDE_A, 0.5f * (sp[0] - sp[1]));
         out = 0.5f * (sp[0] + sp[1]);
         half_r = out - hp;
         out += hp;

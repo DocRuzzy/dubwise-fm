@@ -44,6 +44,9 @@ uint32_t eng_cues(void);                     /* cues waiting */
 uint32_t eng_cue_overflows(void);
 uint32_t eng_seq_hits(void);
 uint32_t eng_ticks(void);
+int eng_tier(void);                          /* the guard tier now (TIER_*) */
+uint32_t eng_load_pct(void);                 /* the load, % of the device's block (ticks; the host's are its own) */
+uint32_t eng_tier_changes(void);
 uint32_t eng_song_bar(void);                 /* the song's bar playing (or capturing) */
 int32_t eng_chord_last(uint32_t ch);         /* the chord a chord channel last played (root x 8 + quality) */
 float eng_spring_ret_peak(void);            /* the spring's return, after its level */

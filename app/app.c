@@ -13,7 +13,7 @@
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
-#define SET_MAGIC 0x4455423Cu            /* "DUB<": the settings record; another magic loads defaults */
+#define SET_MAGIC 0x4455423Du            /* "DUB=": the settings record; another magic loads defaults */
 typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
@@ -495,6 +495,10 @@ int app_expect(const char *what, int *got)
         *got = eng_playing();
     else if (!strncmp(what, "hit", 3) && what[3] >= '1' && what[3] <= '8' && !what[4])
         *got = (int)eng_seq_hit_at((uint32_t)(what[3] - '1'));   /* hitN: channel N's last hit, samples since PLAY */
+    else if (!strcmp(what, "tier"))          /* the guard tier: 0 Studio, 1 Four-track, 2 Seven-inch */
+        *got = eng_tier();
+    else if (!strcmp(what, "load"))          /* the load, % of the block (the host's ticks) */
+        *got = (int)eng_load_pct();
     else if (!strcmp(what, "ticks"))         /* the runway's audible ticks */
         *got = (int)eng_ticks();
     else if (!strncmp(what, "chord_ch", 8))  /* chord_chN: the chord channel N last played */
