@@ -1,0 +1,18 @@
+# Host-simulator tests on every push and PR (no JieLi toolchain needed).
+# Device packages and signed releases: see release.yml.disabled (enable at the first release).
+name: host tests
+on:
+  push:
+  pull_request:
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install Pillow
+      - run: tests/run_tests.sh

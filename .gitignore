@@ -1,0 +1,6 @@
+build/
+app/build/
+app/web/words/
+__pycache__/
+*.pyc
+.DS_Store
