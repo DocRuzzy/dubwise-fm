@@ -25,6 +25,7 @@ typedef struct {
     float width;                                 /* the right side's extra delay, line samples (0: mono); P1.5 */
     int diffuse;                                 /* 1: the in-loop all-passes (off at the Seven-inch tier) */
     float drive;                                 /* the tape's saturation: 1, more at Seven-inch */
+    int pingpong;                                /* P3.1: the loop from 2T (gain g^2), odd repeats left, even right */
 } echo_cfg_t;
 
 void echo_init(void);

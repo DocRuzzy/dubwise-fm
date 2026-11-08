@@ -99,9 +99,10 @@ static float line_step(float x)                  /* one line-rate sample: the in
     h1 = tap(t_now);
     h2 = tap(2.0f * t_now);
     last_heads_zero = h1 == 0.0f && h2 == 0.0f;
-    hl = tap(t_now - (float)AP_TOTAL);           /* the loop's own read: the all-passes' delay taken off */
+    hl = tap((cfg.pingpong ? 2.0f : 1.0f) * t_now - (float)AP_TOTAL);   /* the loop's own read: the all-passes' delay
+                                                                         * taken off (ping-pong: from 2T) */
     if (cfg.freeze) {                            /* held: the tape loops as it is (no filters, no new input) */
-        y = h1;
+        y = cfg.pingpong ? h2 : h1;
         goto write;
     }
     /* the loop: high-pass ~80 Hz, tone low-pass, five all-passes, gain, saturation */
@@ -121,15 +122,23 @@ static float line_step(float x)                  /* one line-rate sample: the in
             bp += AP_LEN[k];
         }
     }
-    y = cfg.drive > 1.0f ? fm_tanhf(cfg.drive * (cfg.g * y + x)) / cfg.drive : fm_tanhf(cfg.g * y + x);
+    {
+        float g = cfg.pingpong ? cfg.g * cfg.g : cfg.g;   /* (a lap of 2T: two repeats' worth) */
+        y = cfg.drive > 1.0f ? fm_tanhf(cfg.drive * (g * y + x)) / cfg.drive : fm_tanhf(g * y + x);
+    }
 write:
     w = (int32_t)(y * LINE_FS);
     line[wpos] = (int16_t)(w > 32767 ? 32767 : w < -32768 ? -32768 : w);
     if (++wpos == ECHO_LINE)
         wpos = 0;
     /* the return: the raw heads, then the peak limiter (-6 dBFS, instant attack, ~150 ms release), on both sides */
-    y = h1 + cfg.head2 * h2;
-    if (cfg.width > 0.0f) {                      /* the right reads later; only its difference above ~120 Hz */
+    if (cfg.pingpong) {                          /* odd repeats (T) left, even (2T, one g down) right: their mid on
+                                                  * both, their difference above ~150 Hz apart (the lows centred) */
+        float r = (cfg.g > 1.0f ? 1.0f : cfg.g) * h2, d = hp4_run(&side_hp, SIDE_A, 0.75f * (h1 - r));
+        y = 0.75f * (h1 + r);                    /* (the highs all on their side: 1.5 x; the lows 0.75 x on both) */
+        out_r = y - d;
+        y += d;
+    } else if ((y = h1 + cfg.head2 * h2), cfg.width > 0.0f) {                      /* the right reads later; only its difference above ~120 Hz */
         float d = tap(t_now + cfg.width) + cfg.head2 * h2 - y;
         out_r = y + hp4_run(&side_hp, SIDE_A, d);
     } else {

@@ -443,6 +443,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     c.width = ev[P_ECHO_WIDTH] && tier_now == TIER_STUDIO   /* (mono returns from the Four-track tier down) */
               ? (8.0f + 8.0f * (float)(ev[P_ECHO_WIDTH] - 1) * (1.0f / 126.0f)) * (ECHO_RATE / 1000.0f)
               : 0.0f;
+    c.pingpong = ev[P_ECHO_PP] && tier_now == TIER_STUDIO;   /* (stereo: Studio only, as the width) */
     c.diffuse = tier_now < TIER_SEVEN;
     c.drive = tier_now >= TIER_SEVEN ? 1.8f : 1.0f;   /* Seven-inch: heavier tape saturation (the sound of it) */
     if (echo_thrown() && c.head2 < 0.35f)

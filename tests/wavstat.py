@@ -25,6 +25,9 @@ Metrics (dBFS unless noted; -200 for silence):
   crest     peak - rms, dB: a sine 3.0; saturation flattens it
   mod       the spread between the loudest and the quietest 20 ms window, dB, after the first 100 ms (a phaser's
             notches moving through a steady tone show here; a steady tone alone, about 0)
+  pp        ping-pong: over the first three repeats (each repeat_ms long, after the first sound), how far each is
+            to its side, L - R in dB, odd ones left and even ones right; the smallest of the three (0 if one is on
+            the wrong side or there is no repeat)
   repeat_ms the time from the first sound's onset to the next one (an echo's repeat): where a 5 ms envelope
             rises past -40 dBFS, and again after it has fallen 6 dB under that (-1 if there is no second onset)
 """
@@ -92,6 +95,39 @@ def repeat_ms(xs, rate):
     return (i - on1) * 1000.0 / rate if i < n else -1.0
 
 
+def onset(xs, rate):
+    a = 1.0 - math.exp(-1.0 / (0.005 * rate))
+    e, thr = 0.0, 10 ** (-40 / 20.0)
+    for i, x in enumerate(xs):
+        e += a * (abs(x) - e)
+        if e > thr:
+            return i
+    return None
+
+
+def pp_db(L, R, rate):
+    top = max((abs(x) for x in L), default=0.0)
+    if top <= 0.0:
+        return 0.0
+    Ln = [x / top for x in L]                  # (the onsets relative to the loudest: -40 dB under it)
+    r = repeat_ms(Ln, rate)
+    on = onset(Ln, rate)
+    if r <= 0 or on is None:
+        return 0.0
+    k = int(r * rate / 1000.0)
+    worst = 200.0
+    for j in (1, 2, 3):
+        a, b = on + j * k - k // 4, on + j * k + 3 * k // 4
+        if b > len(L):
+            return 0.0
+        d = db(rms(L[a:b])) - db(rms(R[a:b]))
+        d = d if j % 2 else -d
+        if d <= 0:
+            return 0.0
+        worst = min(worst, d)
+    return worst
+
+
 def zc_hz(xs, rate):
     n = len(xs)
     seg = xs[n // 4: 3 * n // 4]
@@ -142,6 +178,7 @@ def metrics(path):
         "growth": tail - head,
         "seconds": n / rate,
         "repeat_ms": repeat_ms(L, rate),
+        "pp": pp_db(L, R, rate),
         "zc_hz": zc_hz(L, rate),
         "hf": db(rms(highpass(L, rate, 4000.0))) - db(rms(L)) if rms(L) > 0 else -200.0,
         "mod": mod_db(L, rate),

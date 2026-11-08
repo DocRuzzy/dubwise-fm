@@ -25,7 +25,7 @@ typedef struct {
     uint8_t setup[P_NGLOBAL];            /* the globals from P_LEAD on: lead, cycle, runway .. (SETUP) */
     uint8_t chords[P_CHORD_END - P_CHORD0];   /* the chord lane */
     uint8_t hpf_on;                      /* where the Big Knob sits */
-    uint8_t fx[20];                       /* the FX page's: echo tone, 2T head, spring decay, spring tone, the cross-sends */
+    uint8_t fx[32];                      /* the FX page's (SET_FX; room to grow) */
 } settings_t;
 /* the sounds: every voice parameter (P_VOICE_BASE..P_NIDS), in their own store object (OBJ_SOUND) */
 #define SOUND_MAGIC 0x534E4431u          /* "SND1" */
@@ -34,10 +34,12 @@ typedef struct {
     int16_t v[P_NIDS - P_VOICE_BASE];
 } sound_t;
 static sound_t snd;
-static const uint16_t SET_FX[20] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_SPRING_TONE, P_XS_E2S, P_XS_S2E,
+static const uint16_t SET_FX[] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_SPRING_TONE, P_XS_E2S, P_XS_S2E,
                                     P_DIVE_DEPTH, P_DIVE_TIME, P_ECHO_WIDTH, P_PH_ON, P_PH_RATE, P_PH_DEPTH, P_PH_FB,
                                     P_PH_SHAPE, P_DRIVE_ON, P_DRIVE_AMT, P_DRIVE_MIX, P_SGATE_ON, P_SGATE_HOLD,
-                                    P_SGATE_REL};
+                                    P_SGATE_REL, P_ECHO_PP};
+#define NSET_FX (sizeof SET_FX / sizeof SET_FX[0])
+typedef char set_fx_fits[NSET_FX <= 32u ? 1 : -1];
 /* the patterns and their lengths (OBJ_PATTERN) */
 #define PATTERN_MAGIC 0x50415431u        /* "PAT1" */
 typedef struct {
@@ -249,7 +251,7 @@ static void settings_defaults(void)
     set.hpf_on = (uint8_t)param_def(P_HPF_ON);
     {
         uint32_t i;
-        for (i = 0; i < 20u; i++)
+        for (i = 0; i < NSET_FX; i++)
             set.fx[i] = (uint8_t)param_def(SET_FX[i]);
     }
     {
@@ -272,7 +274,7 @@ static void settings_save(void)
     set.hpf_on = (uint8_t)ctl_get(P_HPF_ON);
     {
         uint32_t i;
-        for (i = 0; i < 20u; i++)
+        for (i = 0; i < NSET_FX; i++)
             set.fx[i] = (uint8_t)ctl_get(SET_FX[i]);
     }
     {
@@ -341,7 +343,7 @@ void app_init(void)
     ctl_set(P_HPF_ON, set.hpf_on);
     {
         uint32_t i;
-        for (i = 0; i < 20u; i++)
+        for (i = 0; i < NSET_FX; i++)
             ctl_set(SET_FX[i], set.fx[i]);
     }
     {

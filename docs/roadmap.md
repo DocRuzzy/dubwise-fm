@@ -134,7 +134,7 @@ image +6.2 KB (the page); CPU only while a cue waits (the transport stepped per 
 ## P3 — Wishlist
 | # | Feature | Notes |
 |---|---|---|
-| 3.1 | Ping-pong echo | Cheap version on the existing 2T heads; full version with two cross-fed lines |
+| 3.1 | Ping-pong echo | **Done (2026-11-08), the cheap version:** the same line with the loop read from 2T (gain g², so repeats still fall by g each); odd repeats off T on the left, even off 2T × g on the right. The sides differ only above ~150 Hz (the width's 24 dB/oct side high-pass), and the lows sit 0.75× on both, so the low end stays mono. FX WIDTH bank, K3 PING-PONG; Studio tier only (stereo returns). Measured: repeats 9 dB to their side, alternating (new wavstat metric `pp`); side_lo −120 dB. Cost: no RAM, CPU ≈0 (the 2T head was already read). The full version with two cross-fed lines isn't needed for this |
 | 3.2 | Dual Bi-Phase | |
 | 3.3 | Reverse samples | |
 | 3.4 | Dub-techno mode | |

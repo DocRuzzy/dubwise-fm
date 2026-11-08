@@ -18,7 +18,7 @@ static const fx_bank_t FX_BANK[] = {
     {"PHASER", {P_PH_ON, P_PH_RATE, P_PH_DEPTH, P_PH_FB}, {"ON", "RATE", "DEPTH", "FEEDBACK"}},
     {"DRIVE", {P_DRIVE_ON, P_DRIVE_AMT, P_DRIVE_MIX, 0}, {"ON", "DRIVE", "BLEND", ""}},
     {"GATE", {P_SGATE_ON, P_SGATE_HOLD, P_SGATE_REL, 0}, {"SPRING GATE", "HOLD", "RELEASE", ""}},
-    {"WIDTH", {P_ECHO_WIDTH, P_PH_SHAPE, 0, 0}, {"ECHO WIDTH", "PH SHAPE", "", ""}},
+    {"WIDTH", {P_ECHO_WIDTH, P_PH_SHAPE, P_ECHO_PP, 0}, {"ECHO WIDTH", "PH SHAPE", "PING-PONG", ""}},
 };
 #define FX_NBANKS (sizeof FX_BANK / sizeof FX_BANK[0])
 static uint32_t fx_bank, fx_sig;
@@ -51,6 +51,8 @@ static void fx_value(uint16_t id, char *t)       /* a value as the page shows it
         int_text(v * 14 / 127, n);
         text_cat(t, n);
         text_cat(t, "DB");
+    } else if (id == P_ECHO_PP) {
+        text_cat(t, v ? "ON" : "OFF");
     } else if (id == P_PH_SHAPE) {
         text_cat(t, v ? "SQUARE" : "SINE");
     } else if (id == P_PH_RATE) {                /* 0.1 .. 18 Hz */
