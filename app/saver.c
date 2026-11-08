@@ -15,13 +15,14 @@
 
 /* The SpIllt Beats mark: an S and a B sharing strokes (the S's top is the B's top, its centre line the B's back),
  * brushed. Its strokes in a 240 x 205 box (traced from the label's own drawing) */
-static const int16_t LOGO[][4] = {             /* (stylised: two diagonal angles, joints that meet, one width) */
-    {50, 12, 206, 12},                           /* the top: the S's and the B's */
-    {58, 12, 124, 118},                          /* the S's centre line .. */
-    {124, 118, 124, 196},                        /* .. running on as the B's back */
-    {12, 62, 88, 62}, {12, 62, 46, 118}, {46, 118, 124, 118}, {78, 70, 58, 102},   /* the S's lower turn */
-    {186, 12, 155, 62}, {155, 62, 212, 62}, {212, 62, 224, 92}, {224, 92, 208, 118},   /* the B's upper bowl */
-    {208, 118, 124, 196}, {124, 140, 164, 140},  /* its lower bowl, its middle */
+static const int16_t LOGO[][4] = {
+    {60, 12, 204, 14},                           /* the top: the S's and the B's (from the centre line on: no stub) */
+    {62, 22, 120, 118},                          /* the S's centre line, the B's back */
+    {8, 62, 74, 63},                             /* the S's lower turn: its top stops short of the centre line .. */
+    {10, 66, 46, 118}, {46, 118, 118, 118},      /* .. its bottom stops at it (no stub) */
+    {74, 74, 54, 100},
+    {190, 22, 152, 50}, {152, 62, 212, 62}, {212, 62, 220, 100}, {220, 100, 200, 125},   /* the B's upper bowl */
+    {200, 125, 122, 195}, {122, 135, 122, 195}, {122, 137, 160, 138},             /* its lower bowl and foot */
 };
 #define LOGO_N (sizeof LOGO / sizeof LOGO[0])
 #define SV_BAND 120                              /* the screen in two bands (the canvas holds 144 rows) */
@@ -73,7 +74,7 @@ static void sv_ring(int32_t cx, int32_t cy, int32_t r, uint16_t c)   /* a circle
     }
 }
 
-/* the mark at (x0, y0), scaled by k/256: dark strokes of one width (square ends: the joints close), a light core */
+/* the mark at (x0, y0), scaled by k/256: a dark brush, then a light one along its upper half */
 static void sv_logo(int32_t x0, int32_t y0, int32_t k)
 {
     uint32_t i;
@@ -84,11 +85,8 @@ static void sv_logo(int32_t x0, int32_t y0, int32_t k)
         for (dy = -t; dy <= t; dy++)
             for (dx = -t; dx <= t; dx++)
                 cv_line(ax + dx, ay + dy, bx + dx, by + dy, SV_BLUE);
-    }
-    for (i = 0; i < LOGO_N; i++) {               /* then a light line down every stroke's middle: one tube */
-        int32_t ax = x0 + LOGO[i][0] * k / 256, ay = y0 + LOGO[i][1] * k / 256 - sv_oy;
-        int32_t bx = x0 + LOGO[i][2] * k / 256, by = y0 + LOGO[i][3] * k / 256 - sv_oy;
-        cv_line(ax, ay, bx, by, SV_SKY);
+        for (dy = -t / 2; dy <= 0; dy++)         /* the light along the upper half, as the brush left it */
+            cv_line(ax - 1, ay + dy - 1, bx - 1, by + dy - 1, SV_SKY);
     }
 }
 
