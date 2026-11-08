@@ -1,13 +1,15 @@
 # DUBWISE
 
-DUBWISE (Dubwise FM, a SpIllt Beats release by DocRuzzy) is a reggae/dub groovebox for the M-VAVE FM-1 in the making, where the mixing desk is the
-instrument. This early build has the desk's first move: the DUB page, where the white keys mute and solo the eight
-channels, and every change can wait for the next beat or bar line so it lands on time.
+DUBWISE (Dubwise FM, a SpIllt Beats release by DocRuzzy) turns the M-VAVE FM-1 into a reggae and dub mixing desk
+you play live. Eight channels (FM kick, snare, hats, bass, skank, organ bubble, melodica or brass, and sirens and
+shouts) play a riddim; your hands do the dub: mutes and solos that land on the one, throws into a tape echo and a
+spring you can kick, the stepped Big Knob filter, freezes, pushes, tape dives, drop to wet, drum and bass, rewinds.
+Record every move into a song, recall scenes, keep four projects in slots.
 
-Six channels have voices: an FM kick, rim, hats and bass, and a skank and an organ bubble that play the chords of
-the chord lane (KEY & CHORDS page). A step sequencer plays them all. It starts with a
-ONE DROP riddim, so press PLAY and you're dubbing. Press SEQ to edit the patterns or pick another riddim. You can also
-play the voices over MIDI. Press GLO to put a test tone on every channel. There's no Bluetooth: the RAM it would take goes to the dub bus.
+Press PLAY and you're dubbing: the ONE DROP riddim starts. SEQ edits the patterns (or loads another riddim), FX the
+effects, ARP the key and the chord lane, GLO the SETUP page, HOME the scenes and the song. For a ready-made dub to
+play along with, load the demo, RIGHTEOUS DUB (SETUP → DEMO SONG). The one-page cheat sheet:
+https://docruzzy.github.io/dubwise-fm/cheat/
 
 ![The DUB page, stopped: 75.0 BPM, BAR 1.1, Q 1 BAR in the header; eight channel strips, all playing; the echo's repeats falling; TIME 1/8., FB 3.2s, ECHO 100, SPRG 90](img/screen-ready.png "The DUB page at rest")
 
@@ -68,7 +70,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | EDIT | The SOUND view: KNOB 1–4 edit the focused channel's voice, four settings at a time. Press EDIT again for the next four, then once more to go back to the echo's knobs. ALGORITHM picks the channel. |
 | GLO | The SETUP page (below). |
 | MASTER | Sets the volume. |
-| SAVE | Saves the tempo, the quantise setting and the wave. SAVE lights while there's something to save. |
+| SAVE | Saves your project: the tempo, sounds, patterns, scenes, the song and its moves, the FX and SETUP. SAVE lights while there's something to save. On SETUP's slot rows it saves to (or loads from) a song slot instead. |
 | KNOB 1 · TIME | The echo's time, in steps of the beat: 1/16, 1/8T, 1/16., 1/8, 1/4T, 1/8. (dotted eighth, the default), 1/4, 1/2T, 1/4., 1/2. At slow tempos the longest don't fit, so you get the longest that does. A change glides like tape, bending the pitch. |
 | KNOB 2 · FB | How long the repeats last: the time they take to fall 60 dB, from 0.1 s to endless (INF). |
 | KNOB 3 · ECHO | The echo's return level. |
@@ -87,7 +89,6 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | (Stereo) | The dry sound is mono. Only the echo and the spring are stereo: the spring always, the echo with WIDTH. Below about 150 Hz both sides stay the same, so the bass stays solid and mono. |
 | Black key 1 | Spring crash: strikes the spring tank, a thunderclap even with nothing sent to it. Held while you hold a throw key, it sends that throw to the spring as well. |
 | FX | The FX page: ECHO (time, feedback, tone, 2T head), SPRING (decay, tone, return), CROSS (the echo's return into the spring, the spring's into the echo), TAPE (the dive), PHASER (where it is: OFF, HATS, SKANK, ECHO or the whole MIX; RATE 0.1–18 Hz, DEPTH, FEEDBACK), GATE (the spring gate: each snare opens the spring for HOLD, then it shuts over RELEASE, so a long spring is chopped into a tail after every snare), DRIVE (tape saturation on the BASS or the whole MIX: DRIVE up to +14 dB into the tape, BLEND with the clean sound; quiet sounds keep their level, loud ones flatten and thicken) and WIDTH (the echo's right side 8–16 ms behind its left, for a wider echo; the phaser's sine or square sweep; PING-PONG, the echo's repeats left, right, left, while the bass in them stays in the middle) and BI-PHASE (a second phaser: MODE SINGLE, CASCADE, the two in a row for deeper sweeps with the second at its own RATE 2, or STEREO, the left and right sweeping against each other, on the echo's return; elsewhere STEREO works as CASCADE so the dry sound stays mono); press FX again for the next. KNOB 1–4 change them. The cross-sends make a loop between the two effects, so they're held back automatically when the echo or the spring is set long: it never runs away. |
-| Other black keys | Show their names. The rest come next. |
 
 The keys light by one rule: bright is playing, dim is muted or not in use yet, and a slow blink means waiting.
 
@@ -221,8 +222,9 @@ IN makes the lock filter MIDI notes coming in too.
 
 ## 4. Saving
 
-Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the key, its lock and the chord lane, the sounds, the patterns, the scenes and the song. They come back the next time the FM-1 starts. The
-mutes and solos aren't saved: scenes will do that.
+Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs and the FX page, the SETUP page, the key, its lock and the chord lane, the sounds, the patterns, the scenes, the song and its recorded moves. They come back the next time the FM-1 starts. The
+mutes and solos aren't saved: scenes will do that. To keep more than one project, use SETUP's song slots (four of them); to keep
+them off the FM-1, see Backing up, below.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")
 

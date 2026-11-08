@@ -1,0 +1,167 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Copyright (C) 2026 Dubwise FM contributors -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUBWISE cheat sheet</title>
+<meta name="description" content="Every control of Dubwise FM for the M-VAVE FM-1 on one printable page.">
+<style>
+:root { --paper: #fbf8f1; --ink: #20263a; --muted: #5d6585; --rule: #ddd4c2; --hot: #c4471f; --chip: #efe9dc;
+        --blue: #3f6fb4; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #17161a; --ink: #ece6da; --muted: #a9a294; --rule: #34302a;
+    --hot: #f28a5a; --chip: #26231f; --blue: #8ab4f0; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --paper: #17161a; --ink: #ece6da; --muted: #a9a294; --rule: #34302a; --hot: #f28a5a;
+  --chip: #26231f; --blue: #8ab4f0; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 13px/1.4 "Helvetica Neue", Arial, sans-serif;
+       padding: 16px; }
+main { max-width: 1100px; margin: 0 auto; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1rem; border-bottom: 2px solid var(--hot);
+         padding-bottom: .4rem; margin-bottom: .8rem; }
+h1 { margin: 0; font-size: 1.6rem; letter-spacing: .04em; }
+header p { margin: 0; color: var(--muted); }
+header nav { margin-left: auto; display: flex; gap: .8rem; }
+a { color: var(--hot); }
+.cols { columns: 3 300px; column-gap: 1.4rem; }
+section { break-inside: avoid; margin: 0 0 1rem; }
+h2 { font-size: .95rem; text-transform: uppercase; letter-spacing: .06em; color: var(--hot); margin: 0 0 .3rem;
+     border-bottom: 1px solid var(--rule); padding-bottom: .15rem; }
+dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: .15rem .6rem; }
+dt { font-weight: 700; white-space: nowrap; }
+dd { margin: 0; }
+kbd { font: 700 .82em/1 "Helvetica Neue", Arial, sans-serif; background: var(--chip); border: 1px solid var(--rule);
+      border-radius: 4px; padding: .1em .35em; white-space: nowrap; }
+.note { color: var(--muted); font-size: .92em; }
+ol { margin: 0; padding-left: 1.2rem; }
+footer { margin-top: .6rem; color: var(--muted); font-size: .85em; border-top: 1px solid var(--rule); padding-top: .4rem; }
+@media print {
+  body { padding: 0; font-size: 9.5pt; background: #fff; color: #000; }
+  header nav { display: none; }
+  .cols { columns: 3; }
+  @page { margin: 10mm; size: A4 landscape; }
+}
+@media (max-width: 640px) { header nav { margin-left: 0; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>DUBWISE</h1>
+  <p>the cheat sheet · a reggae &amp; dub desk for the M-VAVE FM-1 · SpIllt Beats</p>
+  <nav><a href="../emu/">Play in the browser</a><a href="../manual/">Full manual</a></nav>
+</header>
+<div class="cols">
+
+<section>
+<h2>Mutes, solos, throws (white keys)</h2>
+<dl>
+<dt><kbd>White 1–8</kbd></dt><dd>Mute channel 1–8 (kick, snare, hats, bass, skank, organ, lead, vox). Tap toggles (on the next line); hold flips it only while held; tap twice: solo.</dd>
+<dt><kbd>HOME</kbd>+<kbd>White 1–8</kbd></dt><dd>Solo, without the double tap. Solos add up.</dd>
+<dt><kbd>White 9–16</kbd></dt><dd>Throw channel 1–8 into its echo / spring while held (harder = bigger). Double tap latches.</dd>
+<dt>Hold <kbd>White 1–8</kbd> + <kbd>K1–K3</kbd></dt><dd>Level, echo send, spring send.</dd>
+<dt>Hold <kbd>White 9–16</kbd> + <kbd>K1</kbd></dt><dd>Throw destination: ECHO, SPRING, BOTH.</dd>
+</dl>
+</section>
+
+<section>
+<h2>Dub moves (black keys)</h2>
+<dl>
+<dt><kbd>Black 1</kbd></dt><dd>Spring crash (with a throw held: adds the spring to it).</dd>
+<dt><kbd>Black 2</kbd></dt><dd>Echo hold: freeze the loop.</dd>
+<dt><kbd>Black 3</kbd></dt><dd>Dub push: feedback past endless.</dd>
+<dt><kbd>Black 4</kbd></dt><dd>Tape dive: repeats bend down.</dd>
+<dt><kbd>Black 5</kbd></dt><dd>Drop to wet: only the echo and spring.</dd>
+<dt><kbd>Black 6 · 7</kbd></dt><dd>Siren A · siren B (held).</dd>
+<dt><kbd>Black 8–10</kbd></dt><dd>One-shots BIM, HORN, LASER. <kbd>HOME</kbd>+: backwards.</dd>
+<dt><kbd>Black 11</kbd></dt><dd>Drum and bass only (held).</dd>
+<dt><kbd>HOME</kbd>+<kbd>PLAY</kbd></dt><dd>Rewind: spin back, come again from bar 1.</dd>
+</dl>
+<p class="note">Every move above can be recorded into the song (REC).</p>
+</section>
+
+<section>
+<h2>Knobs and buttons (DUB page)</h2>
+<dl>
+<dt><kbd>SELECT</kbd></dt><dd>The Big Knob: stepped high-pass, OFF · 70 Hz … 7.5 kHz (10, 20 or 40 steps: SETUP).</dd>
+<dt><kbd>HOME</kbd>+<kbd>SELECT</kbd></dt><dd>Tempo.</dd>
+<dt><kbd>K1 · K2</kbd></dt><dd>Echo time · feedback.</dd>
+<dt><kbd>K3 · K4</kbd></dt><dd>Echo return · spring return.</dd>
+<dt><kbd>OCT− · OCT+</kbd></dt><dd>Quantise: beat, 1–32 bars, CYCLE.</dd>
+<dt><kbd>PLAY</kbd></dt><dd>Start / stop (on release). Hold it while pressing a white key: that change now, not on the line.</dd>
+<dt><kbd>ALGORITHM</kbd></dt><dd>Focus a channel; <kbd>EDIT</kbd>: its sound (4 knobs a bank).</dd>
+<dt><kbd>PRESET</kbd></dt><dd>Next / previous scene, on the line.</dd>
+<dt><kbd>SAVE</kbd></dt><dd>Save the project (lit: unsaved changes).</dd>
+<dt><kbd>FX</kbd></dt><dd>Effects page; press again for the next bank.</dd>
+</dl>
+</section>
+
+<section>
+<h2>The pages</h2>
+<dl>
+<dt><kbd>HOME</kbd></dt><dd>DUB ⇄ ARRANGE.</dd>
+<dt><kbd>SEQ</kbd></dt><dd>STEPS: the patterns.</dd>
+<dt><kbd>ARP</kbd></dt><dd>KEY &amp; CHORDS: key, scale, lock, chord lane.</dd>
+<dt><kbd>FX</kbd></dt><dd>ECHO · SPRING · CROSS · TAPE · PHASER · DRIVE · GATE · WIDTH · BI-PHASE.</dd>
+<dt><kbd>GLO</kbd></dt><dd>SETUP: runway, screen saver, MIDI clock, slots, demo …</dd>
+</dl>
+</section>
+
+<section>
+<h2>STEPS (SEQ)</h2>
+<dl>
+<dt><kbd>Black 1–8</kbd></dt><dd>Pick the channel.</dd>
+<dt><kbd>White 1–16</kbd></dt><dd>Step on / off.</dd>
+<dt>Hold <kbd>Black 9 · 10</kbd> + white</dt><dd>Accent · ghost.</dd>
+<dt><kbd>OCT− · OCT+</kbd></dt><dd>Page of 16 steps.</dd>
+<dt><kbd>K1 · K2</kbd></dt><dd>Length · the held step's note.</dd>
+<dt><kbd>K4</kbd></dt><dd>Riddim: ONE DROP, ROCKERS, STEPPERS, FLYERS, UK STEPPERS.</dd>
+<dt><kbd>REC</kbd></dt><dd>On bass, skank or lead: play the keyboard into the steps.</dd>
+</dl>
+</section>
+
+<section>
+<h2>ARRANGE: scenes and the song</h2>
+<dl>
+<dt><kbd>White 1–16</kbd></dt><dd>Recall a scene (on the line).</dd>
+<dt><kbd>SAVE</kbd>+<kbd>White</kbd></dt><dd>Store the desk in that scene (K4: with patterns).</dd>
+<dt><kbd>REC</kbd></dt><dd>Song capture on / off: play, and every bar and move is kept.</dd>
+<dt><kbd>HOME</kbd>+<kbd>REC</kbd></dt><dd>Undo the last capture.</dd>
+<dt><kbd>SAVE</kbd>+<kbd>REC</kbd></dt><dd>Clear the recorded moves.</dd>
+<dt><kbd>Black 1–11</kbd></dt><dd>Section markers (INTRO … END). <kbd>HOME</kbd>+<kbd>Black 1–4</kbd>: VERSION, DUBPLATE, SPECIAL, RUB-A-DUB.</dd>
+<dt><kbd>K1 · K2 · K3</kbd></dt><dd>Cursor · song length · OFF / ONCE / LOOP.</dd>
+</dl>
+</section>
+
+<section>
+<h2>A first dub, in eight moves</h2>
+<ol>
+<li><kbd>PLAY</kbd>: the ONE DROP riddim starts.</li>
+<li><kbd>White 4</kbd> on the line: the bass drops out; again: back on the one.</li>
+<li>Hold <kbd>White 10</kbd> on beat 3: the snare into the echo.</li>
+<li><kbd>Black 1</kbd>: crash the spring.</li>
+<li>Turn <kbd>SELECT</kbd> up a step a beat: the mix evaporates; snap it back.</li>
+<li>Hold <kbd>Black 2</kbd>, then <kbd>Black 3</kbd>: freeze, then push the echo.</li>
+<li><kbd>Black 11</kbd>: drum and bass; let go on the one.</li>
+<li><kbd>HOME</kbd>, <kbd>REC</kbd>, <kbd>PLAY</kbd>: do it again and keep it as a song.</li>
+</ol>
+</section>
+
+<section>
+<h2>Also</h2>
+<dl>
+<dt>Demo</dt><dd>SETUP → DEMO SONG: RIGHTEOUS DUB.</dd>
+<dt>Slots</dt><dd>SETUP → SAVE TO / LOAD SLOT: K2 picks, SAVE does it.</dd>
+<dt>MIDI</dt><dd>Ch 10 drums (GM), ch 2 lead, others bass. Clock in / out: SETUP.</dd>
+<dt>Files</dt><dd><code>tools/dubwise_slots.py get|put</code> · <code>fm1_backup.py</code></dd>
+</dl>
+</section>
+
+</div>
+<footer>Dubwise FM · GPL-3.0 · github.com/DocRuzzy/dubwise-fm · The runway counts down to the next phrase: land your moves on the one.</footer>
+</main>
+</body>
+</html>

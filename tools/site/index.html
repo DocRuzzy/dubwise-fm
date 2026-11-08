@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Copyright (C) 2026 Dubwise FM contributors -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUBWISE</title>
+<meta name="description" content="Dubwise FM: a reggae and dub mixing desk you play live, firmware for the M-VAVE FM-1. A SpIllt Beats release.">
+<style>
+:root { --paper: #fbf8f1; --ink: #20263a; --muted: #5d6585; --hot: #c4471f; --card: #f2ecdf; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #17161a; --ink: #ece6da; --muted: #a9a294; --hot: #f28a5a; --card: #24211d; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --paper: #17161a; --ink: #ece6da; --muted: #a9a294; --hot: #f28a5a; --card: #24211d; color-scheme: dark; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.55 "Helvetica Neue", Arial, sans-serif; padding: 32px 16px; }
+main { max-width: 760px; margin: 0 auto; }
+.top { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+.top img { width: 200px; height: 200px; border-radius: 12px; image-rendering: pixelated; }
+h1 { font-size: 2.6rem; margin: 0; letter-spacing: .03em; }
+.tag { color: var(--muted); margin: .3rem 0 0; }
+.links { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 28px 0; }
+.links a { display: block; background: var(--card); color: var(--ink); text-decoration: none; padding: 16px; border-radius: 12px; }
+.links a b { color: var(--hot); display: block; font-size: 1.1rem; }
+p { max-width: 62ch; }
+footer { color: var(--muted); font-size: .9rem; margin-top: 32px; }
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+  <img src="img/splash.png" alt="The boot screen: the SpIllt Beats mark and DUBWISE">
+  <div><h1>DUBWISE</h1><p class="tag">A reggae and dub mixing desk you play live, for the M-VAVE FM-1. A SpIllt Beats release.</p></div>
+</div>
+<div class="links">
+  <a href="emu/"><b>Play it</b>in your browser: the same firmware code</a>
+  <a href="cheat/"><b>Cheat sheet</b>every control on one page</a>
+  <a href="manual/"><b>Manual</b>everything, with pictures</a>
+  <a href="install/"><b>Install</b>on your FM-1</a>
+</div>
+<p>In dub, the mixing desk is the instrument. Dubwise puts one under your fingers: mutes that land on the one, throws into
+a tape echo and a spring you can kick, King Tubby's stepped Big Knob, sirens, rewinds, and songs that keep every move.
+Nothing plays by itself: every drop is yours.</p>
+<footer>GPL-3.0 · <a href="https://github.com/DocRuzzy/dubwise-fm">source on GitHub</a> · not affiliated with M-VAVE</footer>
+</main>
+</body>
+</html>
