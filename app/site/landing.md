@@ -17,4 +17,6 @@ This is version {{VERSION}}. You install it at your own risk, and the installer 
 - The [Source](https://github.com/DocRuzzy/dubwise-fm) is under GPL-3.0-only. It's built on fm1-base (MPL-2.0) and
   felucca-bsp (MPL-2.0), which come from Felucca by Leo Kuroshita, Hügelton Instruments.
 
+Dubwise FM is a SpIllt Beats release, by DocRuzzy.
+
 M-VAVE and FM-1 are trademarks of their owners. Dubwise FM is not affiliated with M-VAVE.

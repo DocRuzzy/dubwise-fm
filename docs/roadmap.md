@@ -72,7 +72,7 @@ Companion docs in this folder:
 
 ## P0 — Foundation
 
-**P0.0 status (2026-11-08):** host tests pass; Bluetooth removed; `id_prefix` = `FM-1_57` (no public fm1.toml on GitHub used it or a 57… prefix on 2026-11-08). Device link
+**P0.0 status (2026-11-08):** host tests pass; Bluetooth removed; `id_prefix` = `FM-1_382` (first `FM-1_57`, but thefirmwarehub.com's catalog has spellbox on `FM-1_57\d`; 382 is "DUB" on a keypad, and a release's 9 digits match no identity on the hub). Listing on the hub (thefirmwarehub.com/submit): `fmhub.json` in the root, a GitHub release with the `.fwsc`, tested on a real FM-1 (from V15 and from another firmware, and removable), then a mail to the hub. Device link
 (JieLi toolchain 20260730.1, AC79 SDK V1.2.1), template with Bluetooth → without:
 
 | | With BLE | No radio | Limit |

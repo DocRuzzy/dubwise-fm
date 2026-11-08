@@ -1,7 +1,7 @@
 # The template's build settings (tools/build.py)
 name = "DUBWISE"              # APP_NAME is in app.h; this names the build's files
-id_prefix = "FM-1_57"           # ours (P0.0): dev builds FM-1_5700, releases FM-1_57XXYYZZ. Unused by the 76 public fm1.toml files on GitHub (2026-11-08)
-usb_manufacturer = "Dubwise FM"
+id_prefix = "FM-1_382"          # ours: "DUB" on a phone keypad. Dev builds FM-1_38200, releases FM-1_382XXYYZZ (9 digits: no identity on thefirmwarehub.com matches, 2026-11-08)
+usb_manufacturer = "SpIllt Beats"
 usb_product = "DUBWISE FM-1"
 o2 = ["engine/engine.c", "engine/echo.c", "engine/voices.c", "engine/riddim.c"]   # separate units compiled at -O2 (the engine: the audio interrupt's side)
 words = "words.tsv"
@@ -13,7 +13,7 @@ repo = "https://github.com/DocRuzzy/dubwise-fm"
 licence = "GPL-3.0-only"
 credits = "Built on fm1-base (Charles Vestal) and felucca-bsp (Leo Kuroshita, Hügelton Instruments)."                   # a sentence for the installer's footer: what your firmware is built from
 # firmware.json, for firmware hubs (docs/FIRMWARE-JSON.md): the build writes it from these and the keys above
-author = "DocRuzzy"      # who made it
+author = "DocRuzzy (SpIllt Beats)"      # who made it
 description = "A reggae/dub groovebox where the mixing desk is the instrument: quantised mutes and solos, send throws into a feedback tape echo and a kickable spring, a stepped Big Knob filter, riddim templates and FM voices. Work in progress."
 tags = ["groovebox", "synth"]    # from the list in docs/FIRMWARE-JSON.md; the build refuses another
 install = "https://docruzzy.github.io/dubwise-fm/install/"   # the page that installs it

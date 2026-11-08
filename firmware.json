@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "id": "dubwise",
-  "name": "Dubwise FM",
-  "author": "DocRuzzy",
+  "name": "SpIllt Beats",
+  "author": "DocRuzzy (SpIllt Beats)",
   "license": "GPL-3.0-only",
   "tagline": "a dub mixing desk and riddim box for the FM-1",
   "description": "A reggae/dub groovebox where the mixing desk is the instrument: quantised mutes and solos, send throws into a feedback tape echo and a kickable spring, a stepped Big Knob filter, riddim templates and FM voices. Work in progress.",

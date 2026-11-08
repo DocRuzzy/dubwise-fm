@@ -1,0 +1,10 @@
+{
+  "what": "A reggae and dub groovebox where the mixing desk is the instrument: quantised mutes and solos, throws into a feedback tape echo, FM drums and bass playing one drop, rockers, steppers and flyers riddims, a runway that counts you down to the one, and a key lock.",
+  "author": "DocRuzzy (SpIllt Beats)",
+  "kinds": [
+    "groove"
+  ],
+  "play": "https://docruzzy.github.io/dubwise-fm/emu/",
+  "image": "app/docs/img/screen-playing.png",
+  "color": "#F27848"
+}

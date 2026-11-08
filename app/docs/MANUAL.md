@@ -1,6 +1,6 @@
 # DUBWISE
 
-DUBWISE (Dubwise FM) is a reggae/dub groovebox for the M-VAVE FM-1 in the making, where the mixing desk is the
+DUBWISE (Dubwise FM, a SpIllt Beats release by DocRuzzy) is a reggae/dub groovebox for the M-VAVE FM-1 in the making, where the mixing desk is the
 instrument. This early build has the desk's first move: the DUB page, where the white keys mute and solo the eight
 channels, and every change can wait for the next beat or bar line so it lands on time.
 
