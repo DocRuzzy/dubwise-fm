@@ -15,7 +15,7 @@ static float ulaw[256];                          /* mu-law -> -1..1 */
 static struct {
     uint32_t pos, end;                           /* in half samples (22,050 Hz data at 44.1 kHz) */
     float vel;
-    int on;
+    int on, rev;                                 /* rev: backwards (P3.3), from its end to its start */
 } shot[NSHOTS];
 #define INV_SR (1.0f / 44100.0f)
 static inline float lin(int16_t v, float lo, float hi) { return lo + (hi - lo) * (float)v * (1.0f / 127.0f); }
@@ -45,10 +45,13 @@ void fxv_init(void)                             /* (at boot: copies the one-shot
     }
 }
 
-void fxv_shot(uint32_t k, uint32_t vel)
+void fxv_shot(uint32_t k, uint32_t vel) { fxv_shot_dir(k, vel, 0); }
+
+void fxv_shot_dir(uint32_t k, uint32_t vel, int rev)
 {
     if (k >= NSHOTS)
         return;
+    shot[k].rev = rev;
     shot[k].pos = 0;
     shot[k].end = (SHOT_LEN[k] - 1u) * 2u;
     shot[k].vel = (float)(vel > 127u ? 127u : vel) * (1.0f / 127.0f);
@@ -66,7 +69,7 @@ static int shots_render(float *o, uint32_t n, int add)   /* the one-shots into o
         if (!shot[k].on)
             continue;
         for (i = 0; i < n; i++) {
-            uint32_t p = shot[k].pos, j = p >> 1;
+            uint32_t p = shot[k].rev ? shot[k].end - shot[k].pos : shot[k].pos, j = p >> 1;
             float v;
             if (p & 1u) {                        /* x2: the half-sample point, 4-point (-1 9 9 -1)/16 */
                 float a = j ? ulaw[d[j - 1u]] : 0.0f, b = ulaw[d[j]], c = ulaw[d[j + 1u]];

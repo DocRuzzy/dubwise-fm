@@ -25,6 +25,19 @@ said ONE SHOT LASER
 wait 1200
 expect ch8_db <-80
 wavstop
+# backwards (P3.3): HOME held, black 8: the HEY from its end to its start (it swells instead of dying)
+param ch8.echo 0
+wav oneshot-rev.wav
+press HOME
+wait 30
+tapkey b7
+wait 30
+release HOME
+said REVERSE HEY
+expect page 0
+wait 600
+wavstop
+#wav oneshot-rev.wav peak<-1 dc<-45 click<-30
 #wav oneshot-hey.wav peak<-1 dc<-45 click<-30
 #wav oneshot-horn.wav peak<-1 dc<-45 click<-30
 #wav oneshot-laser.wav peak<-1 dc<-45 click<-30
