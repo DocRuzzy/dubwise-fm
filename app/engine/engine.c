@@ -14,6 +14,7 @@
 #include "song.h"
 #include "fxv.h"
 #include "phaser.h"
+#include "tape.h"
 #include "dsp.h"
 
 cmdq_t eng_q;
@@ -66,7 +67,8 @@ static ramp_t echo_ret, spring_ret;              /* the returns' levels */
 static int16_t kick_last;
 static float bus_echo_g;
 static int dive_back;
-static int ph_on;                                /* where the phaser is this block (PH_OFF when the tier says)                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
+static int ph_on;
+static int drive_on;                             /* where the tape drive is                                /* where the phaser is this block (PH_OFF when the tier says)                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
 static float sret_last[ENG_BLOCK];               /* the spring's return a block ago: into the echo (cross-send) */
 static uint32_t sret_last_n;
 static ramp_t xs_e2s, xs_s2e;                    /* the cross-sends' levels (P1.3) */
@@ -422,6 +424,15 @@ static void bus_update(void)                     /* the echo's and the voices' s
             ph_on = on;
         }
     }
+    {                                            /* tape drive */
+        tape_cfg_t tc;
+        tc.gain = fm_exp2f((float)ev[P_DRIVE_AMT] * (2.32f / 127.0f));   /* x1 .. x5 (+14 dB) */
+        tc.mix = (float)ev[P_DRIVE_MIX] * (1.0f / 127.0f);
+        tape_config(&tc);
+        if (ev[P_DRIVE_ON] != drive_on)
+            tape_reset();
+        drive_on = ev[P_DRIVE_ON];
+    }
     lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
     if (ev[P_HPF_STEP] != bk_step) {             /* a step: at once, unsmoothed (the detents are the sound) */
         bk_step = ev[P_HPF_STEP];
@@ -661,6 +672,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         int on = source(ch, buf, n);
         if (on && ((ph_on == PH_HATS && ch == CH_HATS) || (ph_on == PH_SKANK && ch == CH_SKANK)))
             phaser_run(buf, 0, n);               /* the phaser on a channel (before its strip) */
+        if (on && drive_on == DRIVE_BASS && ch == CH_BASS)
+            tape_run(buf, 0, n);                 /* the bass through the tape (C7) */
         prof_mark(PART_CH0 + ch);
         if (!on) {
             ramp_jump(&s->dry);
@@ -731,6 +744,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         spring_ret_peak = srp;
         if (ph_on == PH_MIX)                     /* the phaser on the whole mix: both sides the same sweep */
             phaser_run(dry, dryr, n);
+        if (drive_on == DRIVE_MIX)               /* the whole mix through the tape: the glue */
+            tape_run(dry, dryr, n);
         if (ev[P_HPF_ON] == HPF_ON_MIX) {        /* the Big Knob on the whole mix */
             bigknob_run(&bk, dry, n);
             bigknob_run(&bkr, dryr, n);

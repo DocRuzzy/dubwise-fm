@@ -122,6 +122,10 @@ enum {
     P_PH_FB,                  /* 0..127: feedback 0 .. 0.7 */
     P_PH_SHAPE,               /* 0 sine, 1 square */
     P_PH_END,
+    P_DRIVE_ON = 0x0F8,       /* tape drive (P2.4): DRIVE_OFF, DRIVE_BASS, DRIVE_MIX */
+    P_DRIVE_AMT,              /* 0..127: into the tape 0 .. +14 dB */
+    P_DRIVE_MIX,              /* 0..127: the driven part, blended with the dry */
+    P_DRIVE_END,
 };
 enum { ECHO_DIV_16, ECHO_DIV_8T, ECHO_DIV_16D, ECHO_DIV_8, ECHO_DIV_4T, ECHO_DIV_8D, ECHO_DIV_4, ECHO_DIV_2T,
        ECHO_DIV_4D, ECHO_DIV_2, ECHO_DIV_N };
@@ -130,6 +134,7 @@ const char *echo_div_name(int32_t d);                 /* "1/8." */
 float echo_t60(int32_t fb);                          /* seconds */
 enum { HPF_ON_MIX, HPF_ON_ECHO, HPF_ON_N };
 enum { PH_OFF, PH_HATS, PH_SKANK, PH_ECHO, PH_MIX, PH_N };
+enum { DRIVE_OFF, DRIVE_BASS, DRIVE_MIX, DRIVE_N };
 #define HPF_STEPS 10
 float hpf_hz(int32_t step);                          /* a step's cutoff, Hz (0: off) */
 const char *hpf_name(int32_t step);                  /* "500 HZ", "1K", "OFF" */

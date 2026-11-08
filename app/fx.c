@@ -16,6 +16,7 @@ static const fx_bank_t FX_BANK[] = {
     {"CROSS", {P_XS_E2S, P_XS_S2E, 0, 0}, {"ECHO>SPR", "SPR>ECHO", "", ""}},
     {"TAPE", {P_DIVE_DEPTH, P_DIVE_TIME, 0, 0}, {"DIVE", "DIVE TIME", "", ""}},
     {"PHASER", {P_PH_ON, P_PH_RATE, P_PH_DEPTH, P_PH_FB}, {"ON", "RATE", "DEPTH", "FEEDBACK"}},
+    {"DRIVE", {P_DRIVE_ON, P_DRIVE_AMT, P_DRIVE_MIX, 0}, {"ON", "DRIVE", "BLEND", ""}},
     {"WIDTH", {P_ECHO_WIDTH, P_PH_SHAPE, 0, 0}, {"ECHO WIDTH", "PH SHAPE", "", ""}},
 };
 #define FX_NBANKS (sizeof FX_BANK / sizeof FX_BANK[0])
@@ -35,6 +36,14 @@ static void fx_value(uint16_t id, char *t)       /* a value as the page shows it
     } else if (id == P_PH_ON) {
         static const char *const ON[PH_N] = {"OFF", "HATS", "SKANK", "ECHO", "MIX"};
         text_cat(t, ON[v]);
+    } else if (id == P_DRIVE_ON) {
+        static const char *const ON[DRIVE_N] = {"OFF", "BASS", "MIX"};
+        text_cat(t, ON[v]);
+    } else if (id == P_DRIVE_AMT) {              /* +0 .. +14 dB */
+        text_cat(t, "+");
+        int_text(v * 14 / 127, n);
+        text_cat(t, n);
+        text_cat(t, "DB");
     } else if (id == P_PH_SHAPE) {
         text_cat(t, v ? "SQUARE" : "SINE");
     } else if (id == P_PH_RATE) {                /* 0.1 .. 18 Hz */
@@ -90,7 +99,7 @@ static void fx_knob(uint32_t i, int32_t e)
     if (!b->id[i])
         return;
     ctl_set(b->id[i], ctl_get(b->id[i]) + (b->id[i] == P_ECHO_TIME || b->id[i] == P_ECHO_FB || b->id[i] == P_PH_ON
-                                           || b->id[i] == P_PH_SHAPE ? e : 2 * e));
+                                           || b->id[i] == P_PH_SHAPE || b->id[i] == P_DRIVE_ON ? e : 2 * e));
     set_dirty = 1;
     fx_value(b->id[i], t);
     app_say(b->label[i], t);

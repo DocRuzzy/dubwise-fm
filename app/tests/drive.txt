@@ -1,0 +1,40 @@
+# Tape drive (P2.4; C7): up to +14 dB into a soft saturation, blended with the dry. A sine's crest (peak - RMS) is
+# 3.0 dB; through the tape driven hard it flattens. On the bass channel (C7's drill) or the whole mix (both sides
+# the same curve: no stereo).
+wait 600
+param ch5.spring 0
+param ch7.echo 0
+param ch8.echo 0
+wait 30
+param dev.tones 1
+param ch4.solo 1
+param ch4.level 127
+wait 100
+wav drive-off.wav
+wait 1000
+wavstop
+param drive.on 1
+param drive 127
+param drive.mix 127
+wait 100
+wav drive-bass.wav
+wait 1000
+wavstop
+param drive.on 2
+param ch4.solo 0
+wait 100
+wav drive-mix.wav
+wait 1000
+wavstop
+# FX: the DRIVE bank
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+tap FX
+wait 30
+expect page 4
+#wav drive-off.wav crest<3.2 crest>2.8
+#wav drive-bass.wav crest<2.9 peak<-1 dc<-60 rms<-28
+#wav drive-mix.wav side<-150 peak<-1 dc<-60
