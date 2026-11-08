@@ -90,6 +90,10 @@ static void song_undo_last(void);
 static void song_sync(void);
 static int song_section(uint32_t *from, uint32_t *to);
 static void demo_load(void);
+static void slot_value(char *t, int load);      /* (slots.c: song slots) */
+static void slot_pick(int32_t e);
+static void slot_action(int load);
+static void slot_tick(void);
 static void steppers_load(void);
 void dub_init(void);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
@@ -446,6 +450,8 @@ static void button_release(uint32_t k)
         dub.page = dub.page == PAGE_DUB ? PAGE_ARRANGE : PAGE_DUB;
         arr_mark();
         app_say(dub.page == PAGE_ARRANGE ? "ARRANGE" : "DUB", "PAGE");
+    } else if (k == B_SAVE && !dub.save_used && dub.page == PAGE_SETUP && setup_slot_row() >= 0) {
+        slot_action(setup_slot_row());   /* SETUP's slot rows: SAVE does it */
     } else if (k == B_SAVE && !dub.save_used) {
         settings_save();
     }
@@ -540,6 +546,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "demo.c"                        /* the demo song (GPL-3.0-only) */
 #include "perf.c"                        /* the PERF page (GPL-3.0-only) */
 #include "saver.c"                       /* the boot splash and the screen saver (GPL-3.0-only) */
+#include "slots.c"                       /* song slots (GPL-3.0-only) */
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
@@ -1177,6 +1184,7 @@ void dub_draw(void)
     uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
     int drew = 0;
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
+    slot_tick();                         /* (a loaded slot's, the same way) */
     song_sync();
     if (saver_draw(now)) {               /* the screen saver: the whole screen its own */
         lights();

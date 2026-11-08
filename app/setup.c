@@ -5,13 +5,13 @@
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
 enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_SAVER, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_HPF_RES, SU_THROW_VEL, SU_CLOCK,
-       SU_TIER, SU_PERF, SU_TONES, SU_DEMO, SU_STEPPERS, SU_N };
+       SU_TIER, SU_PERF, SU_TONES, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_DEMO, SU_STEPPERS, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
                                           "REDUCED MOTION", "SCREEN SAVER", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "BIG KNOB STEPS",
                                           "THROW VELOCITY", "MIDI CLOCK", "GUARD TIER",
-                                          "PERFORMANCE", "TEST TONES", "DEMO SONG", "UK STEPPERS"};
+                                          "PERFORMANCE", "TEST TONES", "SAVE TO SLOT", "LOAD SLOT", "DEMO SONG", "UK STEPPERS"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_SAVER, P_LEAD,
-                                     P_LOCK_MIDI, P_HPF_ON, P_HPF_RES, P_THROW_VEL, P_CLOCK, P_TIER_LOCK, 0, P_DEV_TONES, 0, 0};
+                                     P_LOCK_MIDI, P_HPF_ON, P_HPF_RES, P_THROW_VEL, P_CLOCK, P_TIER_LOCK, 0, P_DEV_TONES, 0, 0, 0, 0};
 static int32_t su_cur;
 static uint32_t su_sig;
 
@@ -24,6 +24,8 @@ static void su_value(uint32_t i, char *t)
         int_text((int32_t)(i == SU_CYCLE ? cycle_bars(v) : runway_bars(v)), n);
         text_cat(t, n);
         text_cat(t, v == 0 && i == SU_RUNWAY ? " BAR" : " BARS");
+    } else if (i == SU_SLOT_SAVE || i == SU_SLOT_LOAD) {
+        slot_value(t, i == SU_SLOT_LOAD);
     } else if (i == SU_CLOCK) {
         static const char *const C[CLOCK_N] = {"OFF", "IN", "OUT"};
         text_cat(t, C[v >= 0 && v < CLOCK_N ? v : 0]);
@@ -49,6 +51,11 @@ static void su_value(uint32_t i, char *t)
         text_cat(t, v ? "ON" : "OFF");
 }
 
+static int setup_slot_row(void)          /* the cursor on a slot row: 1 load, 0 save; -1 neither */
+{
+    return su_cur == SU_SLOT_LOAD ? 1 : su_cur == SU_SLOT_SAVE ? 0 : -1;
+}
+
 static void setup_say(void)
 {
     char t[16];
@@ -67,6 +74,11 @@ static void setup_change(int32_t e)
     uint32_t id = SU_ID[su_cur];
     if (su_cur == SU_DEMO) {                     /* the demo song (demo.c) */
         demo_load();
+        return;
+    }
+    if (su_cur == SU_SLOT_SAVE || su_cur == SU_SLOT_LOAD) {   /* KNOB 2 picks the slot; SAVE does it */
+        slot_pick(e);
+        setup_say();
         return;
     }
     if (su_cur == SU_STEPPERS) {                   /* the UK steppers desk (P3.4; demo.c) */

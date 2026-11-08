@@ -248,6 +248,14 @@ int mot_put(uint32_t b, uint32_t tick, uint32_t id, int32_t v)   /* main loop, s
     return insert(b, tick, id, v) >= 0;
 }
 
+int mot_get(uint32_t b, uint32_t i, mot_ev_t *e)
+{
+    if (b >= SONG_BARS || i >= mot_n[b])
+        return 0;
+    *e = *at(b, i);
+    return 1;
+}
+
 int mot_due(uint32_t tick, mot_ev_t *e)
 {
     if (bar < 0)

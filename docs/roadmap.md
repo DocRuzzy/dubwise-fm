@@ -144,8 +144,10 @@ image +6.2 KB (the page); CPU only while a cue waits (the transport stepped per 
 | # | Feature | Notes |
 |---|---|---|
 | 4.1 | MIDI clock in / out | **Done (2026-11-09).** SETUP: MIDI CLOCK OFF / IN / OUT. OUT: Start at the transport's start, 24 clocks a beat on its own clock, Stop at its stop; the render notes each clock's moment (the block's start plus its sample), the 1 kHz tick (`APP_TICK`) sends it when due: within a millisecond, not bunched a block at a time. IN: Start / Continue start from bar 1, Stop stops; the clocks' spacing over the last beat sets the tempo (`plat_midi_in_t24`), and the bar is kept in phase by nudging the tempo (at most 5 %). The host simulates its time base from its milliseconds (its `plat_ticks24` is the computer's clock). Test: `clock.txt` (62 clocks in 2.5 beats; 100 BPM in, followed within 1.5 %). Cost: ~1 KB image, ~0.6 KB RAM, CPU ≈0 |
+| 4.2 | Song slots | **Done (2026-11-09):** four saved projects (`app/slots.c`), each 32 KiB of the flash's data area (0x97000, 0x9F000, 0xA7000, 0xBD000): the parameters (a load takes the project's: the desk, effects, sounds, key, chords, song settings; the device's preferences stay), the patterns, the 16 scenes, the song (512 bars) and its motion (up to 1,490 moves; more: TOO MANY MOVES). A header with a checksum is written last (a cut-off save reads as empty). SETUP: SAVE TO SLOT / LOAD SLOT, KNOB 2 picks, the SAVE button does it; stopped only. The motion goes in the way the demo's does (the engine hands it over). Test: `slots.txt`. Cost: 1.7 KB image, 0.3 KB RAM, 128 KiB of flash data area |
 
 ## Open questions
+
 1. Panel and black-key groupings, and velocity reliability, on the device.
 2. Real device CPU cost of 22 kHz voices with upsampling.
 3. Whether USB audio input reaches the app cleanly (latency and jitter) on the device.
