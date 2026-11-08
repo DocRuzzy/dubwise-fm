@@ -52,7 +52,7 @@ Companion docs in this folder:
 
 ## P0 — Foundation
 
-**P0.0 status (2026-11-08):** host tests pass; Bluetooth removed. Still open: claim an `id_prefix`. Device link
+**P0.0 status (2026-11-08):** host tests pass; Bluetooth removed; `id_prefix` = `FM-1_57` (no public fm1.toml on GitHub used it or a 57… prefix on 2026-11-08). Device link
 (JieLi toolchain 20260730.1, AC79 SDK V1.2.1), template with Bluetooth → without:
 
 | | With BLE | No radio | Limit |
