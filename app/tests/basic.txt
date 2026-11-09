@@ -38,7 +38,7 @@ expect ui.tempo 780
 tap SAVE
 wait 30
 expect dirty 0
-expect store_writes 4
+expect store_writes 7
 reboot
 wait 600
 expect ui.v1.tune 45

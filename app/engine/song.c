@@ -27,8 +27,11 @@ void song_capture(uint32_t bar, const int16_t *vals, int32_t scene_this_bar)
         b->solo |= (uint8_t)((vals[P_CH(ch, CHF_SOLO)] != 0) << ch);
     }
     b->hpf = (int8_t)vals[P_HPF_STEP];
+    b->pats[0] = b->pats[1] = 0;
+    for (ch = 0; ch < NCH; ch++)
+        b->pats[ch / 4u] |= (uint8_t)((vals[P_CH(ch, CHF_PAT)] & 3) << (ch % 4u * 2u));
     b->scene = (uint8_t)(scene_this_bar >= 0 ? scene_this_bar + 1 : 0);
-    b->flags |= BAR_SET;
+    b->flags |= BAR_SET | BAR_PATS;
 }
 
 int song_apply(uint32_t bar, int16_t *vals)
@@ -43,5 +46,8 @@ int song_apply(uint32_t bar, int16_t *vals)
         vals[P_CH(ch, CHF_SOLO)] = (int16_t)(b->solo >> ch & 1u);
     }
     vals[P_HPF_STEP] = (int16_t)param_clamp(P_HPF_STEP, b->hpf);
+    if (b->flags & BAR_PATS)
+        for (ch = 0; ch < NCH; ch++)
+            vals[P_CH(ch, CHF_PAT)] = (int16_t)bar_pat(b, ch);
     return b->scene ? b->scene - 1 : 16;
 }

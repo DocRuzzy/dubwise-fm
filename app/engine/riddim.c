@@ -63,6 +63,8 @@ void template_fill(int32_t t, uint32_t ch, step_t *dst)
         uint32_t k = i % 16u;
         dst[i].lvl = LVL_OFF;
         dst[i].note = default_note(ch);
+        dst[i].off = 0;
+        dst[i].gate = 0;
         if (ch == CH_KICK)
             dst[i].lvl = lvl_of(p->kick[k]);
         else if (ch == CH_SNARE)

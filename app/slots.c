@@ -1,26 +1,37 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Dubwise FM contributors */
 /* Song slots (2026-11 review): four saved projects beside the one SAVE keeps. A project is everything a song needs to
- * sound as it did: the desk and the effects, the sounds, the key and the chord lane, the patterns, the 16 scenes (with
- * their patterns), the song (512 bars) and its motion. The device's own preferences (the runway, the screen saver,
+ * sound as it did: the desk and the effects, the sounds, the key and the chord lane, the patterns (four a channel), the
+ * 16 scenes, the song (512 bars) and its motion. The device's own preferences (the runway, the screen saver,
  * MIDI clock, the guard ...) stay as they are.
  * SETUP: SAVE TO SLOT and LOAD SLOT; KNOB 2 picks the slot (1-4), the SAVE button does it. Stopped only: a flash write
  * stops the sound for a moment. A loaded project is the current one (SAVE keeps it as that).
  * Each slot is 32 KiB of the flash's data area (two free runs: 0x97000 and 0xBD000), a header written last (a save
- * cut short reads as empty), then the parameters, the patterns, the scenes, the song, and the motion (its counts, then
- * its moves, 1,490 at most). Part of the unity build: dub.c includes it. */
+ * cut short reads as empty), then the parameters, the patterns' settings and steps, the scenes, the song, and the
+ * motion (its counts, then its moves, 2,900 at most). A slot saved before the session (DSL1: one pattern a channel,
+ * scenes with copies) loads as patstore.c converts an old save. Part of the unity build: dub.c includes it. */
 
 #define NSLOTS 4u
 #define SLOT_BYTES 0x8000u
 static const uint32_t SLOT_AT[NSLOTS] = {0x97000u, 0x9F000u, 0xA7000u, 0xBD000u};
-#define SLOT_MAGIC 0x314C5344u                   /* "DSL1" */
+#define SLOT_MAGIC 0x324C5344u                   /* "DSL2" (the session) */
+#define SLOT_MAGIC1 0x314C5344u                  /* "DSL1" (before it) */
 typedef struct {
     uint32_t magic, len, sum, moves;
 } slot_head_t;
-#define SLOT_FIXED (P_NIDS * 2u + NCH * NSTEPS * (uint32_t)sizeof(step_t) + (uint32_t)sizeof scenes \
-                    + (uint32_t)sizeof song + SONG_BARS)
+#define SLOT_FIXED (P_NIDS * 2u + NCH * NPAT * (uint32_t)sizeof(pmeta_t) + NCH * NPAT * NSTEPS * (uint32_t)sizeof(step_t) \
+                    + (uint32_t)sizeof scenes + (uint32_t)sizeof song + SONG_BARS)
+#define SLOT_FIXED1 (P_NIDS * 2u + NCH * NSTEPS * 2u + NSCENES * (uint32_t)sizeof(scene_v1_t) \
+                     + SONG_BARS * (uint32_t)sizeof(song_v1_t) + SONG_BARS)
 #define SLOT_MOVES_MAX ((SLOT_BYTES - (uint32_t)sizeof(slot_head_t) - SLOT_FIXED) / (uint32_t)sizeof(mot_ev_t))
 typedef char slot_fits[SLOT_FIXED + sizeof(slot_head_t) < SLOT_BYTES ? 1 : -1];
+
+static int slot_head_ok(const slot_head_t *h)    /* a whole slot of either form */
+{
+    uint32_t fixed = h->magic == SLOT_MAGIC ? SLOT_FIXED : h->magic == SLOT_MAGIC1 ? SLOT_FIXED1 : 0u;
+    return fixed && h->moves <= SLOT_BYTES && h->len == fixed + h->moves * (uint32_t)sizeof(mot_ev_t)
+           && h->len <= SLOT_BYTES - sizeof *h;
+}
 
 static int32_t su_slot;                          /* the slot the two rows point at (0..3) */
 static const uint8_t *slot_moves;                /* a load's moves, written once the engine hands motion over */
@@ -46,7 +57,7 @@ static const slot_head_t *slot_head(uint32_t s)  /* the slot's header in the fla
         return 0;
     for (i = 0; i < sizeof h; i++)
         ((uint8_t *)&h)[i] = p[i];
-    return h.magic == SLOT_MAGIC && h.len <= SLOT_BYTES - sizeof h ? &h : 0;
+    return (h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC1) && h.len <= SLOT_BYTES - sizeof h ? &h : 0;
 }
 
 static uint32_t slot_sum(uint32_t h, const uint8_t *p, uint32_t n)
@@ -84,14 +95,24 @@ static int slot_save(uint32_t s)
         if (!slot_put(&off, &sum, slot_buf, 256u))
             return 0;
     }
-    for (ch = 0; ch < NCH; ch++)                 /* the patterns */
-        for (i = 0; i < NSTEPS; i += 64u) {
-            for (k = 0; k < 64u; k++) {
-                step_t st = ctl_get_step(ch, i + k);
-                slot_buf[2u * k] = st.lvl;
-                slot_buf[2u * k + 1u] = (uint8_t)st.note;
+    for (ch = 0; ch < NCH; ch++)                 /* the patterns' settings */
+        for (i = 0; i < NPAT; i++) {
+            pmeta_t m = ctl_meta_get(ch, i);
+            if (!slot_put(&off, &sum, &m, sizeof m))
+                return 0;
+        }
+    for (ch = 0; ch < NCH; ch++)                 /* their steps, a pattern at a time */
+        for (i = 0; i < NPAT; i++) {
+            typedef char fits[NSTEPS * sizeof(step_t) <= sizeof slot_buf ? 1 : -1];
+            (void)sizeof(fits);
+            for (k = 0; k < NSTEPS; k++) {
+                step_t st = ctl_get_step_at(ch, i, k);
+                slot_buf[4u * k] = st.lvl;
+                slot_buf[4u * k + 1u] = (uint8_t)st.note;
+                slot_buf[4u * k + 2u] = (uint8_t)st.off;
+                slot_buf[4u * k + 3u] = st.gate;
             }
-            if (!slot_put(&off, &sum, slot_buf, 128u))
+            if (!slot_put(&off, &sum, slot_buf, NSTEPS * 4u))
                 return 0;
         }
     if (!slot_put(&off, &sum, scenes, sizeof scenes) || !slot_put(&off, &sum, song, sizeof song)
@@ -121,27 +142,67 @@ static int slot_load(uint32_t s)
         return -1;
     h = *hp;
     p = plat_data(SLOT_AT[s]) + sizeof h;
-    if (h.len != SLOT_FIXED + h.moves * (uint32_t)sizeof(mot_ev_t) || slot_sum(2166136261u, p, h.len) != h.sum)
+    if (!slot_head_ok(&h) || slot_sum(2166136261u, p, h.len) != h.sum)
         return 0;
     for (i = 0; i < P_NIDS; i++)                 /* the project's parameters (the device's stay) */
         if (project_param(i))
             ctl_set(i, (int16_t)(p[2u * i] | p[2u * i + 1u] << 8));
-    p += P_NIDS * 2u;
-    for (ch = 0; ch < NCH; ch++)
-        for (i = 0; i < NSTEPS; i++, p += 2) {
-            step_t st;
-            st.lvl = p[0];
-            st.note = (int8_t)p[1];
-            ctl_step(ch, i, st);
+    if (h.magic == SLOT_MAGIC1) {                /* from before the session: converted (patstore.c) */
+        static scene_v1_t sv;
+        const uint8_t *lens = p, *base = p + P_NIDS * 2u;
+        uint32_t s2;
+        p += P_NIDS * 2u + NCH * NSTEPS * 2u;
+        mig_start();
+        for (ch = 0; ch < NCH; ch++) {
+            uint32_t id = P_CH(ch, CHF_LEN), len = lens[2u * id];
+            mig_put(ch, 0, len >= 1u && len <= NSTEPS ? len : 16u, (const step_v1_t *)(const void *)(base + ch * NSTEPS * 2u));
         }
-    for (i = 0; i < sizeof scenes; i++)
-        ((uint8_t *)scenes)[i] = *p++;
-    for (i = 0; i < sizeof song; i++)
-        ((uint8_t *)song)[i] = *p++;
+        for (s2 = 0; s2 < NSCENES; s2++, p += sizeof sv) {
+            for (i = 0; i < sizeof sv; i++)
+                ((uint8_t *)&sv)[i] = p[i];
+            scene_put(s2, sv.used, sv.scope, sv.desk);
+            if (sv.used && sv.scope == SCOPE_PATTERNS)
+                for (ch = 0; ch < NCH; ch++)
+                    scenes[s2].pat[ch] = (uint8_t)mig_pat(ch, sv.len[ch] >= 1u && sv.len[ch] <= NSTEPS ? sv.len[ch] : 16u,
+                                                          sv.pat[ch]);
+        }
+        for (b = 0; b < SONG_BARS; b++, p += sizeof(song_v1_t)) {
+            song_v1_t o;
+            for (i = 0; i < sizeof o; i++)
+                ((uint8_t *)&o)[i] = p[i];
+            mig_bar(&song[b], &o);
+        }
+    } else {
+        p += P_NIDS * 2u;
+        for (ch = 0; ch < NCH; ch++)
+            for (i = 0; i < NPAT; i++, p += sizeof(pmeta_t)) {
+                pmeta_t m;
+                m.len = p[0];
+                m.grid = p[1];
+                m.swing = p[2];
+                m.rsv = 0;
+                ctl_meta_set(ch, i, m);
+            }
+        for (ch = 0; ch < NCH; ch++)
+            for (i = 0; i < NPAT; i++) {
+                uint32_t k;
+                for (k = 0; k < NSTEPS; k++, p += 4) {
+                    step_t st;
+                    st.lvl = p[0] < LVL_N ? p[0] : LVL_OFF;
+                    st.note = (int8_t)p[1];
+                    st.off = (int8_t)p[2];
+                    st.gate = p[3];
+                    ctl_step_at(ch, i, k, st);
+                }
+            }
+        for (i = 0; i < sizeof scenes; i++)
+            ((uint8_t *)scenes)[i] = *p++;
+        for (i = 0; i < sizeof song; i++)
+            ((uint8_t *)song)[i] = *p++;
+    }
     slot_counts_off = 0;
     slot_moves = p;                              /* the counts, then the moves: written by slot_tick */
     slot_nmoves = h.moves;
-    (void)b;
     ctl_motion(1);
     scenes_dirty = 0xFFFFu;
     song_dirty = 1;
@@ -345,8 +406,8 @@ static int slot_sysex(const uint8_t *p, uint32_t n)   /* app_sysex: the bytes be
         const uint8_t *body = plat_data(SLOT_AT[s] + sizeof h);
         for (i = 0; i < sizeof h; i++)
             ((uint8_t *)&h)[i] = sxp.head[i];
-        if (!sxp.on || sxp.slot != s || len != sxp.got || h.magic != SLOT_MAGIC || h.len + sizeof h != len
-            || h.len != SLOT_FIXED + h.moves * (uint32_t)sizeof(mot_ev_t) || slot_sum(2166136261u, body, h.len) != h.sum) {
+        if (!sxp.on || sxp.slot != s || len != sxp.got || h.len + sizeof h != len || !slot_head_ok(&h)
+            || slot_sum(2166136261u, body, h.len) != h.sum) {
             sxp.on = 0;
             sx_reply(0x15, s, 0, 0);
             return 1;

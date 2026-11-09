@@ -54,7 +54,8 @@ expect eng.hpf 0
 expect t_fire 141120
 tap PLAY
 wait 30
-# a scene with the patterns: ROCKERS stored, STEPPERS loaded, the scene brings ROCKERS back
+# a scene with the patterns (the session, 4.8: which pattern each channel plays): ROCKERS in A when stored; then the
+# kick on B, STEPPERS loaded into B; the scene brings A (ROCKERS) back, and B keeps STEPPERS
 param ch1.len 16
 tap SEQ
 turn K4 1
@@ -72,6 +73,7 @@ wait 30
 release SAVE
 wait 30
 said SCENE 3 STORED WITH PATTERNS
+param ch1.pat 1
 tap SEQ
 turn K4 1
 wait 30
@@ -82,8 +84,13 @@ tap HOME
 wait 30
 tapkey w2
 wait 50
+expect ui.ch1.pat 0
+expect eng.ch1.pat 0
 expect eng_step1_5 0
 expect step1_5 0
+param ch1.pat 1
+wait 30
+expect step1_5 3
 # an empty scene says so
 tapkey w9
 wait 30

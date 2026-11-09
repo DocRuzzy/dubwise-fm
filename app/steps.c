@@ -35,7 +35,29 @@ static int32_t kb_note(uint32_t k)       /* the key's note: KEY's octave (set fo
 
 static const char *const LVL_NAME[LVL_N] = {"OFF", "GHOST", "ON", "ACCENT"};
 
-static int32_t steps_len(void) { return ctl_get(P_CH(st.ch, CHF_LEN)); }
+static uint32_t pat_now(int32_t ch) { return (uint32_t)ctl_get(P_CH(ch, CHF_PAT)) & 3u; }   /* (as launched) */
+static int32_t pat_len(int32_t ch) { return ctl_meta_now((uint32_t)ch).len; }
+static void pat_len_set(int32_t ch, int32_t len)
+{
+    pmeta_t m = ctl_meta_now((uint32_t)ch);
+    m.len = (uint8_t)clamp(len, 1, NSTEPS);
+    ctl_meta_set((uint32_t)ch, pat_now(ch), m);
+}
+static void pats_clear_all(void)         /* every channel's B..D empty, A playing (a project loaded over it) */
+{
+    uint32_t ch, p, i;
+    for (ch = 0; ch < NCH; ch++) {
+        ctl_set(P_CH(ch, CHF_PAT), 0);
+        for (p = 1; p < NPAT; p++) {
+            ctl_meta_set(ch, p, pmeta_def());
+            for (i = 0; i < NSTEPS; i++) {
+                step_t s = {LVL_OFF, default_note(ch), 0, 0};
+                ctl_step_at(ch, p, i, s);
+            }
+        }
+    }
+}
+static int32_t steps_len(void) { return pat_len(st.ch); }
 
 static void note_text(int32_t ch, int32_t n, char *t)   /* "A1"; hats "CL" / "OP" */
 {
@@ -183,7 +205,7 @@ static void steps_knob(uint32_t i, int32_t e)
 {
     char t[16];
     if (i == 0u) {                       /* the length */
-        ctl_set(P_CH(st.ch, CHF_LEN), steps_len() + e);
+        pat_len_set(st.ch, steps_len() + e);
         set_dirty = 1;
         int_text(steps_len(), t);
         app_say("LENGTH", t);
@@ -259,7 +281,7 @@ static uint32_t steps_sig(void)          /* changes whenever the grid would */
 {
     uint32_t h = (uint32_t)st.ch * 7u + st.page * 131u + (uint32_t)eng_tick() * 1031u, ch, i;
     for (ch = 0; ch < NCH; ch++) {
-        h = h * 31u + (uint32_t)ctl_get(P_CH(ch, CHF_LEN));
+        h = h * 31u + (uint32_t)pat_len((int32_t)ch) + pat_now((int32_t)ch) * 977u;
         for (i = 0; i < 16u; i++) {
             step_t s = ctl_get_step(ch, st.page * 16u + i);
             h = h * 33u + s.lvl * 131u + (uint8_t)s.note;
@@ -274,7 +296,7 @@ static void steps_draw_grid(void)        /* in the strips' place: every channel'
     int32_t tick = eng_tick();
     cv_begin(240, STRIP_H, C_BLACK);
     for (ch = 0; ch < NCH; ch++) {
-        int32_t y = (int32_t)ch * 12, len = ctl_get(P_CH(ch, CHF_LEN)), at = tick >= 0 ? tick % len : -1;
+        int32_t y = (int32_t)ch * 12, len = pat_len((int32_t)ch), at = tick >= 0 ? tick % len : -1;
         cv_text(2, y, &FONT_T, CH_SHORT[ch], (int32_t)ch == st.ch ? C_WHITE : C_GRAY);
         for (i = 0; i < 16u; i++) {
             int32_t idx = (int32_t)(st.page * 16u + i), x = 34 + (int32_t)i * 13;

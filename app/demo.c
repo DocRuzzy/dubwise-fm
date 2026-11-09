@@ -102,6 +102,7 @@ static void demo_tick(void)                      /* every frame: the demo's move
 static void demo_load(void)
 {
     uint32_t ch, i, b;
+    pats_clear_all();                            /* (A playing, B..D empty) */
     /* the desk and the sounds */
     ctl_set(P_TEMPO, 720);
     ctl_set(P_KEY_ROOT, 9);
@@ -120,7 +121,7 @@ static void demo_load(void)
     for (ch = 0; ch < NCH; ch++) {
         ctl_set(P_CH(ch, CHF_MUTE), 0);
         ctl_set(P_CH(ch, CHF_SOLO), 0);
-        ctl_set(P_CH(ch, CHF_LEN), ch == CH_BASS || ch == CH_LEAD ? 64 : 16);
+        pat_len_set((int32_t)ch, ch == CH_BASS || ch == CH_LEAD ? 64 : 16);
     }
     ctl_set(P_CH(CH_KICK, CHF_LEVEL), 104);
     ctl_set(P_CH(CH_SNARE, CHF_ECHO_SEND), 60);
@@ -132,7 +133,7 @@ static void demo_load(void)
     ctl_set(P_CH(CH_LEAD, CHF_LEVEL), 88);
     ctl_set(P_CH(CH_LEAD, CHF_ECHO_SEND), 50);
     ctl_set(P_VOICE(CH_LEAD, VL_INST), INST_MELODICA);
-    /* the patterns: ONE DROP, the bass line and the melodica over it */
+    /* the patterns: ONE DROP, the bass line and the melodica over it (all in A) */
     ctl_template(TPL_ONE_DROP, 0xFFu, 0);
     for (i = 0; i < 64u; i++) {
         step_t s;
@@ -203,7 +204,7 @@ static void steppers_load(void)
     for (ch = 0; ch < NCH; ch++) {
         ctl_set(P_CH(ch, CHF_MUTE), 0);
         ctl_set(P_CH(ch, CHF_SOLO), 0);
-        ctl_set(P_CH(ch, CHF_LEN), 16);
+        pat_len_set((int32_t)ch, 16);
         ctl_set(P_CH(ch, CHF_ECHO_SEND), 0);
         ctl_set(P_CH(ch, CHF_SPRING_SEND), 0);
     }

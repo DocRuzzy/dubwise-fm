@@ -65,7 +65,12 @@ int eng_midi_allowed(int32_t note);           /* the key lock on MIDI in (audio 
 uint32_t eng_frac16(void);                   /* how far into the sixteenth, 0..255 */                    /* runway tick blips since boot */
 int32_t eng_tick(void);                      /* the sixteenth playing since the start, -1 stopped */                 /* steps the sequencer has played since boot */
 uint32_t eng_seq_hit_at(uint32_t ch);        /* channel ch's last hit, samples since the start */
-step_t eng_step(uint32_t ch, uint32_t i);    /* the engine's copy of a step (tests) */
+step_t eng_step(uint32_t ch, uint32_t i);    /* the engine's copy of a step of the pattern playing (tests) */
+step_t eng_step_at(uint32_t ch, uint32_t p, uint32_t i);
+pmeta_t eng_pmeta(uint32_t ch, uint32_t p);
+uint32_t eng_pat(uint32_t ch);               /* the pattern playing (it changes on its line) */
+int32_t eng_fine(void);                      /* fine ticks since the start (riddim.h PPQ), -1 stopped */
+int32_t eng_pat_org(uint32_t ch);            /* the fine tick the channel's pattern was launched on (its step 0) */
 
 #define ENG_BLOCK 256u
 

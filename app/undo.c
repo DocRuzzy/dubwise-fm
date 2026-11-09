@@ -7,13 +7,13 @@
  * turns run together into one. Not kept: what lets go by itself (throws, freeze, push, dive, drop to wet, drum and
  * bass, the crash), the transport and song capture, the rewind; a demo, a slot or a restore loaded clears it.
  * The last song capture (REC) is still undone by HOME + REC when it is the latest thing done.
- * 1,024 changes (8 KB of the pool); a step that would not fit drops the oldest. Main loop only. Part of the unity
+ * 1,024 changes (12 KB of the pool); a step that would not fit drops the oldest. Main loop only. Part of the unity
  * build: dub.c includes it. */
 
 #define UNDO_N 1024u
 typedef struct {
-    uint16_t key;                                /* a parameter's ID, or CTL_STEP_KEY | a step */
-    int16_t was, now;
+    int32_t was, now;                            /* (a step packed: 25 bits) */
+    uint16_t key;                                /* a parameter's ID, or CTL_STEP_KEY | a step or a pattern's settings */
     uint8_t start;                               /* 1: the first change of a step of the history */
     uint8_t rsv;
 } undo_ev_t;
@@ -58,8 +58,8 @@ static void undo_watch(uint32_t key, int32_t old, int32_t nw)   /* control.c: ea
     }
     e = &uh[uh_n++];
     e->key = (uint16_t)key;
-    e->was = (int16_t)old;
-    e->now = (int16_t)nw;
+    e->was = old;
+    e->now = nw;
     e->start = undo_new || uh_n == 1u;
     if (e->start) {
         undo_seq++;
@@ -99,8 +99,7 @@ static void undo_apply(const undo_ev_t *e, int back)
 {
     int32_t v = back ? e->was : e->now;
     if (e->key & CTL_STEP_KEY) {
-        uint32_t k = e->key & ~CTL_STEP_KEY;
-        ctl_step(k / NSTEPS, k % NSTEPS, ctl_step_unpack(v));
+        ctl_step_key_set(e->key, v);
     } else {
         ctl_set(e->key, v);
     }
