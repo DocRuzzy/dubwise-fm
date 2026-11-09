@@ -22,6 +22,7 @@ Metrics (dBFS unless noted; -200 for silence):
   zc_hz     the pitch by zero crossings over the middle half (where the sound is over -60 dBFS): a kick's or a
             bass note's fundamental
   hf        the energy above ~4 kHz against all of it, dB (0: all highs; hats near it, a kick far under)
+  fundHZ    the share of the energy at HZ Hz (a Goertzel bin, Hann window), dB: 0 all of it (a check only)
   crest     peak - rms, dB: a sine 3.0; saturation flattens it
   mod       the spread between the loudest and the quietest 20 ms window, dB, after the first 100 ms (a phaser's
             notches moving through a steady tone show here; a steady tone alone, about 0)
@@ -158,6 +159,21 @@ def mod_db(xs, rate):
     return max(wins) - min(wins) if wins else 0.0
 
 
+def fund_db(xs, rate, f):              # the share of the energy at f (a Goertzel bin over the whole), in dB
+    import math
+    n = len(xs)
+    if not n:
+        return -200.0
+    w = 2.0 * math.cos(2.0 * math.pi * f / rate)
+    s1 = s2 = 0.0
+    for i, x in enumerate(xs):
+        win = 0.5 - 0.5 * math.cos(2.0 * math.pi * i / n)
+        s1, s2 = x * win + w * s1 - s2, s1
+    p = 8.0 * (s1 * s1 + s2 * s2 - w * s1 * s2) / (n * n)   # (a sine of amplitude a: |X| = a n / 4 with Hann; power a^2 / 2)
+    e = sum(x * x for x in xs) / n
+    return db(math.sqrt(p / e)) if e > 0 else -200.0
+
+
 def metrics(path):
     rate, L, R = read(path)
     n = len(L)
@@ -195,6 +211,10 @@ def main(argv):
     for c in argv[2:]:
         op = "<" if "<" in c else ">"
         k, v = c.split(op)
+        if k.startswith("fund") and k[4:].isdigit():   # fundHZ: the energy at HZ against the whole, dB (0: all of it)
+            rate, L, _R = read(argv[1])
+            m[k] = fund_db(L, rate, float(k[4:]))
+            print("  %s %.1f" % (k, m[k]))
         if k not in m:
             print(f"FAIL wavstat: no metric {k}")
             bad += 1

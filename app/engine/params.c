@@ -8,7 +8,7 @@
 
 typedef char p_ch_fits[(CHF_N <= CH_STRIDE && P_CH_BASE + NCH * CH_STRIDE <= P_BUS_BASE) ? 1 : -1];
 typedef char p_globals_fit[(P_NGLOBAL <= P_CHORD0 && P_CHORD_END <= P_DEV_LOAD) ? 1 : -1];
-typedef char p_voice_fits[(VB_N <= VOICE_STRIDE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
+typedef char p_voice_fits[(VB_N <= VM_BASE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
 
 static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_LEVEL] = {"level", 0, 127, 100},           /* 100 = unity (gain (v/100)^2: +4 dB at 127) */
@@ -29,18 +29,23 @@ static const pdesc_t KICK_F[VK_N] = {
     [VK_PTIME] = {"ptime", 0, 127, 30},             /* 10..120 ms */
     [VK_DECAY] = {"decay", 0, 127, 40},             /* 100..1000 ms */
     [VK_CLICK] = {"click", 0, 127, 40},
+    [VK_DRIVE] = {"drive", 0, 127, 0},              /* 5.3: 0 clean .. a soft clip 7x into it */
+    [VK_CTONE] = {"ctone", -64, 63, 0},             /* 5.3: the beater's ratio, 1:1 at 0, 0.25 .. 3.9 */
 };
 static const pdesc_t RIM_F[VR_N] = {
     [VR_TUNE] = {"tune", 0, 127, 37},               /* 300..1200 Hz */
     [VR_DECAY] = {"decay", 0, 127, 25},             /* 20..200 ms */
     [VR_NOISE] = {"noise", 0, 127, 50},
     [VR_INDEX] = {"index", 0, 127, 70},
+    [VR_DROP] = {"drop", 0, 127, 0},                /* 5.3: a pitch drop, 0 .. an octave down in ~15 ms */
+    [VR_HPF] = {"hpf", -64, 63, 0},                 /* 5.3: the high-pass, 300 Hz at 0, 38 Hz .. 2.3 kHz */
 };
 static const pdesc_t HAT_F[VH_N] = {
     [VH_TONE] = {"tone", 0, 127, 55},               /* 300..800 Hz, the squares' base */
     [VH_CLOSED] = {"closed", 0, 127, 30},           /* 20..150 ms */
     [VH_OPEN] = {"open", 0, 127, 50},               /* 150..800 ms */
     [VH_NOISE] = {"noise", 0, 127, 50},
+    [VH_HPF] = {"hpf", -64, 63, 0},                 /* 5.3: the high-passes, 7 kHz at 0, 3.5 .. 13.8 kHz */
 };
 static const pdesc_t BASS_F[VB_N] = {
     [VB_INDEX] = {"index", 0, 127, 50},             /* 0..2.5 */
@@ -50,17 +55,22 @@ static const pdesc_t BASS_F[VB_N] = {
     [VB_RATIO] = {"ratio", 0, 1, 0},                /* 1:1, 2:1 */
     [VB_SUB] = {"sub", 0, 127, 0},
     [VB_SUSTAIN] = {"sustain", 0, 127, 25},
+    [VB_FEEDBACK] = {"feedback", 0, 127, 0},        /* 5.3: the modulator fed back (a growl), capped: the sine stays */
+    [VB_DRIVE] = {"drive", 0, 127, 0},              /* 5.3: a soft clip before the filter */
+    [VB_GLIDE] = {"glide", 0, 127, 0},              /* 5.3: 0 .. 300 ms from the last note to the next */
 };
 static const pdesc_t SKANK_F[VS_N] = {
     [VS_INDEX] = {"index", 0, 127, 70},             /* the attack's brightness */
     [VS_DECAY] = {"decay", 0, 127, 40},             /* 60 .. 200 ms */
     [VS_TONE] = {"tone", 0, 127, 60},               /* the band-pass's centre */
     [VS_RATIO] = {"ratio", 0, 1, 1},                /* 1:1, 1:3 (nasal) */
+    [VS_ATTACK] = {"attack", 0, 127, 0},            /* 5.3: 0 a chop .. 30 ms in */
 };
 static const pdesc_t ORGAN_F[VO_N] = {
     [VO_DRAWBAR] = {"drawbar", 0, 127, 60},         /* how much of the upper partials */
     [VO_DECAY] = {"decay", 0, 127, 30},             /* the gate: 40 .. 300 ms */
     [VO_CLICK] = {"click", 0, 127, 50},             /* the key click */
+    [VO_DETUNE] = {"detune", 0, 127, 0},            /* 5.3: the three voices apart, 0 .. +-7 cents (a chorus) */
 };
 static const pdesc_t VOX_F[VX_N] = {
     [VX_PITCH] = {"pitch", 0, 127, 70},             /* the sirens: 200 Hz .. 1.2 kHz */
@@ -75,6 +85,18 @@ static const pdesc_t LEAD_F[VL_N] = {
     [VL_ATTACK] = {"attack", 0, 127, 30},           /* 10 .. 150 ms */
     [VL_RELEASE] = {"release", 0, 127, 40},         /* 30 .. 600 ms */
     [VL_VIBRATO] = {"vibrato", 0, 127, 40},         /* 0 .. 40 cents at 4.5 Hz, after 300 ms */
+    [VL_DETUNE] = {"detune", -64, 63, 0},           /* 5.3: the melodica's reeds apart, 6 cents at 0, 1.5 .. 23 */
+};
+/* the MAIN macros (5.3; sound.c turns them into their raw targets), named "m." apart from the raw fields */
+static const pdesc_t MACRO_F[NCH][VM_N] = {
+    {{"m.pitch", -64, 63, 0}, {"m.punch", -64, 63, 0}, {"m.decay", -64, 63, 0}, {"m.drive", -64, 63, 0}},
+    {{"m.tune", -64, 63, 0}, {"m.snap", -64, 63, 0}, {"m.decay", -64, 63, 0}, {"m.body", -64, 63, 0}},
+    {{"m.tone", -64, 63, 0}, {"m.closed", -64, 63, 0}, {"m.open", -64, 63, 0}, {"m.hpf", -64, 63, 0}},
+    {{"m.tone", -64, 63, 0}, {"m.pluck", -64, 63, 0}, {"m.length", -64, 63, 0}, {"m.weight", -64, 63, 0}},
+    {{"m.tone", -64, 63, 0}, {"m.length", -64, 63, 0}, {"m.colour", -64, 63, 0}, {"m.attack", -64, 63, 0}},
+    {{"m.drawbar", -64, 63, 0}, {"m.length", -64, 63, 0}, {"m.click", -64, 63, 0}, {"m.detune", -64, 63, 0}},
+    {{"m.bright", -64, 63, 0}, {"m.attack", -64, 63, 0}, {"m.release", -64, 63, 0}, {"m.vibrato", -64, 63, 0}},
+    {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}},   /* (the vox: none) */
 };
 static const pdesc_t *const VOICE_T[NCH] = {KICK_F, RIM_F, HAT_F, BASS_F, SKANK_F, ORGAN_F, LEAD_F, VOX_F};
 static const uint8_t VOICE_N[NCH] = {VK_N, VR_N, VH_N, VB_N, VS_N, VO_N, VL_N, VX_N};
@@ -282,6 +304,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &CH_FIELDS[(id - P_CH_BASE) % CH_STRIDE];
     if (id >= P_VOICE_BASE && id < P_VOICE_BASE + NCH * VOICE_STRIDE) {
         uint32_t ch = (id - P_VOICE_BASE) / VOICE_STRIDE, f = (id - P_VOICE_BASE) % VOICE_STRIDE;
+        if (f >= VM_BASE)
+            return MACRO_F[ch][f - VM_BASE].name ? &MACRO_F[ch][f - VM_BASE] : 0;
         return f < VOICE_N[ch] ? &VOICE_T[ch][f] : 0;
     }
     return 0;

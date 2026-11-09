@@ -1,0 +1,131 @@
+# The MAIN macros (roadmap 5.3, spec 4.9): the SOUND view's first bank, four macros a channel. A macro's turn rewrites
+# its raw targets along fixed curves (0: every target at its default); a raw turn afterwards leaves the macro where it
+# was and MAIN shows a dot by it; the macro's turn is one step of undo with its targets. The ranges hold at the ends:
+# no clipping, no DC, and the bass's fundamental stays on top at the index cap.
+wait 600
+listen
+# MAIN on the kick: PUNCH (K2) moves SWEEP, PTIME and CLICK together
+tap EDIT
+wait 30
+expect sound_bank 1
+said KICK MAIN
+turn K2 10 60
+wait 900
+expect ui.v1.m.punch 10
+expect ui.v1.sweep 49
+expect ui.v1.ptime 27
+expect ui.v1.click 49
+expect moved1_2 0
+# raw bank 1 (TUNE SWEEP PTIME DECAY): SWEEP by hand; the macro stays, its dot shows
+tap EDIT
+wait 30
+expect sound_bank 2
+turn K2 2 60
+wait 900
+expect ui.v1.sweep 51
+expect ui.v1.m.punch 10
+expect moved1_2 1
+# undo: the raw turn, then the macro's whole turn in one step
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v1.sweep 49
+expect moved1_2 0
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v1.m.punch 0
+expect ui.v1.sweep 40
+expect ui.v1.ptime 30
+expect ui.v1.click 40
+expect eng.v1.sweep 40
+# the ends: every kick macro at +63, then -64; the curves stay inside the raw ranges
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect sound_bank 1
+turn K1 80 10
+turn K2 80 10
+turn K3 80 10
+turn K4 80 10
+wait 900
+expect ui.v1.m.pitch 63
+expect ui.v1.tune 85
+expect ui.v1.decay 110
+expect ui.v1.drive 110
+expect ui.v1.ctone 30
+wav kick-max.wav
+tap PLAY
+wait 3200
+tap PLAY
+wait 1500
+wavstop
+#wav kick-max.wav peak<-1 dc<-40 click<-10
+turn K1 -160 10
+turn K2 -160 10
+turn K3 -160 10
+turn K4 -160 10
+wait 900
+expect ui.v1.m.pitch -64
+expect ui.v1.tune 10
+expect ui.v1.ptime 70
+expect ui.v1.decay 5
+expect ui.v1.ctone -30
+wav kick-min.wav
+tap PLAY
+wait 3200
+tap PLAY
+wait 1500
+wavstop
+#wav kick-min.wav peak<-1 dc<-40 click<-10
+# the bass at the index cap (INDEX and FEEDBACK at 127, DRIVE and IDECAY up): the A1 fundamental still on top
+param v4.index 127
+param v4.feedback 127
+param v4.drive 127
+param v4.idecay 127
+param v4.cutoff 127
+param v4.sustain 127
+wait 30
+wav bass-cap.wav
+midi 90 21 7F
+wait 1000
+midi 80 21 00
+wait 100
+wavstop
+#wav bass-cap.wav fund55>-3 peak<-1 dc<-40
+# MIDI learn on a macro: the controller's CC moves the macro and its targets
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect sound_bank 0
+tap GLO
+wait 30
+turn K1 21
+wait 30
+said MIDI LEARN
+turn K2 1
+wait 30
+tap HOME
+wait 30
+tap EDIT
+wait 30
+expect sound_bank 1
+turn K2 1
+wait 30
+said NOW THE CONTROLLER
+midi B0 15 7F
+wait 30
+said LEARNED CC 21 TO PUNCH
+midi B0 15 7F
+wait 30
+expect ui.v1.m.punch 63
+expect ui.v1.sweep 100
+expect ui.v1.ptime 10
+expect ui.v1.click 100
+expect moved1_2 0
