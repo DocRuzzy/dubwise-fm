@@ -16,9 +16,17 @@
  *   SAVE + white 1-4   copy the pattern into A..D
  *   HOME + OCT+ / OCT- double the pattern (its steps again after it) / clear it
  * The pattern edited is the one launched (at once, while the one playing plays on to the line).
- *   REC (a tonal channel: the bass)   the keyboard (P0.8): all 27 keys play notes in KEY's octave; under the key
- *                      lock, keys outside the set are silent. Playing, a note is recorded at the nearest sixteenth;
- *                      stopped, at a cursor that moves on a step each note. REC again: the steps again
+ *   REC                the keyboard (P0.8): the bass and the lead, all 27 keys play notes in KEY's octave (under the
+ *                      key lock, keys outside the set are silent); the drums, pads: white 1 kick, 2 rim, 3 closed hat,
+ *                      4 open hat (each into its own channel); the skank and the organ, white 1-3 the lane's chord
+ *                      low, middle, high. Stopped: each note at a cursor that moves on a step; REC again: the steps
+ *                      again. Playing, live recording (4.8, the RC-505's way): into an empty pattern it waits for the
+ *                      next bar line (the click counts in), records one pass of the pattern and loops; into one with
+ *                      steps, it records at once, adding (REC MODE: OVERDUB) or clearing what the playhead passes
+ *                      (REPLACE), until REC. A note keeps where it was played (REC QUANTISE: FEEL; HALF: halfway to
+ *                      the grid; GRID: on it), less REC OFFSET's ms (the sound's way out); how hard: ghost, normal,
+ *                      accent; the bass's and the lead's how long. A pass is one step of the undo history.
+ *                      Started while stopped (the keyboard on), PLAY counts in a bar first. SEQ: the steps again
  * The grid of all eight channels is in the strips' place; the channel's own page, bigger, in the centre. */
 
 static struct {
@@ -32,9 +40,20 @@ static struct {
     int32_t cur;                         /* its cursor while stopped */
     int8_t held[NKEYS];                  /* the note each held key plays, -1 none */
     uint32_t recorded;                   /* notes recorded (tests) */
-} st = {CH_KICK, 0, -1, TPL_ONE_DROP, -2, 0, 0, 0, {0}, 0};
+    /* live recording (4.8) */
+    uint8_t armed, rec, first, joined;   /* waiting for the line; recording; a first pass (it stops); undo joined */
+    uint8_t was_playing;
+    int32_t rec_from, rec_end;           /* the pass's fine ticks: from its line; the first pass's end */
+    int8_t held_ch[NKEYS];               /* the channel each held key plays */
+    int8_t held_i[NKEYS];                /* the step it went into (-1 none), and when it was played */
+    int32_t held_t[NKEYS];
+    uint64_t done[NCH];                  /* REPLACE: the steps played this pass (kept) */
+    int32_t swept[NCH];                  /* REPLACE: the last step position cleared */
+} st = {CH_KICK, 0, -1, TPL_ONE_DROP, -2, 0, 0, 0, {0}, 0, 0, 0, 0, 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}};
 
 static int tonal(int32_t ch) { return ch == CH_BASS || ch == CH_LEAD; }   /* (the chord channels take voicings) */
+static int drum(int32_t ch) { return ch == CH_KICK || ch == CH_SNARE || ch == CH_HATS; }
+static int chordch(int32_t ch) { return ch == CH_SKANK || ch == CH_ORGAN; }
 static int32_t kb_note(uint32_t k)       /* the key's note: KEY's octave (set for the bass), the lead two up */
 {
     return 53 + (int32_t)k + 12 * (ctl_get(P_KB_OCT) - 3) + (st.ch == CH_LEAD ? 24 : 0);
@@ -238,21 +257,152 @@ static void steps_key(uint32_t w)        /* white key w (0..15) pressed: its ste
     app_say("STEP", t);
 }
 
-static void steps_rec(void)             /* REC: the keyboard on or off */
+static int32_t rec_offset_fine(void)     /* REC OFFSET's ms in fine ticks: ms x 240 x BPM / 60,000 */
+{
+    return ctl_get(P_REC_OFFSET) * ctl_get(P_TEMPO) / 2500;
+}
+
+static int32_t rec_line(void)            /* the next bar line, fine ticks */
+{
+    int32_t f = eng_fine(), bar = (int32_t)PPQ * 4;
+    return (f / bar + 1) * bar;
+}
+
+static void rec_say(const char *a, const char *b) { app_say(a, b); }
+
+static void rec_start(int armed)         /* a pass: now, or from the next bar line */
+{
+    uint32_t ch;
+    pmeta_t m = ctl_meta_get((uint32_t)st.ch, eng_pat((uint32_t)st.ch));
+    st.first = (uint8_t)pat_empty((uint32_t)st.ch, eng_pat((uint32_t)st.ch));
+    st.joined = 0;
+    for (ch = 0; ch < NCH; ch++) {
+        st.done[ch] = 0;
+        st.swept[ch] = -0x7FFFFFFF;
+    }
+    if (armed) {
+        st.armed = 1;
+        st.rec = 0;
+        st.rec_from = rec_line();
+    } else {
+        st.armed = 0;
+        st.rec = 1;
+        st.rec_from = eng_fine();
+    }
+    st.rec_end = st.rec_from + (int32_t)m.len * grid_fine(m.grid);
+    if (armed)
+        rec_say("REC", st.first ? "ON THE ONE: ONE PASS" : "ON THE ONE");
+    else
+        rec_say("REC", ctl_get(P_REC_MODE) == REC_REPLACE ? "REPLACE" : "OVERDUB");
+}
+
+static void kb_off(void)
 {
     uint32_t k;
-    if (!tonal(st.ch)) {
-        app_say("KEYBOARD", "NOT ON DRUMS");
-        return;
-    }
-    st.kb = (uint8_t)!st.kb;
-    st.cur = st.last >= 0 ? st.last : 0;
     for (k = 0; k < NKEYS; k++)
-        if (st.held[k] >= 0 && st.kb == 0u)
-            ctl_note((uint32_t)st.ch, st.held[k], 0);
+        if (st.held[k] >= 0)
+            ctl_note((uint32_t)st.held_ch[k], st.held[k], 0);
     for (k = 0; k < NKEYS; k++)
         st.held[k] = -1;
-    app_say("KEYBOARD", st.kb ? "ON" : "OFF");
+    st.kb = 0;
+    st.rec = st.armed = 0;
+}
+
+static void steps_rec(void)             /* REC: the keyboard and live recording */
+{
+    if (!eng_playing()) {                /* stopped: the keyboard at a cursor (and PLAY counts in a pass) */
+        if (st.kb) {
+            kb_off();
+            app_say("KEYBOARD", "OFF");
+            return;
+        }
+        st.kb = 1;
+        st.cur = st.last >= 0 ? st.last : 0;
+        st.was_playing = 0;
+        app_say("KEYBOARD", "ON: PLAY COUNTS IN");
+        return;
+    }
+    if (st.rec || st.armed) {            /* a pass ended by hand: the keyboard plays on */
+        st.rec = st.armed = 0;
+        app_say("REC", "OFF: REC AGAIN ADDS");
+        return;
+    }
+    st.kb = 1;
+    st.was_playing = 1;
+    rec_start(pat_empty((uint32_t)st.ch, eng_pat((uint32_t)st.ch)));
+}
+
+static int32_t pad_ch(uint32_t k, int32_t *note)   /* a key's channel and note, -1 silent */
+{
+    uint32_t w;
+    for (w = 0; w < 16u && WK[w] != k; w++)
+        ;
+    if (drum(st.ch)) {                   /* the pads: white 1 kick, 2 rim, 3 closed hat, 4 open hat */
+        static const int8_t CH[4] = {CH_KICK, CH_SNARE, CH_HATS, CH_HATS}, NT[4] = {36, 37, 42, 46};
+        if (w >= 4u)
+            return -1;
+        *note = NT[w];
+        return CH[w];
+    }
+    if (chordch(st.ch)) {                /* the lane's chord: low, middle, high */
+        if (w >= 3u)
+            return -1;
+        *note = (int32_t)w;
+        return st.ch;
+    }
+    if (!tonal(st.ch))
+        return -1;
+    *note = kb_note(k);
+    return note_ok(*note) ? st.ch : -1;  /* outside the lock's set: silent, never moved to a neighbour */
+}
+
+static uint8_t vel_lvl(uint32_t v)       /* how hard: ghost, normal, accent (no reading: normal) */
+{
+    return v == 0u ? LVL_NORMAL : v < 45u ? LVL_GHOST : v < 105u ? LVL_NORMAL : LVL_ACCENT;
+}
+
+static int32_t rec_note(int32_t ch, int32_t note, uint32_t vel, int32_t *t)   /* a note played: its step (-1 none) */
+{
+    uint32_t p = eng_pat((uint32_t)ch);
+    pmeta_t m = ctl_meta_get((uint32_t)ch, p);
+    int32_t sl = grid_fine(m.grid), len = m.len ? m.len : 16, rel, n, off, i, q = ctl_get(P_REC_QUANT);
+    step_t s;
+    *t = eng_fine() - rec_offset_fine();
+    rel = *t - eng_pat_org((uint32_t)ch);
+    n = rel >= -sl / 2 ? (rel + sl / 2) / sl : -((-rel + sl / 2 + sl - 1) / sl);   /* the nearest line */
+    off = rel - n * sl;
+    if (off >= sl / 2)
+        off = sl / 2 - 1;                /* (within half a step: its own) */
+    if (q == REC_GRID)
+        off = 0;
+    else if (q == REC_HALF)
+        off /= 2;
+    i = ((n % len) + len) % len;
+    s = ctl_get_step_at((uint32_t)ch, p, (uint32_t)i);
+    s.lvl = vel_lvl(vel);
+    s.note = (int8_t)note;
+    s.off = (int8_t)off;
+    s.gate = 0;
+    if (st.joined)
+        undo_join();                     /* (a pass: one step to undo) */
+    st.joined = 1;
+    ctl_step_at((uint32_t)ch, p, (uint32_t)i, s);
+    st.done[ch] |= (uint64_t)1 << i;
+    st.recorded++;
+    set_dirty = 1;
+    return i;
+}
+
+static void rec_gate(int32_t ch, int32_t i, int32_t t0)   /* a held note let go: how long it was held */
+{
+    uint32_t p = eng_pat((uint32_t)ch);
+    int32_t d = eng_fine() - rec_offset_fine() - t0;
+    step_t s = ctl_get_step_at((uint32_t)ch, p, (uint32_t)i);
+    if (!tonal(ch) || i < 0)
+        return;
+    s.gate = (uint8_t)clamp((d + 2) / 4, 1, 255);
+    undo_join();
+    ctl_step_at((uint32_t)ch, p, (uint32_t)i, s);
 }
 
 static void kb_keys(uint32_t keys, uint32_t prev)   /* the keyboard: play, and record */
@@ -262,34 +412,114 @@ static void kb_keys(uint32_t keys, uint32_t prev)   /* the keyboard: play, and r
     for (k = 0; k < NKEYS; k++) {
         uint32_t bit = 1u << k;
         if ((keys & bit) && !(prev & bit)) {
-            int32_t note = kb_note(k), len = steps_len(), idx;
-            step_t s;
-            if (!note_ok(note))
-                continue;                /* outside the lock's set: silent, never moved to a neighbour */
+            int32_t note = 0, ch = pad_ch(k, &note), idx, tt = 0;
+            uint32_t vel = touch_vel(k);
+            if (ch < 0)
+                continue;
             st.held[k] = (int8_t)note;
-            ctl_note((uint32_t)st.ch, note, touch_vel(k) ? touch_vel(k) : 100u);
-            if (eng_playing()) {         /* at the nearest sixteenth */
-                idx = (eng_tick() + (eng_frac16() >= 128u ? 1 : 0)) % len;
-            } else {                     /* at the cursor, which moves on */
+            st.held_ch[k] = (int8_t)ch;
+            st.held_i[k] = -1;
+            ctl_note((uint32_t)ch, note, vel ? vel : 100u);
+            if (eng_playing()) {
+                if (st.armed && eng_fine() - rec_offset_fine()
+                                    >= st.rec_from - grid_fine(ctl_meta_now((uint32_t)st.ch).grid) / 2) {
+                    st.armed = 0;                /* (played early onto the line: the pass has begun) */
+                    st.rec = 1;
+                }
+                if (!st.rec)
+                    continue;                    /* (playing along, or counting in) */
+                idx = rec_note(ch, note, vel, &tt);
+                st.held_i[k] = (int8_t)idx;
+                st.held_t[k] = tt;
+                continue;
+            }
+            {                                    /* stopped: at the cursor, which moves on */
+                step_t s;
+                int32_t len = pat_len(ch);
                 idx = st.cur % len;
                 st.cur = (idx + 1) % len;
+                s = ctl_get_step((uint32_t)ch, (uint32_t)idx);
+                s.lvl = vel_lvl(vel);
+                s.note = (int8_t)note;
+                s.off = 0;
+                s.gate = 0;
+                ctl_step((uint32_t)ch, (uint32_t)idx, s);
+                st.last = idx;
+                st.recorded++;
+                set_dirty = 1;
+                note_text(ch, note, t);
+                int_text(idx + 1, n);
+                text_cat(t, " STEP ");
+                text_cat(t, n);
+                app_say("NOTE", t);
             }
-            s.lvl = LVL_NORMAL;
-            s.note = (int8_t)note;
-            ctl_step((uint32_t)st.ch, (uint32_t)idx, s);
-            st.last = idx;
-            st.recorded++;
-            set_dirty = 1;
-            note_text(st.ch, note, t);
-            int_text(idx + 1, n);
-            text_cat(t, " STEP ");
-            text_cat(t, n);
-            app_say("NOTE", t);
         } else if (!(keys & bit) && (prev & bit) && st.held[k] >= 0) {
-            ctl_note((uint32_t)st.ch, st.held[k], 0);
+            ctl_note((uint32_t)st.held_ch[k], st.held[k], 0);
+            if (st.held_i[k] >= 0)
+                rec_gate(st.held_ch[k], st.held_i[k], st.held_t[k]);
             st.held[k] = -1;
         }
     }
+}
+
+static void rec_tick(void)               /* every frame: the pass's line, its end, REPLACE's sweep, the click */
+{
+    int32_t f = eng_fine();
+    uint32_t want = 0;
+    if (!eng_playing()) {
+        if (st.rec || st.armed)
+            st.rec = st.armed = 0;
+        st.was_playing = 0;
+    } else {
+        if (st.kb && !st.was_playing) {  /* PLAY with the keyboard on: a bar's count-in, then the pass */
+            st.was_playing = 1;
+            rec_start(1);
+        }
+        if (st.armed && f >= st.rec_from) {
+            st.armed = 0;
+            st.rec = 1;
+            app_say("RECORDING", "");
+        }
+        if (st.rec && st.first && f >= st.rec_end) {
+            st.rec = 0;
+            app_say("LOOP RECORDED", "REC AGAIN ADDS");
+        }
+        if (st.rec && ctl_get(P_REC_MODE) == REC_REPLACE) {   /* what the playhead passes, cleared (not this pass's) */
+            int32_t chs[4], nc = 0, c;
+            if (drum(st.ch)) {
+                chs[nc++] = CH_KICK;
+                chs[nc++] = CH_SNARE;
+                chs[nc++] = CH_HATS;
+            } else
+                chs[nc++] = st.ch;
+            for (c = 0; c < nc; c++) {
+                int32_t ch = chs[c];
+                uint32_t p = eng_pat((uint32_t)ch);
+                pmeta_t m = ctl_meta_get((uint32_t)ch, p);
+                int32_t sl = grid_fine(m.grid), len = m.len ? m.len : 16, pos = (f - eng_pat_org((uint32_t)ch)) / sl;
+                if (st.swept[ch] == -0x7FFFFFFF)
+                    st.swept[ch] = pos - 1;
+                while (st.swept[ch] < pos) {
+                    int32_t i = ((++st.swept[ch] % len) + len) % len;
+                    step_t s = ctl_get_step_at((uint32_t)ch, p, (uint32_t)i);
+                    if (s.lvl && !(st.done[ch] >> i & 1u)) {
+                        s.lvl = LVL_OFF;
+                        if (st.joined)
+                            undo_join();
+                        else
+                            undo_mark(0xFFFF0000u, plat_ms());   /* (the pass's first change: a step of its own) */
+                        st.joined = 1;
+                        ctl_step_at((uint32_t)ch, p, (uint32_t)i, s);
+                        set_dirty = 1;
+                    }
+                }
+            }
+        }
+        want = (st.armed && ctl_get(P_REC_CLICK) != CLICK_OFF)
+               || (st.rec && ctl_get(P_REC_CLICK) == CLICK_RECORDING);
+    }
+    if ((uint32_t)ctl_get(P_CLICK) != want)
+        ctl_set(P_CLICK, (int32_t)want);
 }
 
 static void steps_keys(uint32_t keys, uint32_t prev)
@@ -440,6 +670,11 @@ static void steps_knob(uint32_t i, int32_t e)
 static uint32_t steps_lights(uint32_t *dim)   /* the keys: steps on bright, off dim; the playhead blinks off */
 {
     uint32_t k, bright = 0;
+    if (st.kb && (drum(st.ch) || chordch(st.ch))) {   /* the pads: lit, and (recording) the first one bright */
+        for (k = 0; k < (drum(st.ch) ? 4u : 3u); k++)
+            *dim |= 1u << WK[k];
+        return dub.keys | (st.rec && blink_on() ? 1u << WK[0] : 0u);
+    }
     if (st.kb)                           /* the keyboard: the lock's set, and what is held */
         return kb_lights(dim) | dub.keys;
     if (dub.btn >> B_HOME & 1u) {        /* HOME held: the patterns (1-4 this channel's: playing bright, the others
@@ -477,7 +712,8 @@ static uint32_t steps_lights(uint32_t *dim)   /* the keys: steps on bright, off 
 /* --------------------------------------------------------------- drawing --- */
 static uint32_t steps_sig(void)          /* changes whenever the grid would */
 {
-    uint32_t h = (uint32_t)st.ch * 7u + st.page * 131u + (uint32_t)(steps_held() + 2) * 7919u
+    uint32_t h = (uint32_t)st.ch * 7u + st.page * 131u + (uint32_t)(steps_held() + 2) * 7919u + st.rec * 13u
+                 + st.armed * 17u + st.kb * 19u
                  + (dub.btn >> B_HOME & 1u) * 104729u, ch, i;
     for (ch = 0; ch < NCH; ch++) {
         h = h * 31u + (uint32_t)pmeta_pack(ctl_meta_now(ch)) + pat_now((int32_t)ch) * 977u + eng_pat(ch) * 3571u
@@ -523,7 +759,7 @@ static void steps_draw_centre(void)      /* the channel's page, bigger, with its
     pat_name(st.ch, pat_now(st.ch), t);
     text_cat(t, "  ");
     text_cat(t, GRID_NAME[ctl_meta_now((uint32_t)st.ch).grid]);
-    text_cat(t, st.kb ? "  KEYBOARD " : "  STEPS ");
+    text_cat(t, st.rec ? "  REC " : st.armed ? "  ARMED " : st.kb ? "  KEYS " : "  STEPS ");
     int_text((int32_t)st.page * 16 + 1, n);
     text_cat(t, n);
     text_cat(t, "-");
@@ -626,6 +862,10 @@ static int steps_expect(const char *what, int *got)
         *got = ctl_get_step((uint32_t)(what[4] - '1'), (uint32_t)(atoi(what + 6) - 1)).note;
     else if (!strcmp(what, "kb"))
         *got = st.kb;
+    else if (!strcmp(what, "fine"))      /* the engine's fine ticks since PLAY, -1 stopped */
+        *got = eng_fine();
+    else if (!strcmp(what, "rec"))       /* 0 off, 1 armed (waiting for the line), 2 recording */
+        *got = st.rec ? 2 : st.armed ? 1 : 0;
     else if (!strncmp(what, "off", 3) && what[3] >= '1' && what[3] <= '8' && what[4] == '_')   /* offC_N: its offset */
         *got = ctl_get_step((uint32_t)(what[3] - '1'), (uint32_t)(atoi(what + 5) - 1)).off;
     else if (!strncmp(what, "gate", 4) && what[4] >= '1' && what[4] <= '8' && what[5] == '_')

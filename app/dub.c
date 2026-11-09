@@ -263,11 +263,11 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
 
 enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX, PAGE_ARRANGE, PAGE_PERF };
 #include "keys.c"                        /* the KEY & CHORDS page (GPL-3.0-only) */
+static uint32_t blink_on(void);
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 #include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
 static void fx_next(int same_page);      /* (fx.c, included further down: it needs the echo's helpers) */
 static void arr_mark(void);              /* (arrange.c: its page redrawn) */
-static uint32_t blink_on(void);
 
 /* ------------------------------------------------------------------ input --- */
 static void say_mute(uint32_t ch, int muted)
@@ -390,6 +390,9 @@ static void button_press(uint32_t k)
     else if (k == B_SEQ && (dub.btn >> B_HOME & 1u)) {   /* HOME + SEQ, tapped: tap tempo */
         dub.home_used = 1;
         tap_tempo(plat_ms());
+    } else if (k == B_SEQ && dub.page == PAGE_STEPS && st.kb) {   /* SEQ on the keyboard: the steps again */
+        kb_off();
+        app_say("STEPS", CH_NAME[st.ch]);
     } else if (k == B_SEQ) {
         dub.page = PAGE_STEPS;
         app_say("STEPS", CH_NAME[st.ch]);
@@ -693,6 +696,7 @@ static void dub_input_hands(void)
     int32_t e;
     touch_poll();                        /* the sensed keys' presses and velocities */
     keys = touch_keys();
+    rec_tick();                          /* live recording (steps.c): the pass's line and end, the click */
     if (saver_input(&keys, &btn, now))   /* the screen saver up: a touch only wakes it */
         return;
     help_input(&keys, &btn, now);        /* a button held alone: its help card (help.c) */

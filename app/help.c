@@ -7,7 +7,7 @@
  * button is let go, so it can be read, until the next press or turn, or 12 s. The press that closes it is swallowed
  * once the button has been let go; while the button is still held it goes through (a combo held a while to think,
  * HOME + SELECT or PLAY + a white key, still works). Letting go of the button that showed a card does nothing more
- * (HOME doesn't flip the page, PLAY doesn't start, SAVE doesn't save). Cost: UI only, flash ~3 KB of text, RAM ~40 B.
+ * (HOME doesn't flip the page, PLAY doesn't start, SAVE doesn't save). Cost: UI only, flash ~4 KB of text, RAM ~40 B.
  *
  * TAP TEMPO: HOME held, SEQ tapped. From the second tap, the tempo is the average of the last (up to) four gaps;
  * a gap over 2 s starts again. The taps are one step of the undo history. With MIDI clock in, the clock has the
@@ -32,7 +32,9 @@ static const help_card_t HELP[] = {
      {"TAP: START / STOP (ON LET GO).", "HELD + A WHITE KEY: THAT CHANGE", "NOW, NOT ON THE LINE.",
       "HOME + PLAY: THE REWIND.", "THE SPIN-BACK, THEN BAR 1."}},
     {B_REC, PAGE_STEPS, "REC  (STEPS)",
-     {"ON BASS, SKANK OR LEAD:", "PLAY THE KEYBOARD INTO THE", "STEPS, ONE A NOTE.", "REC AGAIN: DONE."}},
+     {"PLAYING: RECORD AS YOU PLAY.", "EMPTY PATTERN: FROM THE ONE,", "ONE PASS, THEN IT LOOPS.",
+      "ELSE AT ONCE, UNTIL REC.", "DRUMS: WHITE 1-4 ARE PADS.", "STOPPED: A STEP A NOTE;",
+      "THEN PLAY COUNTS IN A BAR.", "SEQ: BACK TO THE STEPS.", "SETUP: REC QUANTISE, MODE."}},
     {B_REC, HELP_NONE, "REC",
      {"SONG CAPTURE ON / OFF:", "PLAY, AND EVERY BAR AND", "MOVE IS KEPT AS THE SONG.", "HOME + REC: UNDO.",
       "HOME + GLO: REDO.", "SAVE + REC: CLEAR THE MOVES."}},
@@ -45,8 +47,9 @@ static const help_card_t HELP[] = {
      {"TAP: SAVE THE PROJECT.", "LIT: CHANGES NOT SAVED YET.", "AUTOSAVE (SETUP) SAVES BY", "ITSELF WHEN STOPPED.",
       "SAVE + REC: CLEAR THE MOVES."}},
     {B_SEQ, HELP_NONE, "SEQ",
-     {"STEPS: THE PATTERNS.", "BLACK 1-8: THE CHANNEL.", "WHITE 1-16: STEPS ON / OFF.",
-      "K1 LENGTH, K2 NOTE, K4 RIDDIM.", "HOME + SEQ, TAPPED: TAP TEMPO."}},
+     {"STEPS: FOUR PATTERNS A CHANNEL.", "BLACK 1-8: THE CHANNEL.", "WHITE 1-16: STEPS ON / OFF.",
+      "HOME + WHITE 1-4: PLAY A-D.", "SAVE + WHITE 1-4: COPY TO A-D.", "K1 LENGTH (HOME: GRID).",
+      "K2 NOTE, K3 SWING, K4 RIDDIM.", "A STEP HELD: K3 NUDGE, K4 GATE.", "HOME + SEQ, TAPPED: TAP TEMPO."}},
     {B_ARP, HELP_NONE, "ARP",
      {"KEY & CHORDS: KEY, SCALE,", "LOCK, OCTAVE.", "ARP AGAIN: THE CHORD LANE.", "HOME + ARP: LOCK ON / OFF."}},
     {B_FX, HELP_NONE, "FX",
@@ -58,8 +61,10 @@ static const help_card_t HELP[] = {
     {B_GLO, HELP_NONE, "GLO",
      {"SETUP: RUNWAY, SAVER, CLOCK,", "SLOTS, AUTOSAVE, DEMO ...", "K1 / SELECT: THE ROW.", "K2 / PRESET: ITS VALUE.",
       "HOME + GLO: REDO."}},
-    {B_OCTDN, PAGE_STEPS, "OCT- / OCT+  (STEPS)", {"THE PAGE OF 16 STEPS."}},
-    {B_OCTUP, PAGE_STEPS, "OCT- / OCT+  (STEPS)", {"THE PAGE OF 16 STEPS."}},
+    {B_OCTDN, PAGE_STEPS, "OCT- / OCT+  (STEPS)", {"THE PAGE OF 16 STEPS.", "HOME + OCT+: DOUBLE IT.", "HOME + OCT-: CLEAR IT."}},
+    {B_OCTUP, PAGE_STEPS, "OCT- / OCT+  (STEPS)", {"THE PAGE OF 16 STEPS.", "HOME + OCT+: DOUBLE IT.", "HOME + OCT-: CLEAR IT."}},
+    {B_SAVE, PAGE_STEPS, "SAVE  (STEPS)",
+     {"TAP: SAVE THE PROJECT.", "SAVE + WHITE 1-4: COPY THE", "PATTERN INTO A-D."}},
     {B_OCTDN, HELP_NONE, "OCT- / OCT+",
      {"QUANTISE: WHERE A CHANGE LANDS.", "BEAT, 1-32 BARS, CYCLE.", "THE RUNWAY COUNTS DOWN TO IT."}},
     {B_OCTUP, HELP_NONE, "OCT- / OCT+",

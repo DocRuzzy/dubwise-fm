@@ -603,6 +603,11 @@ static void drain(void)                          /* every queued command, at the
                 fxv_on(which, (uint32_t)vel);
             else
                 fxv_off(which);
+        } else if (c.op == CMD_NOTE && (c.id == CH_SKANK || c.id == CH_ORGAN)) {   /* a pad: the lane's chord now */
+            int32_t vel = (c.v >> 8) & 0x7F, lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
+            if (vel)
+                chordv_trig(c.id, ev[P_CHORD0 + (int32_t)((t_playing ? t_beat / 4u : 0u) % (uint32_t)lane)],
+                            c.v & 0x7F, (uint32_t)vel);
         } else if (c.op == CMD_NOTE && c.id < NCH) {
             int32_t note = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
             if (vel)
