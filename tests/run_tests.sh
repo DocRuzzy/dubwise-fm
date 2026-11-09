@@ -19,3 +19,9 @@ echo "  ok slot transfer"
 echo "== tests/spring_alias_test.c"
 cc -O2 -w -DPLAT_HOST -Iapp/engine -Ibase/include -Iapp tests/spring_alias_test.c -o $OUT/spring_alias_test -lm
 $OUT/spring_alias_test || { echo "FAIL spring aliasing"; exit 1; }
+echo "== base/tests/flash_ok_test.c (both FM-1 flash chips: Puya 856014 and UC25HQ80 B36014; docs/hardware.md)"
+cc -O1 -I base/device base/tests/flash_ok_test.c -o $OUT/flash_ok_test
+$OUT/flash_ok_test | tail -1
+$OUT/flash_ok_test >/dev/null || { echo "FAIL the pinned fm1-base refuses one of the FM-1's flash chips"; exit 1; }
+grep -q '"flash": \["856014", "B36014"\]' firmware.json || { echo "FAIL firmware.json does not list both flash chips"; exit 1; }
+echo "  ok firmware.json lists both flash chips"
