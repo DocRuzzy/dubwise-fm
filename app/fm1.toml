@@ -9,6 +9,10 @@ ble = false                    # no radio (roadmap P0.0): its RAM goes to the du
 ble_central = false
 backup = true                  # backup and restore over USB (base/tools/fm1_backup.py): the saved project and settings
 backup_ext = "dwb"
+mirror = true                  # the screen and panel on a computer over USB (base/web/mirror/, tools/fm1_mirror.py; QoL review 5)
+usb_audio_channels = 10        # the USB recording: the master on 1-2, the stems on 3-10 (SETUP: USB STEMS; QoL review 4)
+usb_host = true                # SETUP USB PORT: KEYBOARD, a USB-MIDI keyboard into the FM-1 (QoL review 6)
+midi_stamp = true              # MIDI in stamped where it lands (to 0.05 ms): MIDI CLOCK IN follows it tighter (QoL review 5)
 usb_audio_out_app = true       # the live input (P2.8): the computer's audio to channel 8. Needs fm1-base's proposed option
                                # (docs/upstream/usb-audio-to-app.md); until then ignored: the audio is mixed in after the render
 # the site (tools/make_site.py, tools/publish_site.sh)

@@ -17,8 +17,8 @@ typedef struct {
     uint8_t start;                               /* 1: the first change of a step of the history */
     uint8_t rsv;
 } undo_ev_t;
-static PLAT_POOL undo_ev_t uh[UNDO_N];
-static uint32_t uh_n, uh_cur;                    /* kept; done (the rest are redoable) */
+static PLAT_POOL undo_ev_t undo_ring[UNDO_N];
+static uint32_t undo_n, undo_cur;                    /* kept; done (the rest are redoable) */
 static uint8_t undo_live, undo_busy, undo_new;   /* the hands' input now; undo itself working; next is a new step */
 static uint32_t undo_tag, undo_t, undo_seq, undo_last_seq;   /* the input that started this step, when; steps so far */
 
@@ -34,39 +34,42 @@ static int undo_kept(uint32_t key)
 static void undo_drop_oldest(void)               /* the oldest step out (the ring full) */
 {
     uint32_t k = 1, i;
-    while (k < uh_n && !uh[k].start)
+    while (k < undo_n && !undo_ring[k].start)
         k++;
-    for (i = k; i < uh_n; i++)
-        uh[i - k] = uh[i];
-    uh_n -= k;
-    uh_cur = uh_cur > k ? uh_cur - k : 0;
+    for (i = k; i < undo_n; i++)
+        undo_ring[i - k] = undo_ring[i];
+    undo_n -= k;
+    undo_cur = undo_cur > k ? undo_cur - k : 0;
 }
 
+static void ml_touched(uint32_t id);
 static void undo_watch(uint32_t key, int32_t old, int32_t nw)   /* control.c: each change to the mirror */
 {
     undo_ev_t *e;
+    if (undo_live && !undo_busy && !(key & CTL_STEP_KEY))
+        ml_touched(key);                         /* (MIDI learn: the parameter the hands touched last) */
     if (!undo_live || undo_busy || !undo_kept(key))
         return;
-    if (uh_cur < uh_n)                           /* a new change: the redo is gone */
-        uh_n = uh_cur;
-    if (uh_n == UNDO_N) {
+    if (undo_cur < undo_n)                           /* a new change: the redo is gone */
+        undo_n = undo_cur;
+    if (undo_n == UNDO_N) {
         undo_drop_oldest();
-        if (uh_n == UNDO_N) {                    /* (a step bigger than the whole ring: nothing kept of it) */
-            uh_n = uh_cur = 0;
+        if (undo_n == UNDO_N) {                    /* (a step bigger than the whole ring: nothing kept of it) */
+            undo_n = undo_cur = 0;
             return;
         }
     }
-    e = &uh[uh_n++];
+    e = &undo_ring[undo_n++];
     e->key = (uint16_t)key;
     e->was = old;
     e->now = nw;
-    e->start = undo_new || uh_n == 1u;
+    e->start = undo_new || undo_n == 1u;
     if (e->start) {
         undo_seq++;
         undo_last_seq = undo_seq;
     }
     undo_new = 0;
-    uh_cur = uh_n;
+    undo_cur = undo_n;
 }
 
 static void undo_join(void) { undo_new = 0; }   /* (the next change: part of the step before, as tap tempo's) */
@@ -83,7 +86,7 @@ static void undo_live_set(int on)
 
 static void undo_reset(void)                     /* a load: the history no longer applies */
 {
-    uh_n = uh_cur = 0;
+    undo_n = undo_cur = 0;
     undo_new = 1;
 }
 
@@ -108,15 +111,15 @@ static void undo_apply(const undo_ev_t *e, int back)
 static int undo_back(void)                       /* 1: a step undone */
 {
     uint32_t i;
-    if (!uh_cur)
+    if (!undo_cur)
         return 0;
     undo_busy = 1;
-    for (i = uh_cur; i-- > 0;) {
-        undo_apply(&uh[i], 1);
-        if (uh[i].start)
+    for (i = undo_cur; i-- > 0;) {
+        undo_apply(&undo_ring[i], 1);
+        if (undo_ring[i].start)
             break;
     }
-    uh_cur = i;
+    undo_cur = i;
     undo_busy = 0;
     undo_new = 1;
     return 1;
@@ -124,14 +127,14 @@ static int undo_back(void)                       /* 1: a step undone */
 
 static int undo_fwd(void)                        /* 1: a step redone */
 {
-    uint32_t i = uh_cur;
-    if (uh_cur >= uh_n)
+    uint32_t i = undo_cur;
+    if (undo_cur >= undo_n)
         return 0;
     undo_busy = 1;
     do
-        undo_apply(&uh[i++], 0);
-    while (i < uh_n && !uh[i].start);
-    uh_cur = i;
+        undo_apply(&undo_ring[i++], 0);
+    while (i < undo_n && !undo_ring[i].start);
+    undo_cur = i;
     undo_busy = 0;
     undo_new = 1;
     return 1;
@@ -157,9 +160,9 @@ static void undo_key(int redo)                   /* HOME + REC, HOME + GLO */
 static int undo_expect(const char *what, int *got)
 {
     if (!strcmp(what, "undo_n"))
-        *got = (int)uh_n;
+        *got = (int)undo_n;
     else if (!strcmp(what, "undo_cur"))
-        *got = (int)uh_cur;
+        *got = (int)undo_cur;
     else
         return 0;
     return 1;

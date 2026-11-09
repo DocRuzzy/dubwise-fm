@@ -5,15 +5,16 @@
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
 enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_SAVER, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_HPF_RES, SU_THROW_VEL, SU_CLOCK,
-       SU_TIER, SU_PERF, SU_AUTOSAVE, SU_REC_QUANT, SU_REC_MODE, SU_REC_OFFSET, SU_REC_CLICK, SU_TONES, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_DEMO, SU_STEPPERS, SU_N };
+       SU_TIER, SU_PERF, SU_AUTOSAVE, SU_REC_QUANT, SU_REC_MODE, SU_REC_OFFSET, SU_REC_CLICK, SU_STEMS, SU_LEARN, SU_USB_PORT, SU_TONES, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_DEMO, SU_STEPPERS, SU_NEW, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
                                           "REDUCED MOTION", "SCREEN SAVER", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "BIG KNOB STEPS",
                                           "THROW VELOCITY", "MIDI CLOCK", "GUARD TIER",
-                                          "PERFORMANCE", "AUTOSAVE", "REC QUANTISE", "REC MODE", "REC OFFSET", "CLICK",
-                                          "TEST TONES", "SAVE TO SLOT", "LOAD SLOT", "DEMO SONG", "UK STEPPERS"};
+                                          "PERFORMANCE", "AUTOSAVE", "REC QUANTISE", "REC MODE", "REC OFFSET", "CLICK", "USB STEMS", "MIDI LEARN", "USB PORT",
+                                          "TEST TONES", "SAVE TO SLOT", "LOAD SLOT", "DEMO SONG", "UK STEPPERS",
+                                          "NEW PROJECT"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_SAVER, P_LEAD,
                                      P_LOCK_MIDI, P_HPF_ON, P_HPF_RES, P_THROW_VEL, P_CLOCK, P_TIER_LOCK, 0, P_AUTOSAVE, P_REC_QUANT, P_REC_MODE,
-                                     P_REC_OFFSET, P_REC_CLICK, P_DEV_TONES, 0, 0, 0, 0};
+                                     P_REC_OFFSET, P_REC_CLICK, P_USB_STEMS, 0, P_USB_PORT, P_DEV_TONES, 0, 0, 0, 0, 0};
 static int32_t su_cur;
 static uint32_t su_sig;
 
@@ -43,11 +44,22 @@ static void su_value(uint32_t i, char *t)
         text_cat(t, "K2: VIEW");
     } else if (i == SU_DEMO || i == SU_STEPPERS) {
         text_cat(t, "K2: LOAD");
+    } else if (i == SU_NEW) {
+        text_cat(t, "K2: CLEAR ALL");
     } else if (i == SU_HPF_ON) {
         text_cat(t, v == HPF_ON_ECHO ? "ECHO RETURN" : "MIX");
     } else if (i == SU_REC_QUANT) {              /* live recording (4.8) */
         static const char *const Q[REC_QUANT_N] = {"FEEL", "HALF", "GRID"};
         text_cat(t, Q[v >= 0 && v < REC_QUANT_N ? v : 0]);
+    } else if (i == SU_LEARN) {                  /* MIDI learn (midilearn.c) */
+        int_text((int32_t)ml_count(), n);
+        text_cat(t, n);
+        text_cat(t, " LEARNED");
+    } else if (i == SU_USB_PORT) {
+        text_cat(t, v == USBPORT_KEYBOARD ? "KEYBOARD" : "COMPUTER");
+    } else if (i == SU_STEMS) {                  /* the USB recording's channels 3-10 */
+        static const char *const M[STEMS_N] = {"CHANNELS", "BUSES", "OFF"};
+        text_cat(t, M[v >= 0 && v < STEMS_N ? v : 0]);
     } else if (i == SU_REC_MODE) {
         text_cat(t, v == REC_REPLACE ? "REPLACE" : "OVERDUB");
     } else if (i == SU_REC_CLICK) {
@@ -82,8 +94,14 @@ static void setup_move(int32_t e)
 static void setup_change(int32_t e)
 {
     uint32_t id = SU_ID[su_cur];
-    if (su_cur == SU_DEMO) {                     /* the demo song (demo.c) */
-        demo_load();
+    if (su_cur == SU_DEMO) {                     /* the demo song (demo.c), in place of the project */
+        if (confirm(CF_DEMO, "LOAD THE DEMO"))
+            demo_load();
+        return;
+    }
+    if (su_cur == SU_NEW) {                      /* a new project: the start's desk, riddim, nothing else */
+        if (confirm(CF_NEW, "NEW PROJECT"))
+            new_project();
         return;
     }
     if (su_cur == SU_SLOT_SAVE || su_cur == SU_SLOT_LOAD) {   /* KNOB 2 picks the slot; SAVE does it */
@@ -92,7 +110,15 @@ static void setup_change(int32_t e)
         return;
     }
     if (su_cur == SU_STEPPERS) {                   /* the UK steppers desk (P3.4; demo.c) */
-        steppers_load();
+        if (confirm(CF_STEPPERS, "LOAD STEPPERS"))
+            steppers_load();
+        return;
+    }
+    if (su_cur == SU_LEARN) {                    /* up: learn one; down: forget them all (asked twice) */
+        if (e > 0)
+            ml_learn_start();
+        else if (confirm(CF_FORGET, "FORGET ALL CCS"))
+            ml_forget_all();
         return;
     }
     if (su_cur == SU_PERF) {                     /* the PERF page */
@@ -118,7 +144,7 @@ static uint32_t su_top(void)                     /* the first row shown: the cur
 
 static uint32_t setup_sig(void)
 {
-    uint32_t h = (uint32_t)su_cur, i;
+    uint32_t h = (uint32_t)su_cur * 7u + ml_count() * 131u, i;
     for (i = 0; i < SU_N; i++)
         h = h * 31u + (uint32_t)ctl_get(SU_ID[i]);
     return h;

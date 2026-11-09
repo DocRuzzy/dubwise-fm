@@ -5,7 +5,9 @@ listen
 # RIGHTEOUS DUB into slot 2
 tap GLO
 wait 30
-turn K1 -2
+turn K1 -3
+wait 30
+turn K2 1
 wait 30
 turn K2 1
 wait 100
@@ -25,12 +27,16 @@ said SLOT 2 SAVED
 turn K1 3
 wait 30
 turn K2 1
+wait 30
+turn K2 1
 wait 100
 said UK STEPPERS LOADED: PRESS PLAY
 param song.len 5
 tap HOME
 wait 30
 press SAVE
+wait 20
+tap REC
 wait 20
 tap REC
 wait 20
@@ -44,6 +50,10 @@ wait 30
 turn K1 -2
 wait 30
 said LOAD SLOT SLOT 2 (SAVED)
+tap SAVE
+wait 30
+said NOT SAVED: LOAD AGAIN TO CONFIRM
+expect ui.tempo 1400
 tap SAVE
 wait 300
 said SLOT 2 LOADED
@@ -71,6 +81,8 @@ turn K2 -1
 wait 30
 said LOAD SLOT SLOT 2 (SAVED)
 param tempo 900
+wait 30
+tap SAVE
 wait 30
 tap SAVE
 wait 300

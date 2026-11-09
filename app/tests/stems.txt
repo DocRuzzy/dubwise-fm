@@ -1,0 +1,30 @@
+# The USB recording's own channels (QoL 4; fm1.toml usb_audio_channels = 10; SETUP: USB STEMS). The host always has a
+# computer recording. CHANNELS: the eight strips dry, post-fader and post-mute, on USB 3-10 (stemN: USB N + 2, its peak since the last look); BUSES:
+# drums, bass, chords, lead and vox, the echo's return L R, the spring's L R; OFF: nothing made.
+wait 300
+param dev.tones 1
+wait 300
+expect stem1_db >-40
+expect stem4_db >-40
+expect stem8_db >-40
+param ch2.mute 1
+wait 100
+expect stem2_db >-200
+wait 100
+expect stem2_db -120
+expect stem3_db >-40
+param ch2.mute 0
+# the buses: the drums together on 1; the echo's return on 5-6 once a channel is sent to it
+param usb.stems 1
+param ch3.echo 100
+wait 600
+expect stem1_db >-40
+expect stem5_db >-60
+expect stem6_db >-60
+param usb.stems 2
+wait 100
+expect stem1_db >-200
+expect stem5_db >-200
+wait 100
+expect stem1_db -120
+expect stem5_db -120

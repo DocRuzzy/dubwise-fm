@@ -1,0 +1,81 @@
+# MIDI learn (QoL 6; midilearn.c). SETUP's MIDI LEARN, KNOB 2 up: move a control (KNOB 2 on the DUB page, echo
+# feedback), then the controller's (CC 21 on channel 1): it moves echo feedback over its range (0..100). A pad (CC 64)
+# learned to throw the snare: on from 64. Kept by SAVE, over a reboot. KNOB 2 down: forget all, asked twice.
+wait 600
+listen
+tap GLO
+wait 30
+turn K1 21
+wait 30
+said MIDI LEARN
+turn K2 1
+wait 30
+said MOVE A CONTROL
+expect ml_learning 1
+tap HOME
+wait 30
+turn K2 2
+wait 30
+said NOW THE CONTROLLER
+expect ml_learning 2
+midi B0 15 7F
+wait 30
+said LEARNED CC 21 TO ECHO.FB
+expect ml_count 1
+expect ml_learning 0
+midi B0 15 00
+wait 30
+expect ui.echo.fb 0
+midi B0 15 40
+wait 30
+expect ui.echo.fb 50
+# a pad to the snare's throw
+tap GLO
+wait 30
+turn K2 1
+wait 30
+tap HOME
+wait 30
+key w9 down
+wait 30
+key w9 up
+wait 30
+said NOW THE CONTROLLER
+midi B0 40 7F
+wait 30
+said LEARNED
+expect ml_count 2
+midi B0 40 7F
+wait 30
+expect ui.ch2.throw 1
+midi B0 40 00
+wait 30
+expect ui.ch2.throw 0
+# kept over a reboot
+tap SAVE
+wait 300
+reboot
+wait 600
+listen
+expect ml_count 2
+midi B0 15 7F
+wait 30
+expect ui.echo.fb 100
+# forgotten, asked twice
+tap GLO
+wait 30
+turn K2 -1
+wait 30
+said FORGET ALL CCS AGAIN TO CONFIRM
+expect ml_count 2
+turn K2 -1
+wait 30
+said ALL FORGOTTEN
+expect ml_count 0
+# the USB port: a keyboard (the host has none: it says so)
+turn K1 1
+wait 30
+said USB PORT COMPUTER
+turn K2 1
+wait 30
+expect ui.usb.port 1

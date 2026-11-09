@@ -18,6 +18,9 @@ extern cmdq_t eng_q;                         /* control.c pushes, eng_render pop
 
 void eng_init(void);                         /* boot: every parameter at its default, everything silent */
 void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12);   /* audio interrupt; n <= ENG_BLOCK */
+/* the USB recording's own channels (QoL 4; SETUP: USB STEMS): before eng_render, want = a computer records; the
+ * block's stems after it, 8 floats a frame (full scale 1.0), NULL when none are made */
+const float *eng_stems(int want);
 /* the live input (P2.8) for the block about to render: n stereo frames (int32, full scale `full`), on channel 8 as
  * mono, mutable and throwable like any channel; NULL: none. Audio interrupt, before eng_render */
 void eng_live_in(const int32_t *lr, uint32_t n, float full);
@@ -33,6 +36,7 @@ void eng_panic(void);                        /* silence now */
 void eng_trig(uint32_t ch, int32_t note, uint32_t vel);
 void eng_release(uint32_t ch, int32_t note);
 int32_t eng_note(void);                      /* the bass's note held, -1 none */
+int32_t eng_voice_note(uint32_t ch);         /* the bass's or the lead's note held, -1 none */
 
 /* read back (main loop): what the engine has applied, and its meters */
 int32_t eng_param(uint32_t id);

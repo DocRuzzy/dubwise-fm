@@ -28,7 +28,9 @@ A = """wait 600
 listen
 tap GLO
 wait 30
-turn K1 -2
+turn K1 -3
+wait 30
+turn K2 1
 wait 30
 turn K2 1
 wait 300
@@ -36,6 +38,8 @@ turn K1 -2
 wait 30
 turn K2 1
 wait 30
+tap SAVE
+wait 300
 tap SAVE
 wait 300
 said SLOT 2 SAVED
@@ -61,7 +65,7 @@ B = "\n".join(lines) + """
 wait 100
 tap GLO
 wait 30
-turn K1 -3
+turn K1 -4
 wait 30
 turn K2 2
 wait 30

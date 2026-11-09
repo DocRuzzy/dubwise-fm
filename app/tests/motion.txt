@@ -96,6 +96,9 @@ press SAVE
 wait 30
 tap REC
 wait 30
+said CLEAR MOTION AGAIN TO CONFIRM
+tap REC
+wait 30
 release SAVE
 wait 30
 said MOTION CLEARED

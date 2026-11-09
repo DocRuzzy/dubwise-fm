@@ -29,16 +29,16 @@ Hortator, Bubba Machine and Felucca [Salt] couldn't be found, and TRIBE's reposi
 | Hold a button about 1 s for a help card | X0X, LOOM-8, Polly, AMB-1 | **Yes** (2026-11-09: roadmap 4.7) |
 | Tap tempo | X0X, SLOOP, Ravel, Skiff, FM Stud1o | **Yes** (2026-11-09: HOME + SEQ taps) |
 | Fine tempo (0.1 BPM); halve or double on the beat | Amenity | No |
-| Visual metronome (PLAY flashing on the beat); count-in | SLOOP, LOOM-8, FM Stud1o | Partly: the runway's beat pulses, no count-in |
-| Battery level in the header | X0X, LOOM-8, Ravel, GR!MM | No |
+| Visual metronome (PLAY flashing on the beat); count-in | SLOOP, LOOM-8, FM Stud1o | **Yes** (2026-11-09: PLAY flashes on the beat; a count-in for recording, 4.8) |
+| Battery level in the header | X0X, LOOM-8, Ravel, GR!MM | **Yes** (2026-11-09: header icon, BATTERY LOW once) |
 | Dim glow on unlit buttons, for dark rooms | X0X, FoMni, Melodee | Keys only |
-| Ask before destructive actions (SEL yes, HOME no; or press twice) | X0X, LOOM-8, Ravel | No |
+| Ask before destructive actions (SEL yes, HOME no; or press twice) | X0X, LOOM-8, Ravel | **Yes** (2026-11-09: press again within 3 s; plus NEW PROJECT) |
 | CPU load shown, overload flash | FM Stud1o, Polly, Amenity | Partly (guard-tier badge, PERF page) |
-| Screen mirror (play the panel from a computer) | LOOM-8; fm1-base `mirror` | No: one line in `fm1.toml` |
-| USB MIDI host (a keyboard straight into the FM-1) | LOOM-8, Melodee; fm1-base `usb_host` | No |
-| MIDI learn (a controller knob to any parameter) | SLOOP, Melodee, GR!MM, FM Stud1o | No |
-| Per-channel USB audio (each track separately into a DAW) | fm1-base `usb_audio_channels` | No |
-| MIDI timestamps on arrival (tighter clock in) | fm1-base `midi_stamp` | No |
+| Screen mirror (play the panel from a computer) | LOOM-8; fm1-base `mirror` | **Yes** (2026-11-09: `mirror = true`, `app_redraw`) |
+| USB MIDI host (a keyboard straight into the FM-1) | LOOM-8, Melodee; fm1-base `usb_host` | **Yes** (2026-11-09: SETUP USB PORT: KEYBOARD) |
+| MIDI learn (a controller knob to any parameter) | SLOOP, Melodee, GR!MM, FM Stud1o | **Yes** (2026-11-09: SETUP MIDI LEARN, 32 CCs) |
+| Per-channel USB audio (each track separately into a DAW) | fm1-base `usb_audio_channels` | **Yes** (2026-11-09: 10 channels, SETUP USB STEMS: channels or buses) |
+| MIDI timestamps on arrival (tighter clock in) | fm1-base `midi_stamp` | **Yes** (2026-11-09: `midi_stamp = true`, clock in uses it) |
 | Clock follows only the device that sent Start; stops after 0.5 s of silence | Amenity | No |
 | Encoder acceleration | ORBIT, Amenity | No |
 | Separate USB playback volume | Melodee | No |

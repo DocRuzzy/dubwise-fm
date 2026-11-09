@@ -109,6 +109,8 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_REC_MODE] = {"rec.mode", 0, REC_MODE_N - 1, REC_OVERDUB},
     [P_REC_OFFSET] = {"rec.offset", 0, 60, 12},
     [P_REC_CLICK] = {"rec.click", 0, CLICK_N - 1, CLICK_COUNT_IN},
+    [P_USB_STEMS] = {"usb.stems", 0, STEMS_N - 1, STEMS_CHANNELS},
+    [P_USB_PORT] = {"usb.port", 0, USBPORT_N - 1, USBPORT_COMPUTER},
 };
 static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {

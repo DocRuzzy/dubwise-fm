@@ -59,6 +59,7 @@ static int32_t gm_drum(uint32_t note)    /* GM drum note -> our channel, -1 none
     default: return -1;
     }
 }
+static void ml_cc_in(uint32_t ch, uint32_t cc, uint32_t v);
 static void midi_in(void)                /* audio interrupt: the packets that came in */
 {
     uint32_t pkt;
@@ -74,6 +75,10 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
 #else
             eng_clock_in(st, plat_midi_in_t24());
 #endif
+            continue;
+        }
+        if ((st & 0xF0u) == 0xB0u && d1 < 120u) {   /* a control change: learned (midilearn.c), on the main loop */
+            ml_cc_in(mch, d1, d2 & 0x7Fu);
             continue;
         }
         if (mch == 9u) {                 /* drums ring out: note offs ignored */
@@ -129,11 +134,35 @@ void app_tick(void)                     /* 1 kHz: the MIDI clock's messages, eac
         plat_midi_send(0x0Fu | st << 8, TO_USB);
 }
 
+static float stem_pk[8];                 /* (tests: the stems' peaks, 16-bit full scale) */
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
+    uint32_t run = 0;
+    int16_t *u = PLAT_USB_CH >= 8 ? plat_usb_ch(0, &run) : 0;   /* (a computer recording the channels 3-10) */
+    const float *st;
     midi_in();
     live_in(n);
+    st = eng_stems(u != 0);
     eng_render(lr, n, master_q12);       /* the commands queued, the channels, the mix (engine/engine.c) */
+    if (st) {                            /* the stems into the USB recording (QoL 4), 16-bit, where the ring has them */
+        uint32_t f, k;
+        for (f = 0; f < n; f++) {
+            if (!run) {
+                u = plat_usb_ch(f, &run);
+                if (!u)
+                    break;
+            }
+            for (k = 0; k < 8u; k++) {
+                float x = st[f * 8u + k] * 32767.0f;
+                int32_t v = (int32_t)(x > 32767.0f ? 32767.0f : x < -32767.0f ? -32767.0f : x);
+                if (fm_fabsf(x) > stem_pk[k])
+                    stem_pk[k] = fm_fabsf(x);
+                u[k] = (int16_t)(u[k] + v);
+            }
+            u += PLAT_USB_CH_STRIDE;
+            run--;
+        }
+    }
 }
 
 void app_panic(void) { eng_panic(); }
@@ -165,6 +194,8 @@ static void settings_defaults(void)
 
 static int save_project(int quiet);
 static void settings_save(void) { save_project(0); }
+static int ml_save(void);
+static void ml_load(void);
 
 static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
@@ -199,7 +230,7 @@ static int save_project(int quiet)       /* SAVE (quiet: the autosave, which say
             snd.v[i] = (int16_t)ctl_get(P_VOICE_BASE + i);
     }
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
-        && proj_save()
+        && proj_save() && ml_save()
         && ((eng_playing() && ctl_get(P_SONG_REC)) || mot_save())) {   /* (motion: not while it is captured) */
         set_dirty = 0;
         if (!quiet)
@@ -254,6 +285,7 @@ static void load_saved(void)             /* the store's objects into both sides 
                 ctl_set(P_VOICE_BASE + i, snd.v[i]);   /* (clamped) */
     }
     proj_load();
+    ml_load();
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
     ctl_set(P_ECHO_TIME, set.echo_time);  /* (clamped to their ranges) */
@@ -341,6 +373,13 @@ void app_ui_init(void)
 
 void app_input_only(void) { dub_input(); }
 
+void app_redraw(void)                    /* (APP_REDRAW: the screen mirror lost a part) the whole screen again */
+{
+    dub_init();
+    dub.page_drawn = 0xFFu;
+    help.drawn = 0;
+}
+
 /* AUTOSAVE (SETUP, on by default; the 2026-11 QoL review): what SAVE keeps, saved by itself once nothing has been
  * touched for 4 s, stopped, the sound died away (a flash write stops the sound for a moment) and nothing being
  * loaded. Quiet: SAVE's light going out says it. A failed one waits 30 s before the next try */
@@ -361,6 +400,8 @@ static void autosave_tick(void)
 void app_frame(void)
 {
     dub_input();
+    ml_tick();                           /* a controller's CCs, learned or applied (midilearn.c) */
+    usbh_tick();                         /* the USB port: a computer or a keyboard */
     ctl_flush();                         /* parameters the full queue refused: their latest values */
     ctl_follow();                        /* (and the song's motion played back) */
     dub_speak();
@@ -510,7 +551,11 @@ int app_expect(const char *what, int *got)
         *got = what[0] == 'e' ? eng_param((uint32_t)id) : ctl_get((uint32_t)id);
     } else if (!strncmp(what, "ch", 2) && what[2] >= '1' && what[2] <= '8' && !strcmp(what + 3, "_db"))
         *got = peak_db(eng_ch_peak((uint32_t)(what[2] - '1')));   /* post-fader, dBFS (-120: silent) */
-    else if (!strcmp(what, "out_db"))        /* the mix, before MASTER */
+    else if (!strncmp(what, "stem", 4) && what[4] >= '1' && what[4] <= '8' && !strcmp(what + 5, "_db")) {
+        float pk = stem_pk[what[4] - '1'] / 32767.0f;   /* stemN_db: USB channel N + 2's peak since the last look */
+        stem_pk[what[4] - '1'] = 0.0f;
+        *got = peak_db(pk);
+    } else if (!strcmp(what, "out_db"))        /* the mix, before MASTER */
         *got = peak_db(eng_out_peak());
     else if (!strcmp(what, "echo_db"))
         *got = peak_db(eng_echo_peak());

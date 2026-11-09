@@ -1,0 +1,39 @@
+# The 2026-11 QoL review's small ones: "press again" before what can't be undone (it lapses after 3 s); NEW PROJECT;
+# the battery in the header (the host's: full); PLAY flashing on the beat (green, both colours on a bar's first).
+wait 600
+listen
+param tempo 900
+tap GLO
+wait 30
+turn K1 -1
+wait 30
+said NEW PROJECT
+turn K2 1
+wait 30
+said NEW PROJECT AGAIN TO CONFIRM
+expect ui.tempo 900
+wait 3200
+turn K2 1
+wait 30
+said NEW PROJECT AGAIN TO CONFIRM
+expect ui.tempo 900
+turn K2 1
+wait 30
+said NEW PROJECT ONE DROP, 75 BPM
+expect ui.tempo 750
+expect step1_9 3
+expect dirty 1
+tap HOME
+wait 1500
+expect battery 3
+shot qol-header.png
+tap PLAY
+wait 20
+expect led_play 3
+wait 300
+expect led_play 0
+wait 500
+expect led_play 1
+tap PLAY
+wait 50
+expect led_play 0
