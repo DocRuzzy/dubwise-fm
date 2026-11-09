@@ -18,7 +18,9 @@
 2. Play: the demo song (SETUP → DEMO SONG), mutes, throws, SAVE, then power off and on: the save is still there.
 3. Leave it: install V15 (or another firmware) over Dubwise and check `--info` shows the new identity.
 4. From another firmware (e.g. a Felucca one): install Dubwise again, and check step 1's identity.
-5. Optional, useful for the review's numbers: the PERF page with the UK STEPPERS desk and every effect up; note the
+5. From two or three popular alternative firmwares besides Felucca (e.g. SLOOP, LOOM-8, X0X), install Dubwise and remove it again (`roundup-review-2026-11.md`: one firmware reviewed there blocked every later install). Note any that refuse.
+6. The recovery path, in the README: if an install fails, plug the FM-1 straight into the computer (no hub), restore stock with the web installer (or M-VAVE's FM1 Open), then install again.
+7. Optional, useful for the review's numbers: the PERF page with the UK STEPPERS desk and every effect up; note the
    peak load.
 
 ## Then
