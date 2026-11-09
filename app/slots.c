@@ -216,6 +216,9 @@ static int slot_load(uint32_t s)
     return 1;
 }
 
+static uint8_t slot_fresh;                       /* SETUP's LOAD SLOT, KNOB 3: 0 WHOLE, 1 AS NEW (v0.2: a template) */
+static uint8_t slot_drop;                        /* (the slot loaded as new: its moves left out) */
+
 static void slot_tick(void)                      /* every frame: a loaded slot's motion, once the engine lets go */
 {
     const uint8_t *c, *e;
@@ -225,7 +228,7 @@ static void slot_tick(void)                      /* every frame: a loaded slot's
     c = slot_moves;
     e = c + SONG_BARS;
     mot_clear();
-    for (b = 0; b < SONG_BARS; b++)
+    for (b = 0; b < (slot_drop ? 0u : SONG_BARS); b++)
         for (i = 0; i < c[b]; i++, e += sizeof(mot_ev_t)) {
             mot_ev_t m;
             uint32_t k;
@@ -234,6 +237,7 @@ static void slot_tick(void)                      /* every frame: a loaded slot's
             mot_put(b, m.tick, m.id, m.v);
         }
     slot_moves = 0;
+    slot_drop = 0;
     (void)slot_nmoves;
     ctl_motion(2);
 }
@@ -248,6 +252,8 @@ static void slot_value(char *t, int load)
     int_text(su_slot + 1, n);
     text_cat(t, n);
     text_cat(t, h ? " (SAVED)" : " (EMPTY)");
+    if (load && slot_fresh)
+        text_cat(t, " AS NEW");
 }
 
 static void slot_pick(int32_t e) { su_slot = ((su_slot + e) % (int32_t)NSLOTS + (int32_t)NSLOTS) % (int32_t)NSLOTS; }
@@ -270,6 +276,17 @@ static void slot_action(int load)
         && !confirm(CF_SLOT_LOAD + (uint32_t)su_slot, "NOT SAVED: LOAD"))
         return;                          /* (what isn't saved would go: asked again) */
     r = load ? slot_load((uint32_t)su_slot) : slot_save((uint32_t)su_slot);
+    if (load && r == 1 && slot_fresh) {          /* AS NEW: its desk, sounds, key and patterns; no scenes, song or moves */
+        uint32_t s2, b;
+        for (s2 = 0; s2 < NSCENES; s2++)
+            scenes[s2].used = 0;
+        for (b = 0; b < SONG_BARS; b++)
+            song[b].flags = 0;
+        ctl_set(P_SONG_REC, 0);
+        slot_drop = 1;
+        app_say(t, "LOADED AS NEW");
+        return;
+    }
     app_say(t, r == 1 ? (load ? "LOADED" : "SAVED") : r == -1 ? "EMPTY" : r == -2 ? "TOO MANY MOVES" : "FAILED");
 }
 
@@ -370,7 +387,8 @@ static int slot_sysex(const uint8_t *p, uint32_t n)   /* app_sysex: the bytes be
         return sh_sysex(p, n);
     if (n < 5u)
         return 1;
-    if ((cmd >= 0x31u && cmd <= 0x37u) || cmd == 0x40u)   /* (patches.c: the patches, a field set) */
+    if ((cmd >= 0x31u && cmd <= 0x37u) || cmd == 0x40u || cmd == 0x41u)   /* (patches.c: the patches, a field set,
+                                                                          * a kit) */
         return pl_sysex(p, n);
     s = p[4];
     if (s >= NSLOTS)

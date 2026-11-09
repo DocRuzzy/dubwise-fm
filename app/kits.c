@@ -126,6 +126,17 @@ static int kit_touches(uint32_t k, uint32_t ch)  /* 1: kit k sets something on c
 
 static void kit_load(uint32_t k, int bus);       /* (patches.c: the voices as factory patches, the bus) */
 
+#ifdef PLAT_HOST
+static void host_kits(void)                      /* the host's "fields": the kits' names (the web editor, v0.2) */
+{
+    uint32_t k;
+    printf("KITS [");
+    for (k = 0; k < NKITS; k++)
+        printf("%s\"%s\"", k ? "," : "", KITS[k].name);
+    printf("]\n");
+}
+#endif
+
 static void kit_value(char *t)                   /* SETUP's LOAD KIT row */
 {
     t[0] = 0;

@@ -12,7 +12,7 @@ wait 30
 expect dice_bank 1
 turn K3 1
 wait 30
-said MORPH ROLL ONE FIRST
+said MORPH ROLL OR PICK ONE
 # B: a roll (TUNE 66, SWEEP 25, CTONE 38); A: INIT, from PRESET
 tap ENV
 wait 30

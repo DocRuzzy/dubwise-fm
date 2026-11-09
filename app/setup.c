@@ -18,6 +18,7 @@ static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_
 static int32_t su_cur;
 static uint8_t sh_user;                          /* (shots.c: 5.14) */
 static int sh_factory(void);
+static uint8_t slot_fresh;                       /* (slots.c: LOAD SLOT AS NEW, v0.2) */
 static void help_index_step(int32_t e);          /* (help.c) */
 static uint32_t su_sig;
 
@@ -173,7 +174,7 @@ static uint32_t su_top(void)                     /* the first row shown: the cur
 
 static uint32_t setup_sig(void)
 {
-    uint32_t h = (uint32_t)su_cur * 7u + ml_count() * 131u + kit_sel * 1009u + kit_bus * 7919u + sh_user * 104729u, i;
+    uint32_t h = (uint32_t)su_cur * 7u + ml_count() * 131u + kit_sel * 1009u + kit_bus * 7919u + sh_user * 104729u + slot_fresh * 15485863u, i;
     for (i = 0; i < SU_N; i++)
         h = h * 31u + (uint32_t)ctl_get(SU_ID[i]);
     return h;

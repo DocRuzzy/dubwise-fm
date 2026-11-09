@@ -1,0 +1,139 @@
+# v0.2: the library's follow-ups. Renaming one of your patches on the device (SAVE held, KNOB 1 along the name, KNOB 2
+# the letter, SAVE let go keeps it); MORPH's B from the library (ENV held + PRESET on the DICE bank picks it, not
+# loading it);
+# a kit loaded over SysEx (41 K BUS, the web editor; one undo step); LOAD SLOT AS NEW (a slot as a template: its desk,
+# sounds, key and patterns, without its scenes, song or moves).
+wait 600
+listen
+# the bass's SOUND view; its sound kept as BASS 01
+turn ALGO 3
+wait 30
+tap EDIT
+wait 30
+expect sound_bank 1
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said SAVED BASS 01
+# rename: B -> C at the first letter, then the last letter 1 -> 2
+press SAVE
+wait 20
+turn K2 1
+wait 30
+said RENAME [C]ASS 01
+turn K1 6 10
+wait 30
+said RENAME CASS 0[1]
+turn K2 1
+wait 30
+said RENAME CASS 0[2]
+release SAVE
+wait 30
+said RENAMED CASS 02
+# kept by its new name: away and back
+turn PRESET -20 10
+wait 30
+turn PRESET 20 10
+wait 30
+said BASS CASS 02
+# a factory patch can't be renamed; nor while playing
+turn PRESET -20 10
+wait 30
+said BASS INIT
+press SAVE
+wait 20
+turn K1 1
+wait 30
+said RENAME ONE OF YOURS ONLY
+release SAVE
+wait 30
+# MORPH to a library patch (ENV held + PRESET on the DICE bank): from INIT (cutoff 35, sub 0) to STEPPERS (cutoff
+# 20, sub 100), the sound unchanged by the pick, and no roll when ENV is let go
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect dice_bank 1
+press ENV
+wait 20
+turn PRESET 1
+wait 30
+said MORPH TO INIT
+turn PRESET 1
+wait 30
+said MORPH TO STEPPERS
+release ENV
+wait 30
+expect dice_n4 0
+expect ui.v4.cutoff 35
+expect ui.v4.sub 0
+turn K3 10 30
+wait 30
+expect morph 50
+expect ui.v4.cutoff 27
+expect ui.v4.sub 50
+turn K3 10 30
+wait 30
+expect ui.v4.cutoff 20
+expect ui.v4.sub 100
+turn K3 -20 30
+wait 30
+expect ui.v4.cutoff 35
+expect ui.v4.sub 0
+tap EDIT
+wait 30
+# a kit over SysEx (the web editor): TUBBY'S voices; answered 47 0; HOME + REC undoes it
+wait 900
+sysex_out
+sysex F0 7D 44 57 41 00 00 F7
+wait 30
+expect_sysex F0 7D 44 57 47 00 F7
+said TUBBY'S VOICES LOADED
+expect ui.v4.cutoff 28
+expect ui.v1.tune 34
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v4.cutoff 35
+expect ui.v1.tune 42
+# LOAD SLOT AS NEW: the demo (its scenes and moves) into slot 2, then loaded as new
+tap GLO
+wait 30
+turn K1 -3
+wait 30
+turn K2 1
+wait 30
+turn K2 1
+wait 100
+said RIGHTEOUS DUB LOADED: PRESS PLAY
+wait 200
+expect mot_total 40
+turn K1 -3
+wait 30
+turn K2 1
+wait 30
+tap SAVE
+wait 300
+said SLOT 2 SAVED
+param tempo 1500
+turn K1 1
+wait 30
+said LOAD SLOT SLOT 2 (SAVED)
+turn K3 1
+wait 30
+said LOAD SLOT SLOT 2 (SAVED) AS NEW
+tap SAVE
+wait 30
+tap SAVE
+wait 300
+said SLOT 2 LOADED AS NEW
+wait 300
+expect mot_total 0
+expect scene_used1 0
+expect ui.tempo 720

@@ -51,6 +51,13 @@ desk: the song captures them and HOME + REC undoes them.</p>
 </div>
 <div class="tabs" role="tablist" id="tabs"></div>
 <div id="fields"></div>
+<h2>Kits</h2>
+<p class="note">A starting point for every voice at once, as SETUP's LOAD KIT does (HOME + REC on the FM-1 undoes it).</p>
+<div class="bar">
+  <select id="kit" aria-label="Kit"></select>
+  <label><input type="checkbox" id="kitbus"> the dub bus too</label>
+  <button id="kitload" disabled>Load the kit</button>
+</div>
 <h2>Your patches on the FM-1</h2>
 <p class="note">Load one into the sound, or keep the sound in a slot (stop the FM-1 first: it won't write its memory while playing).</p>
 <div class="bar"><button id="list" disabled>Read the 16 slots</button></div>
@@ -150,6 +157,7 @@ function onMsg(e) {
   const d = [...e.data];
   if (d[0] !== 0xF0 || d[1] !== HDR[0] || d[2] !== HDR[1] || d[3] !== HDR[2]) return;
   const cmd = d[4], c = d[5], s = d[6];
+  if (cmd === 0x47) { say(`${KITS[c] || "The kit"} loaded.`); send([0x36, ch]); return; }
   if (c !== ch) return;
   if (cmd === 0x32) {
     const p = unpack7(d.slice(7, -1)).slice(0, 48);
@@ -196,7 +204,7 @@ $("connect").onclick = async () => {
     const use = () => {
       out = outs[+sel.value]; inp = ins.find((x) => x.name === out?.name) || ins[+sel.value] || null;
       if (inp) inp.onmidimessage = onMsg;
-      ["list", "save", "openbtn"].forEach((id) => { $(id).disabled = !out; });
+      ["list", "save", "openbtn", "kitload"].forEach((id) => { $(id).disabled = !out; });
       say(out ? `Connected: ${out.name}.` : "No MIDI output found.");
       send([0x36, ch]);
     };
@@ -218,6 +226,8 @@ $("open").onchange = async (e) => {
   send([0x37, ch, ...pack7(p.slice(0, 48))]);
   setTimeout(() => send([0x36, ch]), 80);
 };
+KITS.forEach((n, i) => { const op = document.createElement("option"); op.value = i; op.textContent = n; $("kit").append(op); });
+$("kitload").onclick = () => send([0x41, +$("kit").value, $("kitbus").checked ? 1 : 0]);
 tabs(); draw();
 </script>
 </body>
