@@ -104,7 +104,7 @@ static int t_playing;
 static volatile uint32_t t_fire_at, t_fires;     /* the last cue's sample (since the start), cues fired */
 
 /* cued commands (CMD_CUE): each fires once the position reaches (fb, fp), in the order they came */
-#define NCUES 32u
+#define NCUES 96u                                /* (hand moves wait for their motion tick too: 5.1) */
 typedef struct {
     uint32_t fb, fp;
     uint16_t id;
@@ -245,8 +245,22 @@ static void set_param(uint32_t id, int32_t v)
     if (id >= P_NIDS || !param_desc(id))
         return;
     v = param_clamp(id, v);
-    if (ev[id] != v)
+    if (id == P_SHOT) {                          /* a one-shot: every set fires it, the same value again too (a
+                                                  * replay's first, when the pass left it there: 5.1) */
         evlog_ev(0, id, v);
+        fxv_shot_dir((uint32_t)v & 7u, (uint32_t)(v >> 4) & 127u, (v & 8) != 0);
+        ev[id] = (int16_t)v;
+        return;
+    }
+    if (ev[id] == v)
+        return;
+    evlog_ev(0, id, v);
+    if (id == P_SIREN) {                         /* the siren (5.1: a parameter, so motion captures it) */
+        if (ev[id])
+            fxv_off((ev[id] & 15) - 1);
+        if (v)
+            fxv_on((v & 15) - 1, (uint32_t)(v >> 4) & 127u);
+    }
     ev[id] = (int16_t)v;
 }
 
@@ -317,7 +331,7 @@ static void mot_release(void)                    /* the stop: what motion held d
     for (k = 0; k < MOT_NMOM; k++)
         if (mot_hold >> k & 1u) {
             uint32_t id = mot_mom_id(k);
-            ev[id] = 0;
+            set_param(id, 0);                    /* (through set_param: a siren let go) */
             mot_fb_push(id, 0);
         }
     mot_hold = 0;
@@ -391,6 +405,30 @@ static void fire_due(int all)                    /* the cues now due (all: every
         }
     }
     ncues = k;
+}
+
+/* a hand's move, while playing (roadmap 5.1): applied on the next motion tick (MOT_UNITS: 73.5 samples at 75 BPM, so
+ * at most 1.7 ms later than at the block's start), where the song's motion stamps it and a replay lands it: the pass
+ * and its replay are then the same, sample for sample. (A full cue list: now, as before) */
+static void cue_tick(uint32_t id, int32_t v)
+{
+    uint32_t fp = (t_phase + MOT_UNITS - 1u) / MOT_UNITS * MOT_UNITS, fb = t_beat;
+    cue_t *c;
+    if (ncues == NCUES) {
+        cue_overflows++;
+        set_by_hand(id, v);
+        return;
+    }
+    if (fp >= BEAT_UNITS) {
+        fp = 0;
+        fb++;
+    }
+    c = &cues[ncues++];
+    c->fb = fb;
+    c->fp = fp;
+    c->id = (uint16_t)id;
+    c->v = v;
+    c->op = CMD_SET;
 }
 
 static void cue_add(uint32_t op, uint32_t id, int32_t v, uint32_t beats)
@@ -618,7 +656,9 @@ static void drain(void)                          /* every queued command, at the
 {
     cmd_t c;
     while (cmdq_pop(&eng_q, &c)) {
-        if (c.op == CMD_SET)
+        if (c.op == CMD_SET && t_playing && mot_recordable(c.id))
+            cue_tick(c.id, c.v);                 /* a hand's move: on its motion tick (5.1: as a replay lands it) */
+        else if (c.op == CMD_SET)
             set_by_hand(c.id, c.v);
         else if (c.op == CMD_MOTION && c.id == 0)
             mot_clear();
@@ -825,6 +865,8 @@ static uint32_t until_fine(int32_t t)            /* samples to the fine tick t (
 static void seq_start(void)                      /* the transport's start (or the boot): each pattern from the top */
 {
     uint32_t ch;
+    voices_start();                              /* (the noise from its seed: a replay the same, 5.1) */
+    spring_start();                              /* (the crash's noise too) */
     for (ch = 0; ch < NCH; ch++) {
         pcur[ch].p = (uint8_t)(ev[P_CH(ch, CHF_PAT)] & 3);
         pcur[ch].org = 0;

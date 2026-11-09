@@ -72,6 +72,11 @@ static struct {
 static float dbl[DOUBLE_N];
 static uint32_t dbl_pos;
 
+void voices_start(void)                          /* the transport's start: the noise from its seed (5.1) */
+{
+    rng = 0x12345678u;
+}
+
 void voices_init(void)
 {
     lead.on = 0;
@@ -134,12 +139,21 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
         kick.on = 1;
         break;
     case CH_SNARE:
+        if (!rim.on)                             /* (from silence: its high-pass from rest too, 5.1) */
+            rim.hp_x = rim.hp_y = 0.0f;
         rim.pc = rim.pm = rim.p2 = 0.0f;
         rim.ienv = rim.amp = rim.nenv = 1.0f;
         rim.vel = v;
         rim.on = 1;
         break;
     case CH_HATS:                                /* a closed hit chokes an open one: the one envelope, restarted */
+        if (!hat.on) {                           /* from silence: its squares and filters from rest (5.1: a pass and
+                                                  * its replay the same; nothing to click, it was silent) */
+            uint32_t k;
+            for (k = 0; k < 4u; k++)
+                hat.p[k] = 0.0f;
+            hat.h1x = hat.h1y = hat.h2x = hat.h2y = 0.0f;
+        }
         hat.k = note == 46 ? hat.ko : hat.kc;
         hat.amp = 1.0f;
         hat.vel = v;
@@ -153,7 +167,12 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
         lead.scoop = 1.0f;
         lead.on = 1;
         break;
-    case CH_BASS:                                /* mono, the last note wins; the phases run on (no click) */
+    case CH_BASS:                                /* mono, the last note wins; the phases run on (no click), but from
+                                                  * silence they start at 0 (5.1: a pass and its replay the same) */
+        if (!bass.on) {
+            bass.pc = bass.pm = bass.ps = 0.0f;
+            bass.lp1 = bass.lp2 = bass.amp = 0.0f;
+        }
         bass.note = note;
         bass.f = midi_hz(note);
         bass.ienv = 1.0f;

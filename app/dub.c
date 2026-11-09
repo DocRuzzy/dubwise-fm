@@ -792,12 +792,18 @@ static void dub_input_hands(void)
                 int rev = (dub.btn >> B_HOME & 1u) != 0;
                 if (rev)
                     dub.home_used = 1;
-                ctl_note(CH_VOX, (rev ? 24 : 16) + (int32_t)(k - 7u), touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
+                {                        /* a parameter (5.1): the song's motion captures it; the toggle makes two
+                                          * presses of the same shot two changes */
+                    uint32_t vel = touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u;
+                    int32_t t = (ctl_get(P_SHOT) >> 11 & 1) ^ 1;
+                    ctl_set(P_SHOT, (int32_t)(k - 7u) + (rev ? 8 : 0) + (int32_t)((vel & 127u) << 4) + (t << 11));
+                }
                 app_say(rev ? "REVERSE" : "ONE SHOT", fxv_shot_name(k - 7u));
                 continue;
             }
-            if (k == 5u || k == 6u)      /* the sirens A, B, while held (P2.1) */
-                ctl_note(CH_VOX, k == 5u ? SIREN_A : SIREN_B, touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
+            if (k == 5u || k == 6u)      /* the sirens A, B, while held (P2.1): a parameter, captured (5.1) */
+                ctl_set(P_SIREN, (k == 5u ? SIREN_A : SIREN_B) + 1
+                                     + (int32_t)(((touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u) & 127u) << 4));
             if (k == 4u || k == 10u) {   /* drop to wet, drum and bass: while held (spec 4.1) */
                 ctl_set(k == 4u ? P_WET : P_DNB, 1);
                 dub.dirty_centre = 1;
@@ -823,7 +829,8 @@ static void dub_input_hands(void)
             }
             app_say(roots_name(BLACK_NAME[k]), "");
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 5u || k == 6u)) {
-            ctl_note(CH_VOX, k == 5u ? SIREN_A : SIREN_B, 0);
+            if ((ctl_get(P_SIREN) & 15) == (k == 5u ? SIREN_A : SIREN_B) + 1)
+                ctl_set(P_SIREN, 0);             /* (the other siren, if it took over, plays on) */
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 4u || k == 10u)) {
             ctl_set(k == 4u ? P_WET : P_DNB, 0);
             dub.dirty_centre = 1;

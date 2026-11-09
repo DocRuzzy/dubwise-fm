@@ -49,6 +49,7 @@ wait 50
 param echo.fb 45
 param hpf 0
 param ch4.mute 0
+param ch2.thramt 127
 wait 20000
 # the song once, captured as B
 param song 1

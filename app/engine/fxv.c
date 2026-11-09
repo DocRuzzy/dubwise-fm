@@ -106,6 +106,8 @@ void fxv_on(int32_t which, uint32_t vel)
     sr.vel = (float)(vel > 127u ? 127u : vel) * (1.0f / 127.0f);
     if (!sr.gate)
         sr.lfo = 0.0f;
+    if (!sr.gate && sr.amp < 1e-5f)
+        sr.ph = 0.0f;                            /* from silence: the tone from 0 too (5.1: a replay the same) */
     sr.gate = 1;
 }
 

@@ -67,6 +67,8 @@ void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
     uint32_t i;
     float v = (float)(vel > 127u ? 127u : vel) * (1.0f / 127.0f);
     if (ch == CH_SKANK) {
+        if (!sk.on)                              /* from silence: its band from rest (5.1) */
+            sk.hx = sk.hy = sk.ly = 0.0f;
         chord_notes(chord, voicing, 60, notes);  /* mid: from C4 */
         for (i = 0; i < NV; i++) {
             sk.v[i].f = midi_hz(notes[i]);
@@ -81,6 +83,9 @@ void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
         for (i = 0; i < NV; i++) {
             og.v[i].f = midi_hz(notes[i]);
             og.v[i].amp = 1.0f;
+            if (!og.on)                          /* from silence: the partials from 0 (5.1; while it rings they run
+                                                  * on: no click) */
+                og.v[i].pc = og.p2[i] = og.p3[i] = og.p4[i] = og.pk[i] = 0.0f;
         }
         og.cenv = 1.0f;
         og.vel = v;

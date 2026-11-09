@@ -19,6 +19,7 @@ typedef struct {
 void spring_init(void);
 void spring_config(const spring_cfg_t *c);
 void spring_crash(float amount);                 /* strike the tank (0..1) */
+void spring_start(void);                         /* the transport's start: the crash's noise from its seed */
 /* 44.1 kHz in, the return out: the two springs left and right around their middle, the difference above ~120 Hz
  * only (the low end mono) */
 void spring_run(const float *in, float *outl, float *outr, uint32_t n);

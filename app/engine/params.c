@@ -165,6 +165,10 @@ static const pdesc_t DESK[P_DESK_END - P_WET] = {
     {"dnb", 0, 1, 0},
     {"spin", 0, 1, 0},
 };
+static const pdesc_t VOX[P_VOX_END - P_SIREN] = {
+    {"siren", 0, 2047, 0},
+    {"shot", 0, 4095, 0},
+};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
@@ -261,6 +265,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &HPF[id - P_HPF_STEP];
     if (id >= P_WET && id < P_DESK_END)
         return &DESK[id - P_WET];
+    if (id >= P_SIREN && id < P_VOX_END)
+        return &VOX[id - P_SIREN];
     if (id >= P_XS_E2S && id < P_XS_END)
         return &XS[id - P_XS_E2S];
     if (id >= P_PH_ON && id < P_PH_END)

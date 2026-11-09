@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 void voices_init(void);
+void voices_start(void);                         /* the transport's start: the noise from its seed (replays the same) */
 void voices_config(const int16_t *ev, int tier); /* once a block: the parameters applied (Seven-inch: no sub) */
 void voice_trig(uint32_t ch, int32_t note, uint32_t vel);   /* a hit / a note on (vel 1..127) */
 void voice_release(uint32_t ch, int32_t note);   /* a note off (the bass; the drums ring out) */

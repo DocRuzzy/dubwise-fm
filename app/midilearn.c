@@ -78,8 +78,8 @@ static int ml_save(void)                         /* (save_project) the map, if i
 static void ml_touched(uint32_t id)              /* (undo.c's watch) a parameter the hands changed: learning's target */
 {
     char l[24];
-    if (!ml_until || plat_ms() >= ml_until || ml_target == (int32_t)id)
-        return;
+    if (!ml_until || plat_ms() >= ml_until || ml_target == (int32_t)id || id == P_SIREN || id == P_SHOT)
+        return;                                  /* (the siren and the shots: values a knob can't sweep) */
     ml_target = (int32_t)id;
     ml_until = plat_ms() + 20000u;
     upper(param_desc(id)->name, l, sizeof l);
