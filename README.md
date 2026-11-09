@@ -1,7 +1,7 @@
 # Dubwise FM
 
 <p>
-  <img src="app/docs/img/splash.png" width="240" alt="The boot screen: the SpIllt Beats mark, DUBWISE, SPILLT BEATS">
+  <img src="app/docs/img/splash.png" width="240" alt="The boot screen: the SpIllt Beats mark screen-printed on cream paper, DUBWISE, SPILLT BEATS">
   <img src="app/docs/img/screen-playing.png" width="240" alt="The DUB page playing: eight channel strips, the echo and the Big Knob">
 </p>
 
