@@ -17,36 +17,28 @@ uint32_t scene_param(uint32_t k)
     return GL[(k - NCH * SCENE_CH_FIELDS) % SCENE_GLOBALS];
 }
 
-void scene_capture(uint32_t s, uint32_t scope, const int16_t *vals, const step_t (*pat)[NSTEPS])
+void scene_capture(uint32_t s, uint32_t scope, const int16_t *vals)
 {
     scene_t *sc = &scenes[s % NSCENES];
-    uint32_t k, ch, i;
+    uint32_t k, ch;
     sc->used = 0;                                /* (half-written: not recallable) */
     for (k = 0; k < SCENE_DESK; k++)
         sc->desk[k] = vals[scene_param(k)];
     sc->scope = (uint8_t)(scope < SCOPE_N ? scope : SCOPE_DESK);
-    if (sc->scope == SCOPE_PATTERNS)
-        for (ch = 0; ch < NCH; ch++) {
-            sc->len[ch] = (uint8_t)vals[P_CH(ch, CHF_LEN)];
-            for (i = 0; i < NSTEPS; i++)
-                sc->pat[ch][i] = pat[ch][i];
-        }
+    for (ch = 0; ch < NCH; ch++)
+        sc->pat[ch] = (uint8_t)vals[P_CH(ch, CHF_PAT)];
     sc->used = 1;
 }
 
-void scene_apply(uint32_t s, int16_t *vals, step_t (*pat)[NSTEPS])
+void scene_apply(uint32_t s, int16_t *vals)
 {
     const scene_t *sc = &scenes[s % NSCENES];
-    uint32_t k, ch, i;
+    uint32_t k, ch;
     if (!sc->used)
         return;
     for (k = 0; k < SCENE_DESK; k++)
         vals[scene_param(k)] = (int16_t)param_clamp(scene_param(k), sc->desk[k]);
     if (sc->scope == SCOPE_PATTERNS)
-        for (ch = 0; ch < NCH; ch++) {
-            vals[P_CH(ch, CHF_LEN)] = (int16_t)param_clamp(P_CH(ch, CHF_LEN), sc->len[ch]);
-            for (i = 0; i < NSTEPS; i++)
-                if (sc->pat[ch][i].lvl < LVL_N)
-                    pat[ch][i] = sc->pat[ch][i];
-        }
+        for (ch = 0; ch < NCH; ch++)
+            vals[P_CH(ch, CHF_PAT)] = (int16_t)(sc->pat[ch] < NPAT ? sc->pat[ch] : 0u);
 }

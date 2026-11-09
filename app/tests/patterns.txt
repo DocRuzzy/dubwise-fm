@@ -1,0 +1,46 @@
+# The session's patterns kept (roadmap 4.8): four a channel with their own length, grid and swing, saved by SAVE and
+# back after a reboot; and a save from before the session converted (patstore.c): its pattern is A, each "P" scene's
+# copy the same pattern or one of its own (B..), the song's bars as they were.
+wait 600
+listen
+clearpat 2 B
+step 2 B 3 3
+param ch2.pat 1
+wait 30
+param ch2.grid 3
+param ch2.swing 60
+param ch2.len 12
+wait 30
+tap SAVE
+wait 300
+said SAVED
+clearpat 2 B
+param ch2.pat 0
+param ch2.len 16
+reboot
+wait 600
+expect ui.ch2.pat 1
+expect step2_3 3
+expect ui.ch2.grid 3
+expect ui.ch2.swing 60
+expect ui.ch2.len 12
+wait 200
+expect eng.ch2.len 12
+expect eng_step2_3 3
+# a save from before the session
+oldsave
+reboot
+wait 600
+expect ui.ch1.pat 0
+expect step1_1 2
+expect step1_5 0
+expect step1_9 2
+expect scnpat1_1 1
+expect scnpat2_1 0
+expect song_mark1 4
+expect dirty 1
+param ch1.pat 1
+wait 30
+expect step1_5 2
+expect step1_13 2
+expect step1_3 0

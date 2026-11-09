@@ -106,20 +106,40 @@ static volatile uint32_t t_fire_at, t_fires;     /* the last cue's sample (since
 typedef struct {
     uint32_t fb, fp;
     uint16_t id;
-    int16_t v;
-    uint8_t op;                                  /* CMD_SET (a parameter) or CMD_TEMPLATE */
+    int32_t v;
+    uint8_t op;                                  /* CMD_SET (a parameter), CMD_TEMPLATE or CMD_SCENE */
 } cue_t;
 static cue_t cues[NCUES];
 static uint32_t ncues;
 static volatile uint32_t cue_overflows;
 
-/* the sequencer (P0.4): each channel's pattern, played a sixteenth at a time from the transport */
+/* the sequencer (P0.4; the session, 4.8): each channel's four patterns, the one playing (CHF_PAT) from where it was
+ * launched. Time is counted in fine ticks, 240 a beat (riddim.h PPQ): each step lands at its grid line, plus its
+ * swing and its own offset (played or nudged off the line), each on its own sample. At each sixteenth's line the
+ * steps that land within that sixteenth are gathered (a step played early, before its line, is gathered with the
+ * sixteenth before), and the render is split where each falls, as for a cue */
 #define Q16 (BEAT_UNITS / 4u)                    /* a sixteenth in beat units: 6,615,000 (exact) */
-static step_t pat[NCH][NSTEPS];
-static int32_t last_tick = -1;                   /* the sixteenth last played since the start */
-static int32_t seq_bass = -1;                    /* the bass note the sequencer holds */
-static int32_t seq_lead = -1;                    /* the lead's, and the sixteenth it ends on */
-static uint32_t seq_lead_end;
+#define FU (BEAT_UNITS / PPQ)                    /* a fine tick in beat units: 110,250 (exact) */
+typedef char fu_exact[BEAT_UNITS % PPQ == 0u ? 1 : -1];
+#define F16 (PPQ / 4u)                           /* a sixteenth in fine ticks: 60 */
+static PLAT_POOL step_t pat[NCH][NPAT][NSTEPS];  /* (32 KB: the pool) */
+static pmeta_t pmeta[NCH][NPAT];
+typedef struct {
+    int32_t org;                                 /* the fine tick its step 0 fell on (a launch's line) */
+    uint8_t p;                                   /* the pattern */
+} ppos_t;
+static ppos_t pcur[NCH], pnext[NCH];             /* playing; launched for a line to come (pnext_on) */
+static uint8_t pnext_on[NCH];
+#define NSEV 48u
+typedef struct {
+    int32_t t;                                   /* its fine tick */
+    uint8_t ch, p, i;
+} sev_t;
+static sev_t sev[NSEV];                          /* this sixteenth's steps, in time order */
+static uint32_t nsev;
+static int32_t held_note[NCH], off_at[NCH];      /* the bass's and the lead's note the sequencer holds, its end */
+static int32_t last_tick = -1;                   /* the sixteenth last gathered since the start */
+static void seq_start(void);
 static volatile uint32_t seq_hits;               /* steps played since boot (tests) */
 static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */
 static volatile int32_t chord_last[NCH];         /* the chord a chord channel last played (tests) */
@@ -132,8 +152,8 @@ static volatile uint32_t ticks;                  /* blips since boot (tests) */
 static void runway_tick(uint32_t beat)
 {
     uint32_t cyc = cycle_bars(ev[P_CYCLE]), bar = (beat / 4u) % cyc, left = cyc - bar;
-    if (!ev[P_TICK] || left > runway_bars(ev[P_RUNWAY]))
-        return;
+    if (!ev[P_CLICK] && (!ev[P_TICK] || left > runway_bars(ev[P_RUNWAY])))
+        return;                                  /* (the click: every beat, a count-in or a recording's) */
     tick_inc = (beat % 4u == 0u ? 1760.0f : 1320.0f) / 44100.0f;
     tick_ph = 0.0f;
     tick_amp = 0.25f;
@@ -245,6 +265,8 @@ static void set_by_hand(uint32_t id, int32_t v)
 static int spin_on, spin_last;                   /* the spin-back (P3.5): 1 spinning, 2 the gap after */
 static void spin_start(void);
 static void transport_stop(void);
+static void clk_push(uint32_t pos, uint32_t st);
+static int32_t clk_last = -1;
 
 static void mot_release(void)                    /* the stop: what motion held down, let go */
 {
@@ -285,12 +307,24 @@ static uint32_t until_motion(void)               /* samples to the next move (0x
     return at > now ? (at - now + tempo - 1u) / tempo : 1u;
 }
 
-static void load_template(int32_t t, uint32_t mask)
+static void load_template(int32_t t, uint32_t v)  /* v: the channels (a mask) | their patterns << 8, 2 bits each */
 {
     uint32_t ch;
     for (ch = 0; ch < NCH; ch++)
-        if (mask >> ch & 1u)
-            template_fill(t, ch, pat[ch]);
+        if (v >> ch & 1u) {
+            uint32_t p = (v >> (8u + 2u * ch)) & 3u;
+            template_fill(t, ch, pat[ch][p]);
+            pmeta[ch][p].grid = GRID_16;         /* (a riddim is written in sixteenths) */
+        }
+}
+
+static void pnext_set(uint32_t ch, uint32_t p, int32_t line)   /* a pattern launched for that line */
+{
+    if (p == pcur[ch].p && !pnext_on[ch])
+        return;
+    pnext[ch].p = (uint8_t)p;
+    pnext[ch].org = line;
+    pnext_on[ch] = 1;
 }
 
 static void fire_due(int all)                    /* the cues now due (all: every one), in order */
@@ -301,7 +335,7 @@ static void fire_due(int all)                    /* the cues now due (all: every
             if (cues[i].op == CMD_TEMPLATE)
                 load_template(cues[i].id, (uint16_t)cues[i].v);
             else if (cues[i].op == CMD_SCENE) {
-                scene_apply(cues[i].id, ev, pat);
+                scene_apply(cues[i].id, ev);
                 scene_fired = cues[i].id;
             } else
                 set_by_hand(cues[i].id, cues[i].v);
@@ -324,7 +358,7 @@ static void cue_add(uint32_t op, uint32_t id, int32_t v, uint32_t beats)
         if (op == CMD_TEMPLATE)
             load_template((int32_t)id, (uint32_t)v);
         else if (op == CMD_SCENE) {
-            scene_apply(id, ev, pat);
+            scene_apply(id, ev);
             scene_fired = (int32_t)id;
         } else
             set_param(id, v);
@@ -334,10 +368,20 @@ static void cue_add(uint32_t op, uint32_t id, int32_t v, uint32_t beats)
     lead = (uint32_t)ev[P_LEAD] * 441u / 10u * (uint32_t)ev[P_TEMPO];   /* ms -> samples -> beat units */
     c = &cues[ncues++];
     c->id = (uint16_t)id;
-    c->v = (int16_t)v;
+    c->v = v;
     c->op = (uint8_t)op;
-    if (op == CMD_TEMPLATE || op == CMD_SCENE)   /* a pattern change lands on the line itself, not early */
-        lead = 0;
+    if (op == CMD_TEMPLATE || op == CMD_SCENE || (op == CMD_SET && id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE
+                                                  && (id - P_CH_BASE) % CH_STRIDE == CHF_PAT))
+        lead = 0;                                /* a pattern change lands on the line itself, not early */
+    if (op == CMD_SET && lead == 0u && id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE)   /* (a launch: known ahead,
+                                                                                               * for the steps played
+                                                                                               * early onto its line) */
+        pnext_set((id - P_CH_BASE) / CH_STRIDE, (uint32_t)v & 3u, (int32_t)(b * PPQ));
+    if (op == CMD_SCENE && scenes[id % NSCENES].used && scenes[id % NSCENES].scope == SCOPE_PATTERNS) {
+        uint32_t ch;
+        for (ch = 0; ch < NCH; ch++)
+            pnext_set(ch, scenes[id % NSCENES].pat[ch] & 3u, (int32_t)(b * PPQ));
+    }
     if (lead) {                                  /* (lead < a beat: 50 ms at 180 BPM is a sixth of one) */
         c->fb = b - 1u;
         c->fp = BEAT_UNITS - lead;
@@ -535,8 +579,17 @@ static void drain(void)                          /* every queued command, at the
             mot_suspend(c.id == 1);
         else if (c.op == CMD_CUE)
             cue_add(CMD_SET, c.id, c.v, c.beats);
-        else if (c.op == CMD_STEP && c.id < NCH * NSTEPS)
-            pat[c.id / NSTEPS][c.id % NSTEPS] = step_unpack(c.v);
+        else if (c.op == CMD_STEP && c.id < STEP_IDS) {   /* a step, or (i == NSTEPS) a pattern's settings */
+            uint32_t i = c.id % (NSTEPS + 1u), cp = c.id / (NSTEPS + 1u), ch = cp / NPAT, p = cp % NPAT;
+            if (i < NSTEPS)
+                pat[ch][p][i] = step_unpack(c.v);
+            else {
+                pmeta_t m = pmeta_unpack(c.v);
+                if (t_playing && p == pcur[ch].p && m.grid != pmeta[ch][p].grid)   /* a new grid: from the bar */
+                    pcur[ch].org = (int32_t)((t_beat / 4u) * 4u * PPQ);
+                pmeta[ch][p] = m;
+            }
+        }
         else if (c.op == CMD_TEMPLATE)
             cue_add(CMD_TEMPLATE, c.id, c.v, c.beats);
         else if (c.op == CMD_SCENE)
@@ -550,6 +603,11 @@ static void drain(void)                          /* every queued command, at the
                 fxv_on(which, (uint32_t)vel);
             else
                 fxv_off(which);
+        } else if (c.op == CMD_NOTE && (c.id == CH_SKANK || c.id == CH_ORGAN)) {   /* a pad: the lane's chord now */
+            int32_t vel = (c.v >> 8) & 0x7F, lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
+            if (vel)
+                chordv_trig(c.id, ev[P_CHORD0 + (int32_t)((t_playing ? t_beat / 4u : 0u) % (uint32_t)lane)],
+                            c.v & 0x7F, (uint32_t)vel);
         } else if (c.op == CMD_NOTE && c.id < NCH) {
             int32_t note = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
             if (vel)
@@ -566,6 +624,10 @@ static void drain(void)                          /* every queued command, at the
         t_playing = 1;
         t_beat = t_phase = t_samples = 0;
         last_tick = -1;
+        clk_last = -1;
+        seq_start();
+        if (ev[P_CLOCK] == CLOCK_OUT)
+            clk_push(0, 0xFAu);                  /* MIDI Start, then the clocks from this sample */
     } else if (!ev[P_PLAY] && t_playing) {       /* stop: what was cued happens now; the bass let go */
         transport_stop();
     }
@@ -611,9 +673,22 @@ void eng_init(void)
     t_playing = 0;
     t_beat = t_phase = t_samples = 0;
     ncues = 0;
-    load_template(TPL_ONE_DROP, 0xFFu);          /* a riddim to start from (editable steps) */
+    {                                            /* a riddim to start from (editable steps) in A, B..D empty */
+        uint32_t p, i;
+        for (ch = 0; ch < NCH; ch++)
+            for (p = 0; p < NPAT; p++) {
+                pmeta[ch][p] = pmeta_def();
+                for (i = 0; i < NSTEPS; i++) {
+                    pat[ch][p][i].lvl = LVL_OFF;
+                    pat[ch][p][i].note = default_note(ch);
+                    pat[ch][p][i].off = 0;
+                    pat[ch][p][i].gate = 0;
+                }
+            }
+    }
+    load_template(TPL_ONE_DROP, 0xFFu);
     last_tick = -1;
-    seq_bass = -1;
+    seq_start();
 }
 
 /* ------------------------------------------------------------- sequencer --- */
@@ -644,8 +719,20 @@ static void song_line(uint32_t bar)             /* a bar's line: the song captur
         mot_line((int32_t)b, 0, ev);
         sc = song_apply(b, ev);                  /* the bar's mutes, solos, Big Knob */
         if (sc >= 0 && sc < NSCENES) {           /* its scene first, then the bar's own desk over it */
-            scene_apply((uint32_t)sc, ev, pat);
+            scene_apply((uint32_t)sc, ev);
             song_apply(b, ev);
+        }
+        if (b + 1u < len || ev[P_SONG_MODE] == SONG_LOOP) {   /* the next bar's patterns: known a bar ahead */
+            uint32_t nb = b + 1u < len ? b + 1u : 0u, ch;
+            const song_bar_t *s = &song[nb % SONG_BARS];
+            int32_t line = (int32_t)((bar + 1u) * 4u * PPQ);
+            if ((s->flags & BAR_SET) && s->scene && s->scene <= NSCENES && scenes[s->scene - 1u].used
+                && scenes[s->scene - 1u].scope == SCOPE_PATTERNS)
+                for (ch = 0; ch < NCH; ch++)
+                    pnext_set(ch, scenes[s->scene - 1u].pat[ch] & 3u, line);
+            if ((s->flags & BAR_SET) && (s->flags & BAR_PATS))
+                for (ch = 0; ch < NCH; ch++)
+                    pnext_set(ch, bar_pat(s, ch), line);
         }
     } else
         mot_line(-1, 0, ev);
@@ -654,45 +741,175 @@ static void song_line(uint32_t bar)             /* a bar's line: the song captur
     bus_update();
 }
 
-static void seq_play(uint32_t tick)              /* sixteenth `tick` since the start: every channel's step */
+static int32_t fine_now(void) { return (int32_t)(t_beat * PPQ + t_phase / FU); }
+
+static int seq_due(int32_t t)                    /* the fine tick t reached */
+{
+    uint32_t tb, tp;
+    if (t < 0)
+        return 1;
+    tb = (uint32_t)t / PPQ;
+    tp = ((uint32_t)t % PPQ) * FU;
+    return tb < t_beat || (tb == t_beat && tp <= t_phase);
+}
+
+static uint32_t until_fine(int32_t t)            /* samples to the fine tick t (0: reached) */
+{
+    uint32_t tb, tp, d, tempo = (uint32_t)ev[P_TEMPO];
+    if (seq_due(t))
+        return 0;
+    tb = (uint32_t)t / PPQ;
+    tp = ((uint32_t)t % PPQ) * FU;
+    if (tb - t_beat > 100u)
+        return 0xFFFFFFFFu;
+    d = (tb - t_beat) * BEAT_UNITS + tp - t_phase;   /* (100 beats at most: under 2^32) */
+    return (d + tempo - 1u) / tempo;
+}
+
+static void seq_start(void)                      /* the transport's start (or the boot): each pattern from the top */
 {
     uint32_t ch;
+    for (ch = 0; ch < NCH; ch++) {
+        pcur[ch].p = (uint8_t)(ev[P_CH(ch, CHF_PAT)] & 3);
+        pcur[ch].org = 0;
+        pnext_on[ch] = 0;
+        held_note[ch] = -1;
+        off_at[ch] = -1;
+    }
+    nsev = 0;
+}
+
+static void pat_sync(void)                       /* CHF_PAT changed (a cue, a scene, the song, by hand): it plays */
+{
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++) {
+        uint32_t p = (uint32_t)ev[P_CH(ch, CHF_PAT)] & 3u;
+        if (p == pcur[ch].p) {
+            if (pnext_on[ch] && pnext[ch].p == p && t_playing && seq_due(pnext[ch].org) && pnext[ch].org > pcur[ch].org)
+                pcur[ch] = pnext[ch], pnext_on[ch] = 0;   /* (relaunched: from the top) */
+            continue;
+        }
+        if (pnext_on[ch] && pnext[ch].p == p)
+            pcur[ch] = pnext[ch];                /* launched on its line: from there */
+        else {
+            pcur[ch].p = (uint8_t)p;             /* by hand, at once: from this beat */
+            pcur[ch].org = t_playing ? (int32_t)(t_beat * PPQ) : 0;
+        }
+        pnext_on[ch] = 0;
+    }
+}
+
+static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i)   /* into the list, in time order */
+{
+    uint32_t k;
+    if (nsev == NSEV)
+        return;
+    for (k = nsev; k > 0u && sev[k - 1u].t > t; k--)
+        sev[k] = sev[k - 1u];
+    sev[k].t = t;
+    sev[k].ch = (uint8_t)ch;
+    sev[k].p = (uint8_t)p;
+    sev[k].i = (uint8_t)i;
+    nsev++;
+}
+
+/* channel ch's steps that land in [w0, w1), for those whose grid line is in [lo, hi), played from s */
+static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t w0, int32_t w1)
+{
+    pmeta_t m = pmeta[ch][s->p];
+    int32_t sl = grid_fine(m.grid), len = m.len ? (int32_t)m.len : 16, a = w0 - s->org - sl, b = w1 - s->org + sl / 2, n;
+    if (b < 0)
+        return;
+    for (n = a < 0 ? 0 : a / sl; n <= b / sl; n++) {
+        int32_t line = s->org + n * sl, t, i = n % len;
+        step_t st;
+        if (line < lo || line >= hi)
+            continue;
+        st = pat[ch][s->p][i];
+        if (!st.lvl)
+            continue;
+        t = line + swing_fine(m, n) + st.off;
+        if (t < w0 && line >= w0 && w0 == 0)     /* (at the very start, nothing before: early is on the one) */
+            t = 0;
+        if (t >= w0 && t < w1)
+            sev_add(t, ch, s->p, (uint32_t)i);
+    }
+}
+
+static void seq_play(uint32_t tick)              /* sixteenth `tick`'s line: the song, the runway, its steps gathered */
+{
+    uint32_t ch;
+    int32_t w0 = (int32_t)(tick * F16), w1 = w0 + (int32_t)F16;
     if (tick % 16u == 0u) {
         song_line(tick / 16u);
         if (!t_playing)
             return;
-    }
-    if (seq_bass >= 0) {                         /* the bass: a step long (staccato), unless the next one sounds */
-        voice_release(CH_BASS, seq_bass);
-        seq_bass = -1;
-    }
-    if (seq_lead >= 0 && tick >= seq_lead_end) { /* the lead: two steps long, or until its next note */
-        voice_release(CH_LEAD, seq_lead);
-        seq_lead = -1;
+        pat_sync();
     }
     if (tick % 4u == 0u)
         runway_tick(tick / 4u);
+    nsev = 0;
     for (ch = 0; ch < NCH; ch++) {
-        uint32_t len = (uint32_t)ev[P_CH(ch, CHF_LEN)];
-        step_t st = pat[ch][tick % (len ? len : 16u)];
-        if (!st.lvl)
-            continue;
-        if (ch == CH_SKANK || ch == CH_ORGAN) {   /* the chord lane's chord at this bar, in the step's voicing */
-            int32_t lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
-            int32_t chord = ev[P_CHORD0 + (int32_t)((tick / 16u) % (uint32_t)lane)];
-            chordv_trig(ch, chord, st.note, lvl_vel(st.lvl));
-            chord_last[ch] = chord;
+        if (pnext_on[ch] && pnext[ch].org >= w0 - (int32_t)PPQ) {   /* a launch to come: each its own steps */
+            gather(ch, &pcur[ch], -0x7FFFFFFF, pnext[ch].org, w0, w1);
+            gather(ch, &pnext[ch], pnext[ch].org, 0x7FFFFFFF, w0, w1);
         } else
-            trig(ch, st.note, lvl_vel(st.lvl));
-        seq_hits++;
-        seq_hit_at[ch] = t_samples;
-        if (ch == CH_BASS)
-            seq_bass = st.note;
-        if (ch == CH_LEAD) {
-            seq_lead = st.note;
-            seq_lead_end = tick + 2u;
+            gather(ch, &pcur[ch], -0x7FFFFFFF, 0x7FFFFFFF, w0, w1);
+    }
+}
+
+static void seq_hit(const sev_t *e)              /* a step, now */
+{
+    uint32_t ch = e->ch;
+    step_t st = pat[ch][e->p][e->i];
+    pmeta_t m = pmeta[ch][e->p];
+    if (!st.lvl)
+        return;                                  /* (cleared since it was gathered) */
+    if (ch == CH_SKANK || ch == CH_ORGAN) {      /* the chord lane's chord at this bar, in the step's voicing */
+        int32_t lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
+        int32_t chord = ev[P_CHORD0 + (int32_t)(((uint32_t)(e->t > 0 ? e->t : 0) / (4u * PPQ)) % (uint32_t)lane)];
+        chordv_trig(ch, chord, st.note, lvl_vel(st.lvl));
+        chord_last[ch] = chord;
+    } else {
+        if ((ch == CH_BASS || ch == CH_LEAD) && held_note[ch] >= 0) {   /* one note at a time */
+            voice_release(ch, held_note[ch]);
+            held_note[ch] = -1;
+        }
+        trig(ch, st.note, lvl_vel(st.lvl));
+        if (ch == CH_BASS || ch == CH_LEAD) {    /* held for its gate: the bass a step (staccato), the lead two */
+            held_note[ch] = st.note;
+            off_at[ch] = e->t + (st.gate ? 4 * (int32_t)st.gate : grid_fine(m.grid) * (ch == CH_LEAD ? 2 : 1));
         }
     }
+    seq_hits++;
+    seq_hit_at[ch] = t_samples;
+}
+
+static void seq_fire(void)                       /* the notes ending now, then the steps landing now */
+{
+    uint32_t ch;
+    for (ch = CH_BASS; ch <= CH_LEAD; ch += CH_LEAD - CH_BASS)
+        if (held_note[ch] >= 0 && seq_due(off_at[ch])) {
+            voice_release(ch, held_note[ch]);
+            held_note[ch] = -1;
+        }
+    while (nsev && seq_due(sev[0].t)) {
+        sev_t e = sev[0];
+        uint32_t k;
+        for (k = 1; k < nsev; k++)
+            sev[k - 1u] = sev[k];
+        nsev--;
+        seq_hit(&e);
+    }
+}
+
+static uint32_t until_seq(void)                  /* samples to the next step or note end */
+{
+    uint32_t d = nsev ? until_fine(sev[0].t) : 0xFFFFFFFFu, ch, u;
+    for (ch = CH_BASS; ch <= CH_LEAD; ch += CH_LEAD - CH_BASS)
+        if (held_note[ch] >= 0 && (u = until_fine(off_at[ch])) < d)
+            d = u;
+    return d;
 }
 
 static uint32_t until_16th(void)                 /* samples to the next sixteenth's line */
@@ -732,17 +949,130 @@ static uint32_t spin_w, spin_acc_n, spin_gap, spin_again;
 static int32_t spin_acc;
 static float spin_pos, spin_t;
 
+/* ------------------------------------------------------------ MIDI clock --- */
+/* OUT: 24 clocks a beat on the transport's own clock. The render notes each one's moment (this block's start on
+ * plat_ticks24's clock, plus its sample); the 1 kHz tick sends it when that moment comes (app_tick: eng_clock_pop), so
+ * a clock goes out within a millisecond of its time, not bunched a block at a time. Start at the transport's start,
+ * Stop at its stop.
+ * IN: Start / Continue start the transport (from bar 1), Stop stops it; the clocks set the tempo (their spacing over
+ * the last beat) and keep the bar in phase (the tempo nudged by the beats we are ahead or behind, at most 5 %) */
+#define Q24 (BEAT_UNITS / 24u)                   /* a clock in beat units: 1,102,500 (exact) */
+#define CQ 64u
+static struct {
+    uint32_t due;
+    uint8_t st;
+} cq[CQ];
+static volatile uint32_t cq_w, cq_r;
+static uint32_t blk_t24, clk_sent;
+static uint32_t ext_t, ext_dt[24], ext_n, ext_ticks;
+static int ext_have;
+
+uint32_t eng_clock_now(void)                     /* the clock's time base, 24 MHz: the device's ticks; the host's
+                                                  * simulated milliseconds (its plat_ticks24 is the computer's clock) */
+{
+#ifdef PLAT_HOST
+    return plat_ms() * 24000u;
+#else
+    return plat_ticks24();
+#endif
+}
+
+static void clk_push(uint32_t pos, uint32_t st)
+{
+    uint32_t w = cq_w;
+    if (w - cq_r >= CQ)
+        return;
+    cq[w % CQ].due = blk_t24 + pos * 5442u / 10u;   /* (24 MHz ticks: 544.2 a sample) */
+    cq[w % CQ].st = (uint8_t)st;
+    __asm__ volatile("" ::: "memory");
+    cq_w = w + 1u;
+}
+
+int eng_clock_pop(uint32_t now, uint32_t *st)    /* the 1 kHz tick: the next clock message now due (1) */
+{
+    uint32_t r = cq_r;
+    if (r == cq_w || (int32_t)(now - cq[r % CQ].due) < 0)
+        return 0;
+    *st = cq[r % CQ].st;
+    if (*st == 0xF8u)
+        clk_sent++;
+    __asm__ volatile("" ::: "memory");
+    cq_r = r + 1u;
+    return 1;
+}
+
+uint32_t eng_clocks_sent(void) { return clk_sent; }
+
+static uint32_t until_clock(void)                /* samples to the next clock's moment */
+{
+    uint32_t b = (t_phase / Q24 + 1u) * Q24, tempo = (uint32_t)ev[P_TEMPO];
+    return (b - t_phase + tempo - 1u) / tempo;
+}
+
+void eng_clock_in(uint32_t st, uint32_t t24)     /* the audio interrupt (app_render's MIDI in), before eng_render */
+{
+    if (ev[P_CLOCK] != CLOCK_IN)
+        return;
+    if (st == 0xFAu || st == 0xFBu) {            /* Start, Continue: from the top (the next block) */
+        ev[P_PLAY] = 1;
+        mot_fb_push(P_PLAY, 1);
+        ext_ticks = 0;
+        return;
+    }
+    if (st == 0xFCu) {
+        ev[P_PLAY] = 0;
+        mot_fb_push(P_PLAY, 0);
+        return;
+    }
+    if (st != 0xF8u)
+        return;
+    if (ext_have) {
+        uint32_t dt = t24 - ext_t;
+        if (dt > 6000u && dt < 4000000u) {       /* 10 .. 600 BPM's spacing: a real clock */
+            ext_dt[ext_n % 24u] = dt;
+            ext_n++;
+        }
+    }
+    ext_t = t24;
+    ext_have = 1;
+    ext_ticks++;
+    if (ext_n >= 6u) {
+        uint32_t k, m = ext_n < 24u ? ext_n : 24u;
+        float sum = 0.0f, tempo, err;
+        int32_t v;
+        for (k = 0; k < m; k++)
+            sum += (float)ext_dt[k];
+        tempo = 600000000.0f * (float)m / sum;   /* BPM x 10: 60 s x 10 x 24 MHz / (24 a beat x the spacing) */
+        if (t_playing && ext_ticks) {            /* the phase: our beats against the clocks' */
+            err = ((float)t_beat + (float)t_phase * (1.0f / (float)BEAT_UNITS)) - (float)(ext_ticks - 1u) * (1.0f / 24.0f);
+            err = err > 0.2f ? 0.2f : err < -0.2f ? -0.2f : err;
+            tempo *= 1.0f - 0.25f * err;         /* ahead: slower; behind: faster (at most 5 %) */
+        }
+        v = param_clamp(P_TEMPO, (int32_t)(tempo + 0.5f));
+        if (v != ev[P_TEMPO]) {
+            ev[P_TEMPO] = (int16_t)v;
+            mot_fb_push(P_TEMPO, v);             /* (the screen follows) */
+        }
+    }
+}
+
 static void transport_stop(void)                 /* what a stop does: the cues now, motion's holds and the notes let go */
 {
+    if (ev[P_CLOCK] == CLOCK_OUT)
+        clk_push(0, 0xFCu);
     t_playing = 0;
     fire_due(1);
     mot_release();
-    if (seq_bass >= 0)
-        voice_release(CH_BASS, seq_bass);
-    seq_bass = -1;
-    if (seq_lead >= 0)
-        voice_release(CH_LEAD, seq_lead);
-    seq_lead = -1;
+    {
+        uint32_t ch;
+        for (ch = 0; ch < NCH; ch++)
+            if (held_note[ch] >= 0) {
+                voice_release(ch, held_note[ch]);
+                held_note[ch] = -1;
+            }
+    }
+    nsev = 0;
+    pat_sync();
 }
 
 static void spin_start(void)
@@ -996,7 +1326,9 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     if (n > ENG_BLOCK)
         n = ENG_BLOCK;
     prof_t = plat_ticks24();
+    blk_t24 = eng_clock_now();
     drain();
+    pat_sync();
     strips_update();
     bus_update();
     prof_mark(PART_CMD);
@@ -1010,17 +1342,33 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 strips_update();
                 bus_update();
             }
+            pat_sync();
             if ((int32_t)tick != last_tick) {
                 last_tick = (int32_t)tick;
                 seq_play(tick);
             }
+            if (t_playing)
+                seq_fire();
             if (!t_playing)                      /* (a song played once has ended: the rest rings out) */
                 goto render;
             if (mot_play()) {                    /* the bar's motion: the moves due at this sample */
                 strips_update();
                 bus_update();
             }
+            if (ev[P_CLOCK] == CLOCK_OUT) {      /* MIDI clock out: this sample's clock, timed for the tick */
+                int32_t ci = (int32_t)(t_beat * 24u + t_phase / Q24);
+                if (ci != clk_last) {
+                    clk_last = ci;
+                    clk_push(pos, 0xF8u);
+                }
+                u = until_clock();
+                if (u < d)
+                    d = u;
+            }
             u = until_16th();
+            if (u < d)
+                d = u;
+            u = until_seq();
             if (u < d)
                 d = u;
             u = until_motion();
@@ -1070,7 +1418,12 @@ int eng_midi_allowed(int32_t note)               /* MIDI in, when the lock cover
 uint32_t eng_frac16(void) { return (t_phase % Q16) / (Q16 / 256u); }
 int32_t eng_tick(void) { return t_playing ? last_tick : -1; }
 uint32_t eng_seq_hit_at(uint32_t ch) { return ch < NCH ? seq_hit_at[ch] : 0; }
-step_t eng_step(uint32_t ch, uint32_t i) { return pat[ch % NCH][i % NSTEPS]; }
+step_t eng_step(uint32_t ch, uint32_t i) { return pat[ch % NCH][pcur[ch % NCH].p][i % NSTEPS]; }
+step_t eng_step_at(uint32_t ch, uint32_t p, uint32_t i) { return pat[ch % NCH][p % NPAT][i % NSTEPS]; }
+pmeta_t eng_pmeta(uint32_t ch, uint32_t p) { return pmeta[ch % NCH][p % NPAT]; }
+uint32_t eng_pat(uint32_t ch) { return pcur[ch % NCH].p; }
+int32_t eng_fine(void) { return t_playing ? fine_now() : -1; }
+int32_t eng_pat_org(uint32_t ch) { return pcur[ch % NCH].org; }
 float eng_echo_ret_peak(void) { return echo_ret_peak; }
 float eng_echo_gr(void) { return echo_gr(); }
 int32_t eng_echo_div(void) { return echo_div_now; }

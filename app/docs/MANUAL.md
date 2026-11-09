@@ -1,13 +1,15 @@
 # DUBWISE
 
-DUBWISE (Dubwise FM, a SpIllt Beats release by DocRuzzy) is a reggae/dub groovebox for the M-VAVE FM-1 in the making, where the mixing desk is the
-instrument. This early build has the desk's first move: the DUB page, where the white keys mute and solo the eight
-channels, and every change can wait for the next beat or bar line so it lands on time.
+DUBWISE (Dubwise FM, a SpIllt Beats release by DocRuzzy) turns the M-VAVE FM-1 into a reggae and dub mixing desk
+you play live. Eight channels (FM kick, snare, hats, bass, skank, organ bubble, melodica or brass, and sirens and
+shouts) play a riddim; your hands do the dub: mutes and solos that land on the one, throws into a tape echo and a
+spring you can kick, the stepped Big Knob filter, freezes, pushes, tape dives, drop to wet, drum and bass, rewinds.
+Record every move into a song, recall scenes, keep four projects in slots.
 
-Six channels have voices: an FM kick, rim, hats and bass, and a skank and an organ bubble that play the chords of
-the chord lane (KEY & CHORDS page). A step sequencer plays them all. It starts with a
-ONE DROP riddim, so press PLAY and you're dubbing. Press SEQ to edit the patterns or pick another riddim. You can also
-play the voices over MIDI. Press GLO to put a test tone on every channel. There's no Bluetooth: the RAM it would take goes to the dub bus.
+Press PLAY and you're dubbing: the ONE DROP riddim starts. SEQ edits the patterns (or loads another riddim), FX the
+effects, ARP the key and the chord lane, GLO the SETUP page, HOME the scenes and the song. For a ready-made dub to
+play along with, load the demo, RIGHTEOUS DUB (SETUP → DEMO SONG). The one-page cheat sheet:
+https://docruzzy.github.io/dubwise-fm/cheat/
 
 ![The DUB page, stopped: 75.0 BPM, BAR 1.1, Q 1 BAR in the header; eight channel strips, all playing; the echo's repeats falling; TIME 1/8., FB 3.2s, ECHO 100, SPRG 90](img/screen-ready.png "The DUB page at rest")
 
@@ -64,11 +66,13 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | PLAY | Start and stop (when you let go). Starting counts from bar 1. Stopping makes anything waiting happen at once. Hold PLAY while you press a white key to make that change now instead of on the line. |
 | SELECT · BIG KNOB | The Big Knob: a steep high-pass filter in steps, like King Tubby's: OFF, 70, 100, 150, 250, 500 Hz, 1, 2, 3, 5, 7.5 kHz. Each click jumps straight to the next step, which is part of its sound. Sweep it up to make the mix "evaporate", snap it back on the one. On the whole mix, or only the echo's return (SETUP). For finer steps between those, SETUP's BIG KNOB STEPS: 20 or 40. |
 | HOME + SELECT | Tempo, 1 BPM a click. |
+| HOME + SEQ, tapped | Tap tempo: from the second tap, the average of the last four gaps (a pause over 2 s starts again). Refused while MIDI clock in has the tempo. |
+| Any button, held a second on its own | Its help card for this page. It stays when you let go, and the next press (which does nothing else) or 12 s puts the page back. A combo you hold while thinking still works: a knob or key pressed with the button held closes the card and does its job. |
 | ALGORITHM | Moves the focus between the channels. |
 | EDIT | The SOUND view: KNOB 1–4 edit the focused channel's voice, four settings at a time. Press EDIT again for the next four, then once more to go back to the echo's knobs. ALGORITHM picks the channel. |
 | GLO | The SETUP page (below). |
 | MASTER | Sets the volume. |
-| SAVE | Saves the tempo, the quantise setting and the wave. SAVE lights while there's something to save. |
+| SAVE | Saves your project: the tempo, sounds, patterns, scenes, the song and its moves, the FX and SETUP. SAVE lights while there's something to save. On SETUP's slot rows it saves to (or loads from) a song slot instead. |
 | KNOB 1 · TIME | The echo's time, in steps of the beat: 1/16, 1/8T, 1/16., 1/8, 1/4T, 1/8. (dotted eighth, the default), 1/4, 1/2T, 1/4., 1/2. At slow tempos the longest don't fit, so you get the longest that does. A change glides like tape, bending the pitch. |
 | KNOB 2 · FB | How long the repeats last: the time they take to fall 60 dB, from 0.1 s to endless (INF). |
 | KNOB 3 · ECHO | The echo's return level. |
@@ -84,10 +88,10 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | Black key 5 | Drop to wet, while held: every channel's dry sound drops out, and only the echo and the spring play on. Let go and the band is back. |
 | Black key 11 | Drum and bass, while held: the skank, organ, lead and vox drop out (their sends too), leaving the kick, snare, hats and bass. |
 | HOME + PLAY | Rewind (the selector calls it: REWIND, COME AGAIN / PULL UP, SELECTA / WHEEL UP): the last second and a half spins backwards like a record pulled back, the echo and spring stop, and after a beat's silence the tune comes again from bar 1. Stopped, it just spins back. |
+| HOME + REC · HOME + GLO | Undo · redo, a step at a time: a mute, a key, a knob's turning, a step, a riddim, a scene. Throws, freezes, pushes and the like let go by themselves, so they aren't kept. When your last action was a song capture, HOME + REC takes that pass back first. |
 | (Stereo) | The dry sound is mono. Only the echo and the spring are stereo: the spring always, the echo with WIDTH. Below about 150 Hz both sides stay the same, so the bass stays solid and mono. |
 | Black key 1 | Spring crash: strikes the spring tank, a thunderclap even with nothing sent to it. Held while you hold a throw key, it sends that throw to the spring as well. |
 | FX | The FX page: ECHO (time, feedback, tone, 2T head), SPRING (decay, tone, return), CROSS (the echo's return into the spring, the spring's into the echo), TAPE (the dive), PHASER (where it is: OFF, HATS, SKANK, ECHO or the whole MIX; RATE 0.1–18 Hz, DEPTH, FEEDBACK), GATE (the spring gate: each snare opens the spring for HOLD, then it shuts over RELEASE, so a long spring is chopped into a tail after every snare), DRIVE (tape saturation on the BASS or the whole MIX: DRIVE up to +14 dB into the tape, BLEND with the clean sound; quiet sounds keep their level, loud ones flatten and thicken) and WIDTH (the echo's right side 8–16 ms behind its left, for a wider echo; the phaser's sine or square sweep; PING-PONG, the echo's repeats left, right, left, while the bass in them stays in the middle) and BI-PHASE (a second phaser: MODE SINGLE, CASCADE, the two in a row for deeper sweeps with the second at its own RATE 2, or STEREO, the left and right sweeping against each other, on the echo's return; elsewhere STEREO works as CASCADE so the dry sound stays mono); press FX again for the next. KNOB 1–4 change them. The cross-sends make a loop between the two effects, so they're held back automatically when the echo or the spring is set long: it never runs away. |
-| Other black keys | Show their names. The rest come next. |
 
 The keys light by one rule: bright is playing, dim is muted or not in use yet, and a slow blink means waiting.
 
@@ -119,9 +123,17 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | BIG KNOB ON | Where the Big Knob sits: the whole MIX, or only the ECHO RETURN. |
 | BIG KNOB STEPS | 10 ALTEC (the default): the ten steps of King Tubby's filter, the stepped sound. 20 or 40: finer steps, the ten still among them (evenly between them in pitch, and down to 42 Hz under 70), for a smoother climb. A song or scene sounds the same whichever you choose. |
 | THROW VELOCITY | ON (the default): a throw is as big as the key was hit. OFF: every throw at full level. |
+| MIDI CLOCK | OFF (the default); IN: follow a computer or drum machine over USB: its Start starts Dubwise from bar 1, its Stop stops it, and its clock sets the tempo and keeps the bars in step; OUT: lead: Dubwise sends Start, 24 clocks a beat and Stop, so other gear follows it. |
+| REC QUANTISE | Live recording: FEEL (the default; as you played it), HALF (halfway to the grid) or GRID. |
+| REC MODE | Recording into a pattern with steps: OVERDUB (adds) or REPLACE (clears what the playhead passes, keeping what you play). |
+| REC OFFSET | 0–60 ms (12 by default) taken off each played note's time, for the sound's way to your ears. |
+| CLICK | COUNT-IN (the default: a click on every beat while a pass waits for its line), RECORDING (and while recording), or OFF. |
+| AUTOSAVE | ON (the default): what SAVE keeps is saved by itself once you've stopped and left the FM-1 alone for a few seconds (and the echo has died away), so switching off never loses a session; SAVE's light going out says it's done. OFF: only SAVE saves. |
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
+| SAVE TO SLOT | Keep the whole project in one of four slots: the desk, the sounds, the key and chords, the patterns, the scenes, the song and its recorded moves. KNOB 2 picks the slot (it says whether it's empty), then press SAVE. Stopped only. Your SETUP preferences aren't part of it. |
+| LOAD SLOT | Bring a slot's project back (KNOB 2 picks it, SAVE loads it), in place of the current one. Press SAVE again afterwards to make it the one that's there at power-on. Stopped only. |
 | DEMO SONG | Turn KNOB 2 to load RIGHTEOUS DUB, the demo: an original riddim and its dub in the 1970s Kingston manner, 72 BPM in A minor, 32 bars (INTRO of drum and bass, VERSE with the melodica, VERSION, a DUB section where the hats drop and the Big Knob climbs, a DROP without the bass, the VERSE again, OUTRO, and an END where everything drops to the echo). The engineer's moves are in it, as the song's motion: throws, spring crashes, a freeze, an echo swell, a dub push, a tape dive. It replaces the patterns, scenes, song and motion (until you SAVE, nothing is lost: switch off to get yours back). Press PLAY: the song plays once. Play on top of it: sirens, one-shots, more throws. |
 | UK STEPPERS | Turn KNOB 2 to set the desk up for UK steppers: 140 BPM, A minor, the UK STEPPERS riddim, the sub bass through the tape, the rim into the echo, the skank into the spring, siren A ready. It changes the patterns, sounds and effects, not your song or scenes. Press PLAY, then throw the rim, hold the siren, take the kick out for a bar. 140 BPM is a starting point: set the tempo by ear. |
 
@@ -138,10 +150,52 @@ channel you're editing, bigger, with its notes.
 | Black keys 1–8 | Pick the channel to edit. |
 | Hold black key 9 or 10 + a white key | Make that step an accent or a ghost note (again: back to normal). |
 | OCT− · OCT+ | The page of 16 steps: 1–16, 17–32, 33–48, 49–64. |
-| KNOB 1 · LEN | The pattern's length, 1 to 64 steps. |
+| KNOB 1 · LEN | The pattern's length, 1 to 64 steps. Hold HOME: its GRID instead, 1/8, 1/8T, 1/16, 1/16T (triplets) or 1/32. |
 | KNOB 2 · NOTE | The note of the step you hold, or the last one you touched: a semitone a click. On the hats, closed or open. |
-| KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS, FLYERS or UK STEPPERS. It lands on the next bar line, and then it's just steps you can change. |
-| REC (on the bass) | The keyboard: all 27 keys play the bass, from F in the octave set on the KEY page. While playing, each note you play is recorded at the nearest step. While stopped, notes go in one step after another. Press REC again for the steps. |
+| KNOB 3 · SWING | The pattern's swing, 50 % (straight) to 75 %: every other step later. Hold a step: NUDGE it off its line instead, a tick (about 3 ms) a click, up to half a step either way. A step off its line shows a small mark. |
+| KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS, FLYERS or UK STEPPERS. It lands on the next bar line, and then it's just steps you can change. Hold a step: its GATE instead, how long the bass or lead note holds (AUTO: a step for the bass, two for the lead). |
+| REC | The keyboard and live recording: see below. |
+
+### Four patterns a channel (the session)
+
+Every channel has four patterns, **A, B, C and D**, each with its own length, grid and swing. One plays; the others
+wait. It works like a session in Ableton Live, or an OP-Z: put a bass line in A, its version in B, a busier one in C,
+and launch them as the tune goes, while the drums keep their own. The letter by each channel shows which plays, amber
+while a launch waits for its line.
+
+| Control | What it does |
+| --- | --- |
+| HOME + white 1–4 | Launch this channel's A–D. Playing, it lands on the next line of the quantise setting (hold PLAY: now) and starts from its top. While HOME is held, whites 1–4 show the patterns: the one playing bright, others with steps dim. |
+| HOME + white 9–12 | Launch A–D on every channel at once. |
+| SAVE + white 1–4 | Copy the pattern you're editing into A–D (then change the copy). |
+| HOME + OCT+ | Double the pattern: its steps again after it, so 16 becomes 32 (64 at most). Then vary the second half. |
+| HOME + OCT− | Clear the pattern. |
+| A mute key held + PRESET (DUB page) | Launch that channel's next or previous pattern without leaving the desk. The mute stays as it was. |
+
+The STEPS page edits the pattern you launched, at once, while the one playing carries on to its line. Every one of
+these is a step of the undo history (HOME + REC).
+
+### Recording live
+
+Press **REC** while playing, and play: the keyboard (bass and lead: all 27 keys, from F in the octave set on the KEY
+page), or the pads.
+
+- **An empty pattern** waits for the next bar line, with the click counting you in, records one pass of the pattern
+  (set its length first: 16 steps is a bar), then loops it and lets you play along. Like an RC-505.
+- **A pattern with steps** records at once, until you press REC again. REC MODE (SETUP) is OVERDUB, which adds, or
+  REPLACE, which clears what the playhead passes, keeping what you play.
+- **Where it lands:** a note keeps where you played it, to about 3 ms (REC QUANTISE: FEEL). HALF moves it halfway to
+  the grid; GRID puts it on the grid. A note played just before the line of an armed pass starts the pass, so an
+  early downbeat counts.
+- **How hard and how long:** a soft note becomes a ghost, a hard one an accent. The bass and lead keep how long you
+  held each note.
+- **The pads:** on a drum channel, whites 1–4 are the kick, rim, closed hat and open hat, each into its own channel.
+  On the skank or organ, whites 1–3 play the chord lane's chord low, middle or high.
+- **Stopped,** REC turns the keyboard on, and notes go in one step after another at a cursor. Press PLAY with it on:
+  a bar of click, then the pass.
+- **SEQ** leaves the keyboard. A pass is one step of the undo history: HOME + REC takes the whole pass back.
+- **REC OFFSET** (SETUP) makes up for the time the sound takes to reach your ears: if your notes land late, raise it.
+  In a browser, try 40–80 ms.
 
 On the skank and organ, a step doesn't hold a note: it holds a voicing, LO, MD or HI (KNOB 2), and the notes are
 the chord lane's chord for that bar. Change the chords and the parts follow.
@@ -155,21 +209,23 @@ skank chopping every off-beat, no organ.
 ## 3e. ARRANGE (HOME, then HOME again): scenes
 
 A scene is a snapshot of the desk: every channel's level, mute, solo, echo and spring sends and throw destination,
-the Big Knob and both returns. A scene with patterns (P) keeps every channel's pattern too, so one scene can be the
-"dub" and another the "vocal" version of the same riddim.
+the Big Knob and both returns. A scene with patterns (P) also keeps which pattern (A–D) each channel plays, like a
+row of the session: one scene can be the "vocal" version (bass A, skank on) and another the "dub" (bass B, the
+skank out).
 
 | Control | What it does |
 | --- | --- |
 | White keys 1–16 | Recall that scene. Like a mute, it lands on the next line of the quantise setting (hold PLAY for now); the strips blink until then. |
 | SAVE held + a white key | Store the desk as it is now into that scene. |
-| KNOB 4 | What the next store keeps: DESK, or DESK+PAT (the patterns too, marked P). |
+| KNOB 4 | What the next store keeps: DESK, or DESK+PAT (which pattern each channel plays too, marked P). |
 | PRESET (on the DUB page) | Step to the next or previous stored scene, on the line. |
+| A mute key held + PRESET (DUB page) | That channel's next or previous pattern (A–D), on the line. |
 
 SAVE on its own (pressed and let go) saves everything to the FM-1, scenes included.
 
 ### The song
 
-The song is a list of bars (up to 512: about 28 minutes at 72 BPM, 15 at 140). Each bar can hold the mutes and solos, the Big Knob and a scene. To make
+The song is a list of bars (up to 512: about 28 minutes at 72 BPM, 15 at 140). Each bar can hold the mutes and solos, the Big Knob, a scene, and which pattern each channel plays (so launching B on the bass mid-take is in the song). To make
 one, play it: press REC (on the DUB or ARRANGE page) to arm capture, press PLAY, and dub. At every bar line, that
 bar takes what the desk is doing: your drops, mutes, solos, Big Knob moves and scene changes. Stop, and press REC to
 disarm. A pass that starts from bar 1 becomes the song, as long as you played. HOME + REC takes the last pass back.
@@ -218,8 +274,10 @@ IN makes the lock filter MIDI notes coming in too.
 
 ## 4. Saving
 
-Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs, the SETUP page, the key, its lock and the chord lane, the sounds, the patterns, the scenes and the song. They come back the next time the FM-1 starts. The
-mutes and solos aren't saved: scenes will do that.
+With AUTOSAVE on (SETUP, the default), this happens by itself a few seconds after you stop and leave the FM-1
+alone. Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs and the FX page, the SETUP page, the key, its lock and the chord lane, the sounds, the patterns, the scenes, the song and its recorded moves. They come back the next time the FM-1 starts. The
+mutes and solos aren't saved: scenes will do that. To keep more than one project, use SETUP's song slots (four of them); to keep
+them off the FM-1, see Backing up, below.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")
 
@@ -284,6 +342,24 @@ To put the FM-1 in update mode, hold REC while you switch it on. If you installe
 installer, the installer can reach the FM-1 from there, and holding PLAY instead opens m-bootloader's recovery
 menu. Without m-bootloader, REC starts the chip's own update mode, which only the rescue can reach. For details,
 see felucca-bsp's `tools/fm1_rescue.sh`.
+
+---
+
+## Backing up, and sharing songs
+
+**The whole FM-1 to a file.** `python3 base/tools/fm1_backup.py backup FILE` saves what's stored (your project and
+settings); `restore FILE` puts it back (the FM-1 asks you to confirm with SEL; stop playing first).
+
+**One song slot to a file, to keep or share.** With the FM-1 connected over USB and stopped:
+
+```
+python3 tools/dubwise_slots.py get 2 mydub.dws     # slot 2 to a file
+python3 tools/dubwise_slots.py put 3 mydub.dws     # a file into slot 3
+python3 tools/dubwise_slots.py info mydub.dws      # what a file holds
+```
+
+A `.dws` file is a whole project: the desk, sounds, key, patterns, scenes, the song and every recorded move. After a
+`put`, load it on the FM-1 with SETUP → LOAD SLOT. (Both tools need `pip install mido python-rtmidi`.)
 
 ---
 

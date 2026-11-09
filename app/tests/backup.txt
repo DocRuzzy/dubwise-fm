@@ -1,0 +1,20 @@
+# Backup and restore over USB (fm1.toml backup = true; base/tools/fm1_backup.py): the saved project and settings.
+wait 600
+listen
+param tempo 880
+param ch1.mute 1
+tap HOME
+wait 30
+tap SAVE
+wait 100
+said SAVED
+backup out:dubwise.dwb
+wait 100
+param tempo 1100
+wait 30
+tap SAVE
+wait 100
+restore out:dubwise.dwb
+wait 300
+expect ui.tempo 880
+expect eng.tempo 880

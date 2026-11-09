@@ -3,6 +3,7 @@
 /* The parameters' ranges, defaults and names (params.h). Part of the unity build: app.c includes it. */
 #include "params.h"
 #include "song.h"                                /* SONG_BARS */
+#include "riddim.h"                              /* NPAT */
 #include "fastmath.h"
 
 typedef char p_ch_fits[(CHF_N <= CH_STRIDE && P_CH_BASE + NCH * CH_STRIDE <= P_BUS_BASE) ? 1 : -1];
@@ -18,7 +19,8 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_THROW] = {"throw", 0, 1, 0},               /* pre-fader, pre-mute: a muted channel can be thrown (P0.2) */
     [CHF_THROW_AMT] = {"thramt", 0, 127, 127},      /* how much of it (P2.9: the key's velocity), linear; 127 full */
     [CHF_THROW_DEST] = {"dest", 0, DEST_N - 1, DEST_ECHO},   /* per channel: param_def */
-    [CHF_LEN] = {"len", 1, 64, 16},                 /* the pattern's length, sixteenth steps (P0.4) */
+    [CHF_LEN] = {"oldlen", 1, 64, 16},              /* (retired: a pattern's length is its own, riddim.h) */
+    [CHF_PAT] = {"pat", 0, NPAT - 1, 0},            /* the pattern playing, A..D (the session, 4.8) */
 };
 /* the voices' parameters, 0..127 unless said (voices.c maps them) */
 static const pdesc_t KICK_F[VK_N] = {
@@ -101,6 +103,12 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_SAVER] = {"saver", 0, SAVER_N - 1, SAVER_5},
     [P_ROOTS] = {"roots", 0, 1, 0},
     [P_HPF_RES] = {"hpf.res", 0, HPF_RES_N - 1, HPF_RES_10},
+    [P_CLOCK] = {"clock", 0, CLOCK_N - 1, CLOCK_OFF},
+    [P_AUTOSAVE] = {"autosave", 0, 1, 1},
+    [P_REC_QUANT] = {"rec.quant", 0, REC_QUANT_N - 1, REC_FEEL},
+    [P_REC_MODE] = {"rec.mode", 0, REC_MODE_N - 1, REC_OVERDUB},
+    [P_REC_OFFSET] = {"rec.offset", 0, 60, 12},
+    [P_REC_CLICK] = {"rec.click", 0, CLICK_N - 1, CLICK_COUNT_IN},
 };
 static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
@@ -156,6 +164,7 @@ static const pdesc_t DESK[P_DESK_END - P_WET] = {
     {"spin", 0, 1, 0},
 };
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
+static const pdesc_t CLICK = {"click", 0, 1, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
 const char *tier_name(int32_t t)
 {
@@ -238,6 +247,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &CHORD_SLOT;
     if (id == P_DEV_TONES)
         return &DEV_TONES;
+    if (id == P_CLICK)
+        return &CLICK;
     if (id == P_DEV_LOAD)
         return &DEV_LOAD;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)

@@ -90,6 +90,21 @@ static void song_undo_last(void);
 static void song_sync(void);
 static int song_section(uint32_t *from, uint32_t *to);
 static void demo_load(void);
+static void slot_value(char *t, int load);      /* (slots.c: song slots) */
+static void slot_pick(int32_t e);
+static void slot_action(int load);
+static void slot_tick(void);
+static uint32_t undo_seq_next(void);             /* (undo.c: undo and redo) */
+static void undo_key(int redo);
+static void undo_mark(uint32_t tag, uint32_t now);
+static void undo_reset(void);
+static void undo_live_set(int on);
+static void undo_join(void);
+static int help_input(uint32_t *keys, uint32_t *btn, uint32_t now);   /* (help.c: help cards, tap tempo) */
+static void help_turned(void);
+static int help_ate_release(uint32_t k);
+static void tap_tempo(uint32_t now);
+static void slot_sx_tick(void);
 static void steppers_load(void);
 void dub_init(void);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
@@ -248,11 +263,11 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
 
 enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX, PAGE_ARRANGE, PAGE_PERF };
 #include "keys.c"                        /* the KEY & CHORDS page (GPL-3.0-only) */
+static uint32_t blink_on(void);
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 #include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
 static void fx_next(int same_page);      /* (fx.c, included further down: it needs the echo's helpers) */
 static void arr_mark(void);              /* (arrange.c: its page redrawn) */
-static uint32_t blink_on(void);
 
 /* ------------------------------------------------------------------ input --- */
 static void say_mute(uint32_t ch, int muted)
@@ -372,7 +387,13 @@ static void button_press(uint32_t k)
         quant_step(-1);
     else if (k == B_OCTUP)
         quant_step(1);
-    else if (k == B_SEQ) {
+    else if (k == B_SEQ && (dub.btn >> B_HOME & 1u)) {   /* HOME + SEQ, tapped: tap tempo */
+        dub.home_used = 1;
+        tap_tempo(plat_ms());
+    } else if (k == B_SEQ && dub.page == PAGE_STEPS && st.kb) {   /* SEQ on the keyboard: the steps again */
+        kb_off();
+        app_say("STEPS", CH_NAME[st.ch]);
+    } else if (k == B_SEQ) {
         dub.page = PAGE_STEPS;
         app_say("STEPS", CH_NAME[st.ch]);
     } else if (k == B_ARP && (dub.btn >> B_HOME & 1u)) {
@@ -386,7 +407,7 @@ static void button_press(uint32_t k)
         dub.page = PAGE_KEY;
         ks.sig = 0;
         app_say("KEY", ks.bank ? "CHORD LANE" : "AND LOCK");
-    } else if (k == B_REC && dub.page == PAGE_STEPS) {
+    } else if (k == B_REC && dub.page == PAGE_STEPS && !(dub.btn >> B_HOME & 1u)) {
         steps_rec();
     } else if (k == B_REC && (dub.btn >> B_SAVE & 1u)
                && (dub.page == PAGE_DUB || dub.page == PAGE_ARRANGE)) {   /* SAVE + REC: the motion cleared (P2.7) */
@@ -395,9 +416,12 @@ static void button_press(uint32_t k)
         set_dirty = 1;
         arr_mark();
         app_say("MOTION", "CLEARED");
-    } else if (k == B_REC && (dub.btn >> B_HOME & 1u)) {   /* HOME + REC: undo the last song capture */
+    } else if (k == B_REC && (dub.btn >> B_HOME & 1u)) {   /* HOME + REC: undo (the last song capture, if latest) */
         dub.home_used = 1;
-        song_undo_last();
+        undo_key(0);
+    } else if (k == B_GLO && (dub.btn >> B_HOME & 1u)) {   /* HOME + GLO: redo */
+        dub.home_used = 1;
+        undo_key(1);
     } else if (k == B_REC && (dub.page == PAGE_DUB || dub.page == PAGE_ARRANGE)) {
         song_rec_toggle();
     } else if (k == B_FX) {
@@ -438,6 +462,8 @@ static void button_release(uint32_t k)
 {
     if (k == B_PLAY && ctl_get(P_SPIN))
         ctl_set(P_SPIN, 0);
+    if (help_ate_release(k))             /* its help card shown: nothing more */
+        return;
     if (k == B_PLAY && !dub.play_used) {
         int on = !ctl_get(P_PLAY);
         ctl_set(P_PLAY, on);
@@ -446,6 +472,8 @@ static void button_release(uint32_t k)
         dub.page = dub.page == PAGE_DUB ? PAGE_ARRANGE : PAGE_DUB;
         arr_mark();
         app_say(dub.page == PAGE_ARRANGE ? "ARRANGE" : "DUB", "PAGE");
+    } else if (k == B_SAVE && !dub.save_used && dub.page == PAGE_SETUP && setup_slot_row() >= 0) {
+        slot_action(setup_slot_row());   /* SETUP's slot rows: SAVE does it */
     } else if (k == B_SAVE && !dub.save_used) {
         settings_save();
     }
@@ -540,6 +568,9 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "demo.c"                        /* the demo song (GPL-3.0-only) */
 #include "perf.c"                        /* the PERF page (GPL-3.0-only) */
 #include "saver.c"                       /* the boot splash and the screen saver (GPL-3.0-only) */
+#include "slots.c"                       /* song slots (GPL-3.0-only) */
+#include "undo.c"                        /* undo and redo (GPL-3.0-only) */
+#include "help.c"                        /* help cards and tap tempo (GPL-3.0-only) */
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
@@ -622,6 +653,15 @@ static void encoder(uint32_t k, int32_t e)
         app_say("FOCUS", CH_NAME[dub.focus]);
     } else if (dub.page == PAGE_ARRANGE && k >= EN_K1 && k <= EN_K4) {
         arr_knob(k - EN_K1, e);
+    } else if (k == EN_PRESET && dub.page == PAGE_DUB && held_mute() >= 0) {   /* a mute key held + PRESET: that
+                                                                                * channel's pattern, on the line (4.8) */
+        int32_t ch = held_mute();
+        if (!dub.dbl[ch]) {              /* (the hold is for choosing: the mute stays as it was) */
+            dub.dbl[ch] = 1;
+            ctl_cue(P_CH(ch, CHF_MUTE), dub.m0[ch], act_beats());
+        }
+        pat_launch(ch, (uint32_t)(((int32_t)pat_now(ch) + e % (int32_t)NPAT + (int32_t)NPAT) % (int32_t)NPAT), 0);
+        dub.dirty_strips = 1;
     } else if (k == EN_PRESET && dub.page == PAGE_DUB) {   /* PRESETS on the DUB page: cue the next scene (spec 4.1) */
         arr_step(e);
     } else if (dub.page == PAGE_FX && k >= EN_K1 && k <= EN_K4) {
@@ -642,14 +682,28 @@ static void encoder(uint32_t k, int32_t e)
     }
 }
 
-void dub_input(void)
+static void dub_input_hands(void);
+void dub_input(void)                     /* (what the hands change goes into the undo history) */
+{
+    undo_live_set(1);
+    dub_input_hands();
+    undo_live_set(0);
+}
+
+static void dub_input_hands(void)
 {
     uint32_t keys, btn = plat_buttons(), k, now = plat_ms();
     int32_t e;
     touch_poll();                        /* the sensed keys' presses and velocities */
     keys = touch_keys();
+    rec_tick();                          /* live recording (steps.c): the pass's line and end, the click */
     if (saver_input(&keys, &btn, now))   /* the screen saver up: a touch only wakes it */
         return;
+    help_input(&keys, &btn, now);        /* a button held alone: its help card (help.c) */
+    if ((keys & ~dub.keys) || (btn & ~dub.btn)) {   /* a press: a new step of the undo history */
+        static uint32_t presses;
+        undo_mark(0x1000u + ++presses, now);
+    }
     for (k = 0; k < NB; k++) {           /* buttons first: a modifier pressed with a key counts */
         uint32_t bit = 1u << k;
         if ((btn & bit) && !(dub.btn & bit)) {
@@ -764,6 +818,8 @@ encoders:
     for (k = 0; k < NE; k++)
         if ((e = plat_enc((int)k)) != 0) {
             saver_touch(now);
+            help_turned();
+            undo_mark(0x200u + k, now);  /* (a knob's turns run together) */
             encoder(k, e);
         }
     if (keys != dub.keys)
@@ -959,6 +1015,11 @@ static void draw_strips(void)
             cv_rect(x + 4, 0, 20, 17, C_HI);
         cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, thrown ? C_BLACK : on ? C_WHITE : C_GRAY);
         cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
+        {                                /* its pattern (4.8): amber while one launched waits for its line */
+            uint32_t pw = (uint32_t)ctl_get(P_CH(ch, CHF_PAT)) & 3u;
+            char l[2] = {(char)('A' + pw), 0};
+            cv_text(x + 21, 3, &FONT_T, l, eng_pat(ch) != pw ? C_AMB : pw ? C_GRAY : C_DIM);
+        }
         if (on) {                        /* filled = playing; the meter brighter over it */
             int32_t m = meter_px(eng_ch_peak(ch), bh);
             cv_rect(bx, by, bw, bh, C_LINE);
@@ -1177,6 +1238,8 @@ void dub_draw(void)
     uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
     int drew = 0;
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
+    slot_tick();                         /* (a loaded slot's, the same way) */
+    slot_sx_tick();                      /* (a slot going to a computer) */
     song_sync();
     if (saver_draw(now)) {               /* the screen saver: the whole screen its own */
         lights();
@@ -1236,7 +1299,11 @@ void dub_draw(void)
         arr.sig = 0;
         perf_t = 0;
     }
-    if (dub.page == PAGE_STEPS) {
+    if (help.up) {                       /* a help card in the page's place */
+        drew |= !help.drawn;
+        help_draw();
+        dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 0;
+    } else if (dub.page == PAGE_STEPS) {
         uint32_t sg = st.sig;
         steps_draw(0);
         drew |= sg != st.sig;
@@ -1377,7 +1444,8 @@ static int dub_expect(const char *what, int *got)
         *got = (int)dub.pulses;
     else if (!strcmp(what, "key_flashes"))
         *got = (int)dub.key_flashes;
-    else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got))
+    else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got)
+             || undo_expect(what, got) || help_expect(what, got))
         return 1;
     else if (!strcmp(what, "roots"))     /* 1: the cycle bar red, gold and green (72.0 BPM's first bar) */
         *got = roots_now();

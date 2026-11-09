@@ -40,127 +40,12 @@ static const uint16_t SET_FX[] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_S
                                     P_SGATE_REL, P_ECHO_PP, P_PH_MODE, P_PH_RATE2};
 #define NSET_FX (sizeof SET_FX / sizeof SET_FX[0])
 typedef char set_fx_fits[NSET_FX <= 32u ? 1 : -1];
-/* the patterns and their lengths (OBJ_PATTERN) */
-#define PATTERN_MAGIC 0x50415431u        /* "PAT1" */
-typedef struct {
-    uint32_t magic;
-    uint8_t len[NCH];
-    step_t steps[NCH][NSTEPS];
-} pattern_store_t;
-static pattern_store_t pst;
-/* the scenes: their desks in one object, their patterns three scenes an object (each under PLAT_STORE_MAX) */
-#define SCENES_MAGIC 0x53434E31u         /* "SCN1" */
-typedef struct {
-    uint32_t magic;
-    uint8_t used[NSCENES], scope[NSCENES];
-    int16_t desk[NSCENES][SCENE_DESK];
-} scene_store_t;
-#define SCNPAT_MAGIC 0x53435031u         /* "SCP1" */
-#define SCNPAT_PER 3u
-typedef struct {
-    uint32_t magic;
-    uint8_t len[SCNPAT_PER][NCH];
-    step_t pat[SCNPAT_PER][NCH][NSTEPS];
-} scnpat_store_t;
-typedef char scene_store_fits[(sizeof(scene_store_t) <= PLAT_STORE_MAX && sizeof(scnpat_store_t) <= PLAT_STORE_MAX
-                               && (NSCENES + SCNPAT_PER - 1) / SCNPAT_PER <= OBJ_SCNPAT5 - OBJ_SCNPAT0 + 1) ? 1 : -1];
-static union {                           /* (one at a time) */
-    scene_store_t d;
-    scnpat_store_t p;
-} sst;
 static uint16_t scenes_dirty;            /* (arrange.c sets the bits; saved and cleared by SAVE) */
-#define SONG_MAGIC 0x534F4E31u           /* "SON1": the song (OBJ_SONG) */
-typedef struct {
-    uint32_t magic;
-    song_bar_t bars[SONG_BARS];
-} song_store_t;
-typedef char song_store_fits[sizeof(song_store_t) <= PLAT_STORE_MAX ? 1 : -1];
-
-static int scenes_save(void)             /* the desks if anything changed; the pattern groups that changed */
-{
-    uint32_t s, g, ok = 1;
-    if (!scenes_dirty)
-        return 1;
-    sst.d.magic = SCENES_MAGIC;
-    for (s = 0; s < NSCENES; s++) {
-        uint32_t k;
-        sst.d.used[s] = scenes[s].used;
-        sst.d.scope[s] = scenes[s].scope;
-        for (k = 0; k < SCENE_DESK; k++)
-            sst.d.desk[s][k] = scenes[s].desk[k];
-    }
-    ok &= plat_store_save(OBJ_SCENES, &sst.d, sizeof sst.d) == 0;
-    for (g = 0; g * SCNPAT_PER < NSCENES; g++) {
-        uint32_t mask = ((1u << SCNPAT_PER) - 1u) << (g * SCNPAT_PER), j;
-        if (!(scenes_dirty & mask))
-            continue;
-        sst.p.magic = SCNPAT_MAGIC;
-        for (j = 0; j < SCNPAT_PER; j++) {
-            uint32_t sn = g * SCNPAT_PER + j, ch, i;
-            for (ch = 0; ch < NCH; ch++) {
-                sst.p.len[j][ch] = sn < NSCENES ? scenes[sn].len[ch] : 16u;
-                for (i = 0; i < NSTEPS; i++)
-                    sst.p.pat[j][ch][i] = sn < NSCENES ? scenes[sn].pat[ch][i] : (step_t){0, 0};
-            }
-        }
-        ok &= plat_store_save(OBJ_SCNPAT0 + g, &sst.p, sizeof sst.p) == 0;
-    }
-    if (ok)
-        scenes_dirty = 0;
-    return (int)ok;
-}
-
-static int song_save(void)               /* (the scenes' buffer reused: one store at a time) */
-{
-    song_store_t *ss = (song_store_t *)(void *)&sst;
-    uint32_t i;
-    typedef char fits[sizeof(song_store_t) <= sizeof sst ? 1 : -1];
-    (void)sizeof(fits);
-    ss->magic = SONG_MAGIC;
-    for (i = 0; i < SONG_BARS; i++)
-        ss->bars[i] = song[i];
-    return plat_store_save(OBJ_SONG, ss, sizeof *ss) == 0;
-}
-
-static void song_load(void)
-{
-    song_store_t *ss = (song_store_t *)(void *)&sst;
-    uint32_t i;
-    if (plat_store_load(OBJ_SONG, ss, sizeof *ss) != (int)sizeof *ss || ss->magic != SONG_MAGIC)
-        return;
-    for (i = 0; i < SONG_BARS; i++)
-        song[i] = ss->bars[i];
-}
-
-static void scenes_load(void)
-{
-    uint32_t s, g;
-    if (plat_store_load(OBJ_SCENES, &sst.d, sizeof sst.d) != (int)sizeof sst.d || sst.d.magic != SCENES_MAGIC)
-        return;
-    for (s = 0; s < NSCENES; s++) {
-        uint32_t k;
-        scenes[s].used = 0;
-        scenes[s].scope = sst.d.scope[s] < SCOPE_N ? sst.d.scope[s] : SCOPE_DESK;
-        for (k = 0; k < SCENE_DESK; k++)
-            scenes[s].desk[k] = sst.d.desk[s][k];
-        scenes[s].used = sst.d.used[s] ? 1u : 0u;
-    }
-    for (g = 0; g * SCNPAT_PER < NSCENES; g++) {
-        uint32_t j;
-        if (plat_store_load(OBJ_SCNPAT0 + g, &sst.p, sizeof sst.p) != (int)sizeof sst.p || sst.p.magic != SCNPAT_MAGIC)
-            continue;
-        for (j = 0; j < SCNPAT_PER && g * SCNPAT_PER + j < NSCENES; j++) {
-            uint32_t sn = g * SCNPAT_PER + j, ch, i;
-            for (ch = 0; ch < NCH; ch++) {
-                scenes[sn].len[ch] = sst.p.len[j][ch];
-                for (i = 0; i < NSTEPS; i++)
-                    scenes[sn].pat[ch][i] = sst.p.pat[j][ch][i];
-            }
-        }
-    }
-}
-static settings_t set;
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
+#include "patstore.c"                    /* the patterns, scenes and song in the store (GPL-3.0-only) */
+
+static settings_t set;
+static uint8_t save_hold;                  /* a backup streaming over USB: no saves meanwhile */
 
 /* ------------------------------------------------------------------- MIDI --- */
 /* MIDI in plays the voices: channel 10 the drums by General MIDI's notes, any other the bass */
@@ -183,6 +68,14 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
         int on = (st & 0xF0u) == 0x90u && d2, off = (st & 0xF0u) == 0x80u || ((st & 0xF0u) == 0x90u && !d2);
         if (st != 0xF8u && st != 0xFEu)
             midi_count++;
+        if (st >= 0xF8u) {                   /* real time: the clock, Start, Continue, Stop (SETUP: MIDI CLOCK IN) */
+#ifdef PLAT_HOST
+            eng_clock_in(st, eng_clock_now());   /* (the host: the script's time, not the computer's) */
+#else
+            eng_clock_in(st, plat_midi_in_t24());
+#endif
+            continue;
+        }
         if (mch == 9u) {                 /* drums ring out: note offs ignored */
             int32_t ch = gm_drum(d1);
             if (on && ch >= 0)
@@ -229,6 +122,13 @@ static void live_in(uint32_t n)
 #endif
 }
 
+void app_tick(void)                     /* 1 kHz: the MIDI clock's messages, each at its moment */
+{
+    uint32_t st;
+    while (eng_clock_pop(eng_clock_now(), &st))
+        plat_midi_send(0x0Fu | st << 8, TO_USB);
+}
+
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     midi_in();
@@ -263,8 +163,16 @@ static void settings_defaults(void)
     }
 }
 
-static void settings_save(void)
+static int save_project(int quiet);
+static void settings_save(void) { save_project(0); }
+
+static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
+    if (save_hold) {                       /* (a backup streaming: what it reads must not move) */
+        if (!quiet)
+            app_say("SAVE", "BACKUP RUNNING");
+        return 0;
+    }
     set.tempo = (int16_t)ctl_get(P_TEMPO);
     set.quant = (uint8_t)ctl_get(P_QUANT);
     set.echo_time = (uint8_t)ctl_get(P_ECHO_TIME);
@@ -290,32 +198,52 @@ static void settings_save(void)
         for (i = 0; i < P_NIDS - P_VOICE_BASE; i++)
             snd.v[i] = (int16_t)ctl_get(P_VOICE_BASE + i);
     }
-    pst.magic = PATTERN_MAGIC;
-    {
-        uint32_t ch, i;
-        for (ch = 0; ch < NCH; ch++) {
-            pst.len[ch] = (uint8_t)ctl_get(P_CH(ch, CHF_LEN));
-            for (i = 0; i < NSTEPS; i++)
-                pst.steps[ch][i] = ctl_get_step(ch, i);
-        }
-    }
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
-        && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0 && scenes_save() && song_save()
+        && proj_save()
         && ((eng_playing() && ctl_get(P_SONG_REC)) || mot_save())) {   /* (motion: not while it is captured) */
         set_dirty = 0;
-        app_say("SAVED", "");
-    } else {
-        app_say("SAVE", "FAILED");
+        if (!quiet)
+            app_say("SAVED", "");
+        return 1;
     }
+    if (!quiet)
+        app_say("SAVE", "FAILED");
+    return 0;
 }
+
+static void load_saved(void);
+
+static int slot_sysex(const uint8_t *p, uint32_t n);
+int app_sysex(const uint8_t *p, uint32_t n) { return slot_sysex(p, n); }   /* (slots.c) */
 
 void app_init(void)
 {
     eng_init();                          /* every parameter at its default, on both sides of the queue */
     ctl_init();
-    scenes_load();
-    song_load();
     mot_load();                          /* the song's motion (P2.7): the flash's data area, not a store object */
+    load_saved();
+}
+
+/* Backup and restore over USB (fm1.toml backup = true; tools/fm1_backup.py): the saved project and settings (the store
+ * objects in APP_BACKUP_OBJS). The motion and the song slots live in the flash's data area, outside the store: a slot
+ * goes to and from the computer with tools/dubwise_slots.py */
+int app_backup_playing(void) { return eng_playing(); }
+void app_backup_flush(void)
+{
+    if (set_dirty || scenes_dirty)
+        settings_save();
+}
+void app_backup_hold(int on) { save_hold = (uint8_t)(on != 0); }
+static void undo_reset(void);
+void app_backup_restored(void)           /* the restored objects, read as at boot */
+{
+    load_saved();
+    undo_reset();
+    set_dirty = 0;
+}
+
+static void load_saved(void)             /* the store's objects into both sides of the queue (boot, a restore) */
+{
     if (plat_store_load(OBJ_SETTINGS, &set, sizeof set) != (int)sizeof set || set.magic != SET_MAGIC
         || set.tempo != param_clamp(P_TEMPO, set.tempo) || set.quant >= QUANT_N)
         settings_defaults();
@@ -325,15 +253,7 @@ void app_init(void)
             if (param_desc(P_VOICE_BASE + i))
                 ctl_set(P_VOICE_BASE + i, snd.v[i]);   /* (clamped) */
     }
-    if (plat_store_load(OBJ_PATTERN, &pst, sizeof pst) == (int)sizeof pst && pst.magic == PATTERN_MAGIC) {
-        uint32_t ch, i;                  /* (more than the queue holds: the rest goes on later frames) */
-        for (ch = 0; ch < NCH; ch++) {
-            ctl_set(P_CH(ch, CHF_LEN), pst.len[ch]);
-            for (i = 0; i < NSTEPS; i++)
-                if (pst.steps[ch][i].lvl < LVL_N)
-                    ctl_step(ch, i, pst.steps[ch][i]);
-        }
-    }
+    proj_load();
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
     ctl_set(P_ECHO_TIME, set.echo_time);  /* (clamped to their ranges) */
@@ -421,6 +341,23 @@ void app_ui_init(void)
 
 void app_input_only(void) { dub_input(); }
 
+/* AUTOSAVE (SETUP, on by default; the 2026-11 QoL review): what SAVE keeps, saved by itself once nothing has been
+ * touched for 4 s, stopped, the sound died away (a flash write stops the sound for a moment) and nothing being
+ * loaded. Quiet: SAVE's light going out says it. A failed one waits 30 s before the next try */
+static uint32_t as_fail_t;
+static void autosave_tick(void)
+{
+    uint32_t now = plat_ms();
+    if (!ctl_get(P_AUTOSAVE) || save_hold || eng_playing() || eng_spinning() || demo_moves_due || slot_moves)
+        return;
+    if (!(set_dirty || scenes_dirty || mot_dirty) || dub.btn || dub.keys || now - sv.last < 4000u
+        || eng_out_peak() > 0.001f)
+        return;
+    if (as_fail_t && now - as_fail_t < 30000u)
+        return;
+    as_fail_t = save_project(1) ? 0u : (now ? now : 1u);
+}
+
 void app_frame(void)
 {
     dub_input();
@@ -429,6 +366,7 @@ void app_frame(void)
     dub_speak();
     ann_tick(plat_ms());
     dub_draw();
+    autosave_tick();
 }
 
 #ifdef PLAT_HOST
@@ -441,6 +379,7 @@ static int peak_db(float pk) { return pk > 1e-6f ? (int)floorf(20.0f * log10f(pk
  *   cue NAME VALUE BEATS  set it at the next multiple of BEATS beats (launch quantise)
  *   perf [reset]          print the engine's per-part profile (P0.7): host us a block, and the device's share of a
  *                         block by the x80 rule; "reset" restarts the maxima */
+static int pmeta_name(const char *a, int *id);
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     int id;
@@ -476,8 +415,49 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         host_live_amp = fm_exp2f((float)atof(b) * (1.0f / 6.0206f));
         return 1;
     }
+    if (!strcmp(cmd, "step")) {          /* step CH PAT I LVL [NOTE [OFF [GATE]]]: CH 1-8, PAT A-D, I from 1 */
+        char pc[8] = {0};
+        int ch = 1, i = 1, v[4] = {0, -1, 0, 0}, n;
+        step_t st;
+        n = sscanf(plat_host_line, "%*s %d %7s %d %d %d %d %d", &ch, pc, &i, &v[0], &v[1], &v[2], &v[3]);
+        if (n < 4)
+            return 1;
+        ch = (ch - 1) & 7;
+        st = ctl_get_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1));
+        st.lvl = (uint8_t)v[0];
+        if (n >= 5)
+            st.note = (int8_t)v[1];
+        st.off = (int8_t)(n >= 6 ? v[2] : 0);
+        st.gate = (uint8_t)(n >= 7 ? v[3] : 0);
+        ctl_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1), st);
+        return 1;
+    }
+    if (!strcmp(cmd, "oldsave")) {       /* a save from before the session (patstore.c), for the next reboot */
+        pst_oldsave();
+        return 1;
+    }
+    if (!strcmp(cmd, "clearpat")) {      /* clearpat CH PAT: every step off */
+        uint32_t ch = (uint32_t)(atoi(a) - 1) % NCH, pt = (uint32_t)(b[0] - 'A') % NPAT, i;
+        for (i = 0; i < NSTEPS; i++) {
+            step_t st = {LVL_OFF, default_note(ch), 0, 0};
+            ctl_step_at(ch, pt, i, st);
+        }
+        return 1;
+    }
     if (strcmp(cmd, "param") && strcmp(cmd, "flood") && strcmp(cmd, "cue"))
         return 0;
+    if (!strcmp(cmd, "param") && pmeta_name(a, &id) >= 0) {   /* chN.len / grid / swing: the pattern playing's */
+        uint32_t ch = (uint32_t)id / 3u;
+        pmeta_t m = ctl_meta_now(ch);
+        if (id % 3 == 0)
+            m.len = (uint8_t)atoi(b);
+        else if (id % 3 == 1)
+            m.grid = (uint8_t)atoi(b);
+        else
+            m.swing = (uint8_t)atoi(b);
+        ctl_meta_set(ch, (uint32_t)ctl_get(P_CH(ch, CHF_PAT)), m);
+        return 1;
+    }
     if ((id = param_find(a)) < 0) {
         printf("FAIL: no parameter %s\n", a);
         host_fails++;
@@ -496,15 +476,34 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
 }
 int app_host_fails(void) { return host_fails; }
 
+static int pmeta_name(const char *a, int *id)    /* "chN.len" / ".grid" / ".swing": (N-1) x 3 + field, else -1 */
+{
+    int f;
+    if (strncmp(a, "ch", 2) || a[2] < '1' || a[2] > '8' || a[3] != '.')
+        return -1;
+    f = !strcmp(a + 4, "len") ? 0 : !strcmp(a + 4, "grid") ? 1 : !strcmp(a + 4, "swing") ? 2 : -1;
+    if (f < 0)
+        return -1;
+    *id = (a[2] - '1') * 3 + f;
+    return *id;
+}
+
 int app_expect(const char *what, int *got)
 {
+    if (pst_expect(what, got))
+        return 1;
     if (!strcmp(what, "note"))
         *got = eng_note();
     else if (!strcmp(what, "dirty"))
         *got = set_dirty;
     else if (!strcmp(what, "midi_in"))
         *got = (int)midi_count;
-    else if (!strncmp(what, "eng.", 4) || !strncmp(what, "ui.", 3)) {   /* a parameter, as applied / as asked */
+    else if ((!strncmp(what, "eng.", 4) || !strncmp(what, "ui.", 3))
+             && pmeta_name(what + (what[0] == 'e' ? 4 : 3), got) >= 0) {   /* a pattern's setting, playing / asked */
+        uint32_t ch = (uint32_t)*got / 3u, f = (uint32_t)*got % 3u;
+        pmeta_t m = what[0] == 'e' ? eng_pmeta(ch, eng_pat(ch)) : ctl_meta_now(ch);
+        *got = f == 0u ? m.len : f == 1u ? m.grid : m.swing;
+    } else if (!strncmp(what, "eng.", 4) || !strncmp(what, "ui.", 3)) {   /* a parameter, as applied / as asked */
         int id = param_find(what + (what[0] == 'e' ? 4 : 3));
         if (id < 0)
             return 0;
@@ -519,6 +518,8 @@ int app_expect(const char *what, int *got)
         *got = peak_db(eng_echo_ret_peak());
     else if (!strcmp(what, "spring_ret_db"))   /* the spring's return, after its level */
         *got = peak_db(eng_spring_ret_peak());
+    else if (!strcmp(what, "clk_out"))       /* MIDI clocks sent (SETUP: MIDI CLOCK OUT) */
+        *got = (int)eng_clocks_sent();
     else if (!strcmp(what, "crashes"))
         *got = (int)eng_crashes();
     else if (!strcmp(what, "echo_t"))        /* the echo's time now, line samples (11,025 a second) */

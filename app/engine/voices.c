@@ -255,33 +255,52 @@ static int render_hats(float *o, uint32_t n)
     return 1;
 }
 
+/* The bass at half rate (22,050 Hz, the memory plan's rate for tonal voices; 2026-11 review): a sample of it every
+ * other output sample, the one between them the two's mean (a sample's fixed delay). Its per-sample constants for the
+ * half rate: decays squared, steps doubled, the one-poles' coefficients as two steps of theirs */
+static float bass_last;
+static int bass_odd;
+
 static int render_bass(float *o, uint32_t n)
 {
     uint32_t i;
-    if (!bass.on)
+    float inv2 = 2.0f * INV_SR, ik2 = bass.ik * bass.ik, ak2 = bass.ak * bass.ak, rk2 = bass.rk * bass.rk;
+    float att2 = 2.0f * bass.att, lp2a = 1.0f - (1.0f - bass.lp_a) * (1.0f - bass.lp_a);
+    if (!bass.on) {
+        bass_last = 0.0f;
+        bass_odd = 0;
         return 0;
+    }
     for (i = 0; i < n; i++) {
-        float m, s, env_to;
-        bass.pm = wrap(bass.pm + bass.f * bass.ratio * INV_SR);
-        bass.pc = wrap(bass.pc + bass.f * INV_SR);
-        bass.ps = wrap(bass.ps + bass.f * 0.5f * INV_SR);
+        float m, s, env_to, y;
+        if (!bass_odd) {
+            o[i] = bass_last;
+            bass_odd = 1;
+            continue;
+        }
+        bass_odd = 0;
+        bass.pm = wrap(bass.pm + bass.f * bass.ratio * inv2);
+        bass.pc = wrap(bass.pc + bass.f * inv2);
+        bass.ps = wrap(bass.ps + bass.f * 0.5f * inv2);
         m = (bass.index * bass.ienv + 0.04f) * fm_sin_turns(bass.pm);   /* a pluck, then nearly a pure sine */
         s = fm_sin_turns(bass.pc + m * 0.15915494f) + bass.sub * fm_sin_turns(bass.ps);
         /* the envelope: up in 2 ms, then down to the sustain while held, released in 60 ms */
         if (bass.target > 0.5f) {
-            bass.amp += bass.att;
+            bass.amp += att2;
             if (bass.amp >= 1.0f) {
                 bass.amp = 1.0f;
                 bass.target = 0.0f;
             }
         } else {
             env_to = bass.note >= 0 ? bass.sus : 0.0f;
-            bass.amp = env_to + (bass.amp - env_to) * (bass.note >= 0 ? bass.ak : bass.rk);
+            bass.amp = env_to + (bass.amp - env_to) * (bass.note >= 0 ? ak2 : rk2);
         }
-        bass.lp1 = undenorm(bass.lp1 + bass.lp_a * (s - bass.lp1));
-        bass.lp2 = undenorm(bass.lp2 + bass.lp_a * (bass.lp1 - bass.lp2));
-        o[i] = bass.lp2 * bass.amp * bass.vel * 0.5f;
-        bass.ienv *= bass.ik;
+        bass.lp1 = undenorm(bass.lp1 + lp2a * (s - bass.lp1));
+        bass.lp2 = undenorm(bass.lp2 + lp2a * (bass.lp1 - bass.lp2));
+        y = bass.lp2 * bass.amp * bass.vel * 0.5f;
+        o[i] = 0.5f * (bass_last + y);
+        bass_last = y;
+        bass.ienv *= ik2;
     }
     bass.ienv = undenorm(bass.ienv);
     if (bass.note < 0 && bass.amp < SILENT) {

@@ -1,0 +1,46 @@
+# (the tempo set by hand, HOME + SELECT, as a player does: a change marks the project unsaved)
+# AUTOSAVE (SETUP, on by default): a change is kept by itself 4 s after the last touch, while stopped and quiet; not
+# while playing; not with AUTOSAVE off. Checked by a restart.
+wait 600
+press HOME
+turn SELECT 15 20
+release HOME
+wait 6000
+reboot
+wait 600
+expect ui.tempo 900
+# not while playing: a change made playing is kept only once stopped and left alone
+tap PLAY
+wait 200
+press HOME
+turn SELECT 5 20
+release HOME
+wait 6000
+reboot
+wait 600
+expect ui.tempo 900
+tap PLAY
+wait 200
+press HOME
+turn SELECT 5 20
+release HOME
+wait 300
+tap PLAY
+wait 7000
+reboot
+wait 600
+expect ui.tempo 950
+# AUTOSAVE off: not kept
+param autosave 0
+wait 30
+tap SAVE
+wait 300
+press HOME
+turn SELECT 5 20
+release HOME
+wait 6000
+reboot
+wait 600
+expect ui.tempo 950
+expect ui.autosave 0
+param autosave 1

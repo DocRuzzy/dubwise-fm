@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Copyright (C) 2026 Dubwise FM contributors -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install DUBWISE</title>
+<style>
+:root { --paper: #fbf8f1; --ink: #20263a; --muted: #5d6585; --hot: #c4471f; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #17161a; --ink: #ece6da; --muted: #a9a294; --hot: #f28a5a; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --paper: #17161a; --ink: #ece6da; --muted: #a9a294; --hot: #f28a5a; color-scheme: dark; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.55 "Helvetica Neue", Arial, sans-serif; padding: 32px 16px; }
+main { max-width: 720px; margin: 0 auto; }
+a { color: var(--hot); }
+code { background: rgba(127,127,127,.15); padding: .1em .35em; border-radius: 4px; }
+.note { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<p><a href="../">DUBWISE</a></p>
+<h1>Install on your FM-1</h1>
+<ol>
+<li><b>From The Firmware Hub</b> (once listed): open <a href="https://thefirmwarehub.com/">thefirmwarehub.com</a>, find
+DUBWISE, and install it with one click over USB.</li>
+<li><b>Or by hand:</b> download <code>dubwise-X.Y.fwsc</code> from the
+<a href="https://github.com/DocRuzzy/dubwise-fm/releases">releases</a>, then run
+<code>python3 base/tools/fm1_install.py dubwise-X.Y.fwsc</code> from a clone of the repository (it needs
+<code>pip install mido python-rtmidi</code>).</li>
+</ol>
+<p>After the restart the FM-1 shows the SpIllt Beats mark, then the DUB page. Press PLAY.</p>
+<p class="note">Installing custom firmware is at your own risk. Dubwise carries the update loader, so you can always install the
+stock firmware (or another one) over it again.</p>
+</main>
+</body>
+</html>

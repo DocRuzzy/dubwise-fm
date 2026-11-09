@@ -10,13 +10,37 @@ static int16_t ctl_val[P_NIDS];             /* every range fits in 16 bits (pdes
 static uint8_t ctl_beats[P_NIDS];            /* a pending parameter's quantum: 0 now, else CMD_CUE's beats */
 static uint32_t ctl_pend[P_NIDS / 32u];      /* a bit per parameter waiting for room in the queue */
 ctl_stats_t ctl_stats;
-static step_t ctl_pat[NCH][NSTEPS];
+static PLAT_POOL step_t ctl_pat[NCH][NPAT][NSTEPS];   /* every channel's four patterns (the session, 4.8) */
+static pmeta_t ctl_meta[NCH][NPAT];
 static int32_t ctl_scn;
 static int scene_push(void);
-static uint32_t ctl_step_pend[NCH * NSTEPS / 32u];
+static uint32_t ctl_step_pend[(STEP_IDS + 31u) / 32u];   /* (a bit a CMD_STEP id: steps, and patterns' settings) */
 static uint32_t ctl_steps_pending;
 static int32_t ctl_tpl_t = -1;                   /* a template the full queue refused */
 static uint32_t ctl_tpl_mask, ctl_tpl_beats;
+/* the undo history's hook (undo.c): each change to the mirror, a parameter (key: its ID) or a step or a pattern's
+ * settings (key: CTL_STEP_KEY | STEP_ID; values step_pack / pmeta_pack) */
+static void (*ctl_watch)(uint32_t key, int32_t old, int32_t nw);
+void ctl_set_watch(void (*f)(uint32_t key, int32_t old, int32_t nw)) { ctl_watch = f; }
+int32_t ctl_step_pack(step_t s) { return step_pack(s); }
+step_t ctl_step_unpack(int32_t v) { return step_unpack(v); }
+static PLAT_POOL step_t ctl_pat_was[NCH][NSTEPS];   /* (a template's patterns: the steps before, to diff) */
+static pmeta_t ctl_meta_was[NCH];
+static uint32_t ctl_pnow(uint32_t ch);
+static void pat_diff(uint32_t mask)
+{
+    uint32_t ch, i;
+    for (ch = 0; ch < NCH; ch++) {
+        uint32_t p = ctl_pnow(ch);
+        if (!(mask >> ch & 1u))
+            continue;
+        for (i = 0; i < NSTEPS; i++)
+            if (step_pack(ctl_pat_was[ch][i]) != step_pack(ctl_pat[ch][p][i]))
+                ctl_watch(CTL_STEP_KEY | STEP_ID(ch, p, i), step_pack(ctl_pat_was[ch][i]), step_pack(ctl_pat[ch][p][i]));
+        if (pmeta_pack(ctl_meta_was[ch]) != pmeta_pack(ctl_meta[ch][p]))
+            ctl_watch(CTL_STEP_KEY | STEP_ID(ch, p, NSTEPS), pmeta_pack(ctl_meta_was[ch]), pmeta_pack(ctl_meta[ch][p]));
+    }
+}
 static uint8_t ctl_stamp[P_NIDS];                /* the frame a parameter was last set by hand (ctl_follow) */
 static uint8_t ctl_frame;
 #define MOT_PEND 4u
@@ -70,9 +94,20 @@ void ctl_init(void)
     for (id = 0; id < P_NIDS / 32u; id++)
         ctl_pend[id] = 0;
     ctl_stats.pending = 0;
-    for (id = 0; id < NCH; id++)
-        template_fill(TPL_ONE_DROP, id, ctl_pat[id]);   /* as the engine starts */
-    for (id = 0; id < NCH * NSTEPS / 32u; id++)
+    for (id = 0; id < NCH; id++) {              /* as the engine starts: ONE DROP in A, B..D empty */
+        uint32_t p, i;
+        for (p = 0; p < NPAT; p++) {
+            ctl_meta[id][p] = pmeta_def();
+            for (i = 0; i < NSTEPS; i++) {
+                ctl_pat[id][p][i].lvl = LVL_OFF;
+                ctl_pat[id][p][i].note = default_note(id);
+                ctl_pat[id][p][i].off = 0;
+                ctl_pat[id][p][i].gate = 0;
+            }
+        }
+        template_fill(TPL_ONE_DROP, id, ctl_pat[id][0]);
+    }
+    for (id = 0; id < (STEP_IDS + 31u) / 32u; id++)
         ctl_step_pend[id] = 0;
     ctl_steps_pending = 0;
     ctl_tpl_t = -1;
@@ -82,10 +117,11 @@ void ctl_init(void)
 static int step_push(uint32_t k)
 {
     cmd_t c;
+    uint32_t i = k % (NSTEPS + 1u), cp = k / (NSTEPS + 1u);
     c.op = CMD_STEP;
     c.beats = 0;
     c.id = (uint16_t)k;
-    c.v = step_pack(ctl_pat[k / NSTEPS][k % NSTEPS]);
+    c.v = i < NSTEPS ? step_pack(ctl_pat[cp / NPAT][cp % NPAT][i]) : pmeta_pack(ctl_meta[cp / NPAT][cp % NPAT]);
     if (!cmdq_push(&eng_q, c)) {
         ctl_stats.refused++;
         return 0;
@@ -110,10 +146,11 @@ static int tpl_push(void)
     return 1;
 }
 
-void ctl_step(uint32_t ch, uint32_t i, step_t st)
+static uint32_t ctl_pnow(uint32_t ch) { return (uint32_t)ctl_val[P_CH(ch % NCH, CHF_PAT)] & 3u; }
+
+static void step_send(uint32_t k)                /* a CMD_STEP id: sent now, or kept for ctl_flush */
 {
-    uint32_t k = (ch % NCH) * NSTEPS + i % NSTEPS, bit = 1u << (k & 31u);
-    ctl_pat[ch % NCH][i % NSTEPS] = st;
+    uint32_t bit = 1u << (k & 31u);
     if (ctl_steps_pending || ctl_tpl_t >= 0 || ctl_stats.pending || !step_push(k)) {
         if (!(ctl_step_pend[k >> 5] & bit)) {   /* (a newer value for a waiting step: sent as it is then) */
             ctl_step_pend[k >> 5] |= bit;
@@ -122,30 +159,87 @@ void ctl_step(uint32_t ch, uint32_t i, step_t st)
     }
 }
 
-step_t ctl_get_step(uint32_t ch, uint32_t i) { return ctl_pat[ch % NCH][i % NSTEPS]; }
+void ctl_step_at(uint32_t ch, uint32_t p, uint32_t i, step_t st)
+{
+    uint32_t k;
+    int32_t was;
+    ch %= NCH;
+    p %= NPAT;
+    i %= NSTEPS;
+    k = STEP_ID(ch, p, i);
+    was = step_pack(ctl_pat[ch][p][i]);
+    ctl_pat[ch][p][i] = st;
+    if (ctl_watch && was != step_pack(st))
+        ctl_watch(CTL_STEP_KEY | k, was, step_pack(st));
+    step_send(k);
+}
+void ctl_step(uint32_t ch, uint32_t i, step_t st) { ctl_step_at(ch, ctl_pnow(ch), i, st); }
+step_t ctl_get_step(uint32_t ch, uint32_t i) { return ctl_pat[ch % NCH][ctl_pnow(ch)][i % NSTEPS]; }
+step_t ctl_get_step_at(uint32_t ch, uint32_t p, uint32_t i) { return ctl_pat[ch % NCH][p % NPAT][i % NSTEPS]; }
+pmeta_t ctl_meta_get(uint32_t ch, uint32_t p) { return ctl_meta[ch % NCH][p % NPAT]; }
+void ctl_meta_set(uint32_t ch, uint32_t p, pmeta_t m)
+{
+    int32_t was;
+    ch %= NCH;
+    p %= NPAT;
+    m = pmeta_ok(m);
+    was = pmeta_pack(ctl_meta[ch][p]);
+    ctl_meta[ch][p] = m;
+    if (ctl_watch && was != pmeta_pack(m))
+        ctl_watch(CTL_STEP_KEY | STEP_ID(ch, p, NSTEPS), was, pmeta_pack(m));
+    step_send(STEP_ID(ch, p, NSTEPS));
+}
+pmeta_t ctl_meta_now(uint32_t ch) { return ctl_meta[ch % NCH][ctl_pnow(ch)]; }
+void ctl_step_key_set(uint32_t key, int32_t v)   /* (undo.c: a step's or a pattern's settings, by its key) */
+{
+    uint32_t k = key & ~CTL_STEP_KEY, i = k % (NSTEPS + 1u), cp = k / (NSTEPS + 1u);
+    if (k >= STEP_IDS)
+        return;
+    if (i < NSTEPS)
+        ctl_step_at(cp / NPAT, cp % NPAT, i, step_unpack(v));
+    else
+        ctl_meta_set(cp / NPAT, cp % NPAT, pmeta_unpack(v));
+}
 
 void ctl_template(int32_t t, uint32_t mask, uint32_t beats)
 {
-    uint32_t ch, w;
+    uint32_t ch, w, pats = 0;
     for (ch = 0; ch < NCH; ch++)
-        if (mask >> ch & 1u)
-            template_fill(t, ch, ctl_pat[ch]);
-    /* steps still waiting for those channels are now the template's: theirs no longer to send */
-    for (w = 0; w < NCH * NSTEPS / 32u; w++) {
+        pats |= ctl_pnow(ch) << (2u * ch);
+    if (ctl_watch)
+        for (ch = 0; ch < NCH; ch++) {
+            for (w = 0; w < NSTEPS; w++)
+                ctl_pat_was[ch][w] = ctl_pat[ch][ctl_pnow(ch)][w];
+            ctl_meta_was[ch] = ctl_meta[ch][ctl_pnow(ch)];
+        }
+    for (ch = 0; ch < NCH; ch++)
+        if (mask >> ch & 1u) {
+            template_fill(t, ch, ctl_pat[ch][ctl_pnow(ch)]);
+            ctl_meta[ch][ctl_pnow(ch)].grid = GRID_16;
+        }
+    if (ctl_watch)
+        pat_diff(mask);
+    /* steps still waiting for those patterns are now the template's: theirs no longer to send (the settings are) */
+    for (w = 0; w < (STEP_IDS + 31u) / 32u; w++) {
         uint32_t m = ctl_step_pend[w], b;
-        for (b = 0; b < 32u; b++)
-            if ((m >> b & 1u) && (mask >> ((w * 32u + b) / NSTEPS) & 1u)) {
+        for (b = 0; b < 32u; b++) {
+            uint32_t k = w * 32u + b, cp = k / (NSTEPS + 1u);
+            if ((m >> b & 1u) && k % (NSTEPS + 1u) < NSTEPS && (mask >> (cp / NPAT) & 1u)
+                && cp % NPAT == ctl_pnow(cp / NPAT)) {
                 ctl_step_pend[w] &= ~(1u << b);
                 ctl_steps_pending--;
             }
+        }
     }
+    for (ch = 0; ch < NCH; ch++)                 /* (the grid, sent as a setting) */
+        if (mask >> ch & 1u)
+            step_send(STEP_ID(ch, ctl_pnow(ch), NSTEPS));
     ctl_tpl_t = t;
-    ctl_tpl_mask = mask;
+    ctl_tpl_mask = (mask & 0xFFu) | pats << 8;
     ctl_tpl_beats = beats > 128u ? 128u : beats;
     if (!ctl_stats.pending)
         tpl_push();
 }
-
 static int ctl_push(uint32_t id)
 {
     cmd_t c;
@@ -174,9 +268,13 @@ int ctl_set(uint32_t id, int32_t v) { return ctl_cue(id, v, 0); }
 
 int ctl_cue(uint32_t id, int32_t v, uint32_t beats)
 {
+    int16_t was;
     if (id >= P_NIDS || !param_desc(id))
         return -1;
+    was = ctl_val[id];
     ctl_val[id] = (int16_t)param_clamp(id, v);
+    if (ctl_watch && was != ctl_val[id])
+        ctl_watch(id, was, ctl_val[id]);
     ctl_stamp[id] = ctl_frame;
     ctl_beats[id] = (uint8_t)(beats > 128u ? 128u : beats);
     if (ctl_stats.pending) {                 /* something is waiting: keep the order fair, this joins it */
@@ -203,7 +301,7 @@ void ctl_flush(void)
         return;
     if (ctl_scn >= 0 && !scene_push())
         return;
-    for (w = 0; w < NCH * NSTEPS / 32u && ctl_steps_pending; w++) {   /* steps waiting, in order */
+    for (w = 0; w < (STEP_IDS + 31u) / 32u && ctl_steps_pending; w++) {   /* steps waiting, in order */
         while (ctl_step_pend[w]) {
             uint32_t b = 0, m = ctl_step_pend[w];
             while (!(m & 1u)) {
@@ -267,11 +365,26 @@ static int scene_push(void)
     return 1;
 }
 
-void ctl_scene_store(uint32_t s, uint32_t scope) { scene_capture(s, scope, ctl_val, (const step_t (*)[NSTEPS])ctl_pat); }
-
+void ctl_scene_store(uint32_t s, uint32_t scope) { scene_capture(s, scope, ctl_val); }
 void ctl_scene_recall(uint32_t s, uint32_t beats)
 {
-    scene_apply(s, ctl_val, ctl_pat);            /* the mirror at once (the strips show it cued) */
+    static int16_t was[SCENE_DESK + NCH];
+    uint32_t k, ch;
+    if (ctl_watch) {
+        for (k = 0; k < SCENE_DESK; k++)
+            was[k] = ctl_val[scene_param(k)];
+        for (ch = 0; ch < NCH; ch++)
+            was[SCENE_DESK + ch] = ctl_val[P_CH(ch, CHF_PAT)];
+    }
+    scene_apply(s, ctl_val);                     /* the mirror at once (the strips show it cued) */
+    if (ctl_watch) {
+        for (k = 0; k < SCENE_DESK; k++)
+            if (was[k] != ctl_val[scene_param(k)])
+                ctl_watch(scene_param(k), was[k], ctl_val[scene_param(k)]);
+        for (ch = 0; ch < NCH; ch++)
+            if (was[SCENE_DESK + ch] != ctl_val[P_CH(ch, CHF_PAT)])
+                ctl_watch(P_CH(ch, CHF_PAT), was[SCENE_DESK + ch], ctl_val[P_CH(ch, CHF_PAT)]);
+    }
     ctl_scn = (int32_t)(s % NSCENES);
     ctl_scn_beats = beats > 128u ? 128u : beats;
     if (!ctl_stats.pending && !ctl_steps_pending)

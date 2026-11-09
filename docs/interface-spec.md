@@ -46,7 +46,7 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 | HOME ×2 | ARRANGE | Scenes → Song list |
 | FX | Effects | Echo → Spring → Phaser/Width → Cross-sends |
 | LFO | MIXER | Levels/sends → Filters/drive → Throw destinations |
-| SEQ | STEPS | Steps → Length/rate/swing → Template |
+| SEQ | STEPS | Steps; four patterns a channel (A–D); length, grid (1/8–1/32, triplets), swing; template; live recording (REC) |
 | EDIT | SOUND | Voice pages |
 | ARP | KEY & CHORDS | Key → Chord lane |
 | GLO | SETUP | MIDI · tier lock · quantise · cycle/runway · accessibility · live input |
@@ -119,13 +119,29 @@ When the lock is on, keys outside the allowed set are **silent**. They are never
 ### 4.6 Shift (hold HOME)
 | HOME + | Function |
 |---|---|
-| REC / PLAY | Undo / redo |
+| REC / GLO | Undo / redo (built 2026-11-09: GLO, because HOME + PLAY became the rewind, P3.5) |
 | SELECT | Tempo |
-| SEQ taps | Tap tempo |
+| SEQ taps | Tap tempo (built 2026-11-09: the last four gaps averaged; 2 s pause restarts; refused under MIDI clock in) |
 | ARP | Key/scale lock on/off |
 | SAVE | Save as… |
-| White key | Jump to pattern n (on DUB: solo) |
-| Black key | Copy focused channel's pattern to channel n |
+| White key | On STEPS (built 2026-11-09, 4.8): white 1–4 launch the channel's pattern A–D, 9–12 every channel's. On DUB: solo |
+| Black key | (On STEPS the copy is SAVE + white 1–4: into A–D of the same channel, 4.8. Black keys here: one-shots reversed, section words on ARRANGE) |
+
+### 4.8 The session: patterns and live recording (built 2026-11-09)
+Modelled on Ableton Live's session view, the OP-Z's per-track patterns and the RC-505's loops.
+- **Patterns.** Four a channel (A–D), each with its own length (1–64 steps), grid (1/8, 1/8T, 1/16, 1/16T, 1/32) and
+  swing (50–75 %). One plays (CHF_PAT). A launch lands on the quantise line and starts the pattern from its top.
+  Scenes "P" store which pattern each channel plays (a row); the song's bars store them too.
+- **Timing.** 240 fine ticks a beat (3.3 ms at 75 BPM). A step lands on its grid line plus swing plus its own offset
+  (within half a step: played, or nudged with KNOB 3 while held) and holds for its gate (KNOB 4 while held).
+- **STEPS controls.** HOME + white 1–4 launch; HOME + white 9–12 launch on every channel; SAVE + white 1–4 copy into;
+  HOME + OCT+ double; HOME + OCT− clear; HOME + KNOB 1 grid; KNOB 3 swing. DUB: a mute key held + PRESET launches that
+  channel's next pattern (the mute as it was).
+- **Live recording.** REC while playing: an empty pattern is armed for the next bar line (the click counts in),
+  records one pass and loops; a pattern with steps records at once until REC (OVERDUB or REPLACE). Notes keep their
+  timing (REC QUANTISE FEEL / HALF / GRID), less REC OFFSET; velocity becomes the level; bass and lead keep the
+  held length. Drum channels: whites 1–4 are pads (kick, rim, closed hat, open hat); skank and organ: whites 1–3, the
+  chord low / mid / high. Stopped: REC is step entry at a cursor, and PLAY then counts in a bar. A pass is one undo step.
 
 ## 5. Screen
 ### 5.1 DUB page layout (240×240)
@@ -148,7 +164,7 @@ When the lock is on, keys outside the allowed set are **silent**. They are never
 - Cued actions blink on key and screen, with "lands in n bars".
 - A throw flashes its channel and creates a new echo repeat on screen.
 - The echo panel turns amber near unity and red past it. The limiter's gain reduction is shown as a bar.
-- Guard tier changes show as a badge plus a toast. Hold any button for help.
+- Guard tier changes show as a badge plus a toast. Hold any button for help (built 2026-11-09, `help.c`: a second on its own shows the button's card for this page in the page's place; it stays after the let-go until the next press, swallowed, or 12 s; a press or turn while the button is still held passes through).
 
 ### 5.3 Rendering budget
 Dirty regions only. Meters at 20–30 Hz, echo panel at ~20 Hz, runway border on beat edges. No full redraws during performance.

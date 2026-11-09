@@ -1,0 +1,87 @@
+# Song slots (slots.c): four saved projects (the desk, sounds, key, patterns, scenes, song and its motion). SETUP's
+# SAVE TO SLOT and LOAD SLOT: KNOB 2 picks the slot, the SAVE button does it; stopped only.
+wait 600
+listen
+# RIGHTEOUS DUB into slot 2
+tap GLO
+wait 30
+turn K1 -2
+wait 30
+turn K2 1
+wait 100
+said RIGHTEOUS DUB LOADED: PRESS PLAY
+wait 200
+expect mot_total 40
+turn K1 -2
+wait 30
+said SAVE TO SLOT TO 1 (EMPTY)
+turn K2 1
+wait 30
+said SAVE TO SLOT TO 2 (EMPTY)
+tap SAVE
+wait 300
+said SLOT 2 SAVED
+# something else: the UK steppers desk, a 5-bar song, the motion cleared
+turn K1 3
+wait 30
+turn K2 1
+wait 100
+said UK STEPPERS LOADED: PRESS PLAY
+param song.len 5
+tap HOME
+wait 30
+press SAVE
+wait 20
+tap REC
+wait 20
+release SAVE
+wait 100
+expect mot_total 0
+expect ui.tempo 1400
+# back from slot 2: the demo again, its moves too
+tap GLO
+wait 30
+turn K1 -2
+wait 30
+said LOAD SLOT SLOT 2 (SAVED)
+tap SAVE
+wait 300
+said SLOT 2 LOADED
+wait 200
+expect ui.tempo 720
+expect ui.song.len 32
+expect mot_total 40
+expect scene_used1 1
+expect song_mark13 12
+# an empty one
+turn K2 1
+wait 30
+said LOAD SLOT SLOT 3 (EMPTY)
+tap SAVE
+wait 100
+said SLOT 3 EMPTY
+# kept over a restart (the host's reboot keeps the page's cursor and the slot picked: LOAD SLOT, slot 3)
+reboot
+wait 600
+listen
+tap GLO
+wait 30
+said SETUP LOAD SLOT
+turn K2 -1
+wait 30
+said LOAD SLOT SLOT 2 (SAVED)
+param tempo 900
+wait 30
+tap SAVE
+wait 300
+said SLOT 2 LOADED
+wait 200
+expect ui.tempo 720
+expect mot_total 40
+# not while playing
+tap PLAY
+wait 100
+tap SAVE
+wait 50
+said SLOT 2 STOP FIRST
+tap PLAY

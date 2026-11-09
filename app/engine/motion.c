@@ -80,9 +80,11 @@ static void reset_all(void)
     free_head = 0;
 }
 
-int mot_recordable(uint32_t id)                  /* (not the spin-back: a song that rewinds itself never ends) */
+int mot_recordable(uint32_t id)                  /* (not the spin-back: a song that rewinds itself never ends; not a
+                                                  * channel's pattern: the song's bars keep those, on their lines) */
 {
-    return id >= P_CH_BASE && id < P_NIDS && id != P_SPIN && param_desc(id) != 0;
+    return id >= P_CH_BASE && id < P_NIDS && id != P_SPIN && param_desc(id) != 0
+           && !(id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE == CHF_PAT);
 }
 
 int mot_momentary(uint32_t id)
@@ -246,6 +248,14 @@ int mot_put(uint32_t b, uint32_t tick, uint32_t id, int32_t v)   /* main loop, s
     if (b >= SONG_BARS || tick >= 4u * MOT_TPB || !mot_recordable(id))
         return 0;
     return insert(b, tick, id, v) >= 0;
+}
+
+int mot_get(uint32_t b, uint32_t i, mot_ev_t *e)
+{
+    if (b >= SONG_BARS || i >= mot_n[b])
+        return 0;
+    *e = *at(b, i);
+    return 1;
 }
 
 int mot_due(uint32_t tick, mot_ev_t *e)

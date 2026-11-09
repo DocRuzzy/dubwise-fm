@@ -20,8 +20,22 @@ static uint16_t pos[NSPR], ap_i;
 static float lp[NSPR], fb[NSPR];
 static spring_cfg_t cfg = {0.8f, 0.5f, NAPS, 0};
 static float hp_x, hp_y;                         /* the input's high-pass (~200 Hz, at 22 kHz) */
-static float dec, up_prev, up_cur;               /* half rate: the decimator's state, the interpolator's two */
-static float upr_prev, upr_cur, half_r;          /* the right side's */
+/* Half rate both ways through a 39-tap half-band FIR (Kaiser, beta 8): flat to 0.002 dB up to 8 kHz, and what would
+ * fold or image below 8 kHz is 80 dB down. (Before 2026-11-09 a one-pole and linear interpolation: hats and the
+ * crash's top folded back into the midrange as loud as they went in, the "crushed" sound.) 10 multiplies a side
+ * (the odd taps are zero, the rest symmetric): ~30 a 22 kHz sample for the decimator and both returns. Delay ~0.9 ms */
+#define HB_N 10
+static const float HB[HB_N] = {-3.918133401e-05f, 3.435328263e-04f, -1.247887089e-03f, 3.310629063e-03f,
+                               -7.346797129e-03f, 1.454619641e-02f, -2.690197254e-02f, 4.891961872e-02f,
+                               -9.659875189e-02f, 3.150146130e-01f};   /* taps 0, 2 .. 18; 19 is 0.5; 20 .. 38 mirror */
+#define XR 64u                                   /* the 44.1 kHz input's history (39 needed) */
+#define UR 32u                                   /* the returns' half-rate history (20 needed) */
+static float xr[XR], ul[UR], ur[UR];
+static uint32_t xi, ui;
+static float half_r;                             /* half_step's right side */
+static float th1, th2;                           /* the strike's thump: a ringing ~110 Hz, no DC (as the tank's) */
+#define TH_W 0.0313461f                          /* 2 pi 110 / 22050 */
+#define TH_R 0.9962273f                          /* exp(-1 / (12 ms x 22050)) */
 static hp4_t side_hp;                            /* the difference, high-passed at 150 Hz, 24 dB/oct */
 #define SIDE_A 0.9582f                           /* exp(-2 pi 150 / 22050) */
 static uint32_t phase;
@@ -52,9 +66,14 @@ void spring_init(void)
         lp[s] = fb[s] = 0.0f;
     }
     ap_i = 0;
-    hp_x = hp_y = dec = up_prev = up_cur = 0.0f;
+    hp_x = hp_y = 0.0f;
     phase = 0;
-    upr_prev = upr_cur = half_r = 0.0f;
+    for (i = 0; i < XR; i++)
+        xr[i] = 0.0f;
+    for (i = 0; i < UR; i++)
+        ul[i] = ur[i] = 0.0f;
+    xi = ui = 0;
+    half_r = th1 = th2 = 0.0f;
     hp4_clear(&side_hp);
     crash_env = crash_amp = 0.0f;
     quiet = IDLE_AFTER;                          /* (idle from the start) */
@@ -66,6 +85,8 @@ void spring_crash(float amount)
 {
     crash_amp = amount;
     crash_env = 1.0f;
+    th1 = 0.25f * amount * fm_sinf(TH_W);        /* (the resonator started: amount x sin, decaying) */
+    th2 = 0.0f;
     quiet = 0;
 }
 
@@ -77,9 +98,15 @@ static float half_step(float x)                  /* one 22,050 Hz sample: in, th
     y = 0.945f * (hp_y + x - hp_x);
     hp_x = x;
     hp_y = undenorm(y);
-    if (crash_env > 1e-4f) {
-        y += crash_amp * crash_env * (noise() + 0.6f);
+    if (crash_env > 1e-4f) {                     /* (noise only: the thump, below, carries no DC into the loops) */
+        y += crash_amp * crash_env * noise();
         crash_env *= 0.9925f;
+    }
+    if (th1 != 0.0f || th2 != 0.0f) {
+        float t = 2.0f * TH_R * fm_cosf(TH_W) * th1 - TH_R * TH_R * th2;
+        th2 = th1;
+        th1 = fm_fabsf(t) < 1e-6f && fm_fabsf(th2) < 1e-6f ? 0.0f : t;
+        y += th2;
     }
     for (s = 0; s < NSPR; s++) {
         float v = y + cfg.g * fb[s];             /* into the spring: the input, and its own last pass */
@@ -112,6 +139,24 @@ static float half_step(float x)                  /* one 22,050 Hz sample: in, th
     return out * lim_g;
 }
 
+static inline float hb_dec(void)                 /* the 44.1 kHz input, filtered, at its newest even sample */
+{
+    uint32_t k;
+    float a = 0.5f * xr[(xi - 19u) & (XR - 1u)];
+    for (k = 0; k < HB_N; k++)
+        a += HB[k] * (xr[(xi - 2u * k) & (XR - 1u)] + xr[(xi - 38u + 2u * k) & (XR - 1u)]);
+    return a;
+}
+
+static inline float hb_int(const float *u)       /* the even 44.1 kHz output from the half-rate history (gain 2) */
+{
+    uint32_t k;
+    float a = 0.0f;
+    for (k = 0; k < HB_N; k++)
+        a += HB[k] * (u[(ui - k) & (UR - 1u)] + u[(ui - 19u + k) & (UR - 1u)]);
+    return 2.0f * a;
+}
+
 void spring_run(const float *in, float *out, float *outr, uint32_t n)
 {
     uint32_t i;
@@ -126,22 +171,24 @@ void spring_run(const float *in, float *out, float *outr, uint32_t n)
         quiet = 0;
     }
     for (i = 0; i < n; i++) {
-        dec = undenorm(dec + 0.6f * (in[i] - dec));   /* a gentle low-pass, then every other sample */
-        if (++phase == 2u) {
-            phase = 0;
-            up_prev = up_cur;
-            upr_prev = upr_cur;
-            up_cur = half_step(dec);
-            upr_cur = half_r;
-        }
-        out[i] = up_prev + (up_cur - up_prev) * (phase ? 0.5f : 0.0f);
-        outr[i] = upr_prev + (upr_cur - upr_prev) * (phase ? 0.5f : 0.0f);
-        if (phase == 0u) {                       /* counting the quiet: in silent, out under -120 dB */
-            if (in[i] == 0.0f && fm_fabsf(up_cur) < 1e-6f && crash_env < 1e-4f)
-                quiet++;
+        xi = (xi + 1u) & (XR - 1u);
+        xr[xi] = in[i];
+        if (phase == 0u) {                       /* an even sample: a half-rate step, and its filtered output */
+            float u = half_step(hb_dec());
+            ui = (ui + 1u) & (UR - 1u);
+            ul[ui] = u;
+            ur[ui] = half_r;
+            out[i] = hb_int(ul);
+            outr[i] = hb_int(ur);
+            if (in[i] == 0.0f && fm_fabsf(u) < 1e-6f && crash_env < 1e-4f && th1 == 0.0f)
+                quiet++;                         /* counting the quiet: in silent, out under -120 dB */
             else
                 quiet = 0;
+        } else {                                 /* an odd one: the centre tap, the half-rate sample itself */
+            out[i] = ul[(ui - 9u) & (UR - 1u)];
+            outr[i] = ur[(ui - 9u) & (UR - 1u)];
         }
+        phase ^= 1u;
     }
     if (quiet >= IDLE_AFTER)                     /* going idle: the last of it let go, so it starts clean */
         spring_init();

@@ -1,0 +1,148 @@
+# Live recording (roadmap 4.8, the RC-505's way; steps.c). At 75.0 BPM a bar is 3.2 s and a fine tick 3.33 ms (0.3
+# a ms). REC OFFSET 0 here (the host has no output buffers to make up for).
+wait 600
+listen
+param rec.offset 0
+tap SEQ
+wait 30
+tapkey b3
+wait 30
+expect steps_ch 4
+# the bass's B, empty: REC while playing waits for bar 2's line, the click counting in
+press HOME
+tapkey w1
+release HOME
+wait 30
+expect ui.ch4.pat 1
+tap PLAY
+wait 400
+tap REC
+wait 30
+said ON THE ONE
+expect rec 1
+expect eng.click 1
+wait 2800
+expect rec 2
+expect eng.click 0
+# (PLAY starts on its release: the engine reads 12 ticks there, 1,004 here) a note on step 3's line (1,080 ticks),
+# held 200 ms (60 ticks: a gate of 15)
+expect fine >1000
+expect fine <1008
+wait 253
+key w0 down
+wait 200
+key w0 up
+wait 30
+expect step4_3 2
+expect off4_3 >-3
+expect off4_3 <3
+expect gate4_3 >12
+expect gate4_3 <18
+# one played about 19 ticks after step 5's line (1,219: the key and wait lines take their ms): kept as played (FEEL)
+wait 223
+key w2 down
+wait 50
+key w2 up
+expect step4_5 2
+expect off4_5 >15
+expect off4_5 <23
+# the pass ends at bar 3's line: the loop plays on
+wait 2700
+said LOOP RECORDED
+expect rec 0
+# it plays back where it was played, to the tick: in the next pass (bar 3) at 1,920 + 4 x 60 + its offset
+wait 900
+expect hit4 >319500
+expect hit4 <321100
+# the pass is one step to undo: both notes go
+press HOME
+tap REC
+release HOME
+wait 30
+expect step4_3 0
+expect step4_5 0
+# redo; then REC again: an overdub, at once; GRID quantise puts a late note on its line
+press HOME
+tap GLO
+release HOME
+wait 30
+expect step4_5 2
+param rec.quant 2
+tap REC
+wait 30
+said OVERDUB
+expect rec 2
+wait 70
+key w4 down
+wait 40
+key w4 up
+wait 30
+expect recorded 3
+tap REC
+wait 30
+said REC OFF
+expect rec 0
+# REPLACE: what the playhead passes is cleared, except what this pass played
+param rec.mode 1
+tap REC
+wait 3300
+expect step4_3 0
+expect step4_5 0
+tap REC
+wait 30
+param rec.mode 0
+# the drums' pads: white 2 is the rim, into the snare's own pattern (one drop's rim is on 3 only)
+tap SEQ
+wait 30
+expect kb 0
+tapkey b0
+wait 30
+tap REC
+wait 30
+expect kb 1
+expect rec 2
+expect step2_1 0
+tap PLAY
+wait 50
+# stopped, the keyboard on: PLAY counts in a bar, then records; a pad played 3 ticks before the line starts it
+tap REC
+wait 30
+expect kb 0
+tap REC
+wait 30
+said KEYBOARD ON
+tap PLAY
+wait 200
+expect rec 1
+expect eng.click 1
+wait 2950
+expect rec 1
+key w1 down
+wait 40
+key w1 up
+wait 30
+expect step2_1 2
+expect rec 2
+tap PLAY
+wait 50
+expect rec 0
+expect eng.click 0
+# with the keyboard on, HOME and SAVE combos are still the session's: SAVE + white 3 copies, HOME + white 3 launches
+tap SEQ
+wait 30
+tapkey b3
+wait 30
+tap REC
+wait 30
+expect kb 1
+press SAVE
+tapkey w2
+release SAVE
+wait 30
+said COPIED
+press HOME
+tapkey w2
+release HOME
+wait 30
+expect ui.ch4.pat 2
+expect kb 1

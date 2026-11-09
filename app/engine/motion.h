@@ -42,6 +42,7 @@ void mot_clear(void);
 void mot_suspend(int on);                        /* CMD_MOTION 1 / 2: the table handed to the main loop and back */
 int mot_suspended(void);
 int mot_put(uint32_t bar, uint32_t tick, uint32_t id, int32_t v);   /* main loop, while suspended: 1 kept */
+int mot_get(uint32_t bar, uint32_t i, mot_ev_t *e);   /* bar's move i (main loop, stopped): 1 there */
 void mot_line(int32_t bar, int rec, const int16_t *ev);   /* a bar starts: the bar (-1: no motion), capturing? */
 void mot_user(uint32_t id, int32_t v, uint32_t tick, int rec_now);   /* a move by hand, at tick in the bar; rec_now:
                                                                     * P_SONG_REC now (off mid-bar: no more taken) */

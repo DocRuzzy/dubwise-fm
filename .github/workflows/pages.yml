@@ -1,5 +1,6 @@
-# The browser version (the emulator: the same firmware code, compiled to WebAssembly) on GitHub Pages, rebuilt from
-# main on every merge: https://docruzzy.github.io/dubwise-fm/emu/ (the hub card's "play" link, fmhub.json).
+# The site on GitHub Pages, rebuilt from main on every merge: https://docruzzy.github.io/dubwise-fm/ — a front page,
+# the browser version (emu/: the same firmware code, compiled to WebAssembly; the hub card's "play" link), the manual
+# (manual/), the one-page cheat sheet (cheat/: the card's "cheat" link) and how to install (install/).
 # One-time setup: the repository's Settings -> Pages -> Source: "GitHub Actions".
 name: browser version (Pages)
 
@@ -40,18 +41,18 @@ jobs:
           set -euo pipefail
           source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
           ./build.sh --web
-      - name: The site (emu/, and a front page that goes there)
+      - name: The site (a front page, the emulator, the manual, the cheat sheet, how to install)
         run: |
           set -euo pipefail
-          mkdir -p site/emu
+          mkdir -p site/emu site/manual site/cheat site/img
+          cp -r tools/site/. site/                 # the front page and the install page
+          cp app/docs/img/splash.png site/img/
           cp -r app/build/emu/. site/emu/
-          rm -rf site/emu/o2                      # (build leftovers)
-          cat > site/index.html <<'EOF'
-          <!doctype html>
-          <html lang="en"><head><meta charset="utf-8"><title>DUBWISE</title>
-          <meta http-equiv="refresh" content="0; url=emu/"></head>
-          <body><p><a href="emu/">DUBWISE in the browser</a></p></body></html>
-          EOF
+          rm -rf site/emu/o2                       # (build leftovers)
+          python3 base/tools/manual_html.py app/docs/MANUAL.md site/manual/index.html --name DUBWISE \
+            --repo https://github.com/DocRuzzy/dubwise-fm --tagline "a reggae and dub desk for the FM-1"
+          cp -r app/docs/img site/manual/
+          cp app/docs/cheatsheet.html site/cheat/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

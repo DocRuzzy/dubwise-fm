@@ -17,7 +17,7 @@ enum { CH_KICK, CH_SNARE, CH_HATS, CH_BASS, CH_SKANK, CH_ORGAN, CH_LEAD, CH_VOX,
 
 /* channel strip fields (append only, at most CH_STRIDE) */
 enum { CHF_LEVEL, CHF_MUTE, CHF_SOLO, CHF_ECHO_SEND, CHF_SPRING_SEND, CHF_THROW, CHF_THROW_DEST, CHF_LEN, CHF_THROW_AMT,
-       CHF_N };
+       CHF_PAT, CHF_N };   /* (CHF_LEN: retired in the session, 4.8; a pattern's length is its own, riddim.h pmeta_t) */
 enum { DEST_ECHO, DEST_SPRING, DEST_BOTH, DEST_N };   /* a throw's destination (spec 3) */
 /* voice fields, each channel its own (append only, at most VOICE_STRIDE; voices.h) */
 enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_N };                         /* kick */
@@ -71,9 +71,17 @@ enum {
     P_SAVER,                  /* the screen saver: SAVER_OFF, SAVER_1 .. SAVER_15 (minutes untouched, stopped) */
     P_ROOTS,                  /* 1: ROOTS NAMES, the spoken homages (hidden: SETUP, black 11 three times) */
     P_HPF_RES,                /* the Big Knob's steps a turn: HPF_RES_10 (the Altec's), HPF_RES_20, HPF_RES_40 */
+    P_CLOCK,                  /* MIDI clock: CLOCK_OFF, CLOCK_IN (follow a computer or a drum machine), CLOCK_OUT (lead) */
+    P_AUTOSAVE,               /* 1: saved by itself, a few seconds after the last change while stopped and untouched */
+    P_REC_QUANT,              /* live recording (4.8): REC_FEEL (as played), REC_HALF (halfway to the grid), REC_GRID */
+    P_REC_MODE,               /* REC_OVERDUB (adds), REC_REPLACE (what the playhead passes is cleared, bar what is played) */
+    P_REC_OFFSET,             /* ms taken off a played note's time: the sound's way out (the device's buffers, a browser's) */
+    P_REC_CLICK,              /* the click: CLICK_COUNT_IN (the bar before recording), CLICK_RECORDING (and while recording),
+                               * CLICK_OFF */
     P_NGLOBAL,
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */
+    P_CLICK = 0x030,          /* the click on every beat now (the UI's: a count-in, a recording; never saved) */
     P_DEV_LOAD = 0x03E,       /* development: this much % added to the measured load (the guard's host tests) */
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
@@ -86,7 +94,11 @@ enum { CHORD_MIN, CHORD_MAJ, CHORD_7, CHORD_M7, CHORD_MAJ7, CHORD_SUS4, CHORD_DI
 enum { LOCK_OFF, LOCK_SCALE, LOCK_CHORD, LOCK_N };
 enum { TIER_STUDIO, TIER_FOUR, TIER_SEVEN, TIER_N };
 enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };
-enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };   /* a detent: 4, 2 or 1 fine steps */   /* the guard tiers (design principles 5) */
+enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };
+enum { REC_FEEL, REC_HALF, REC_GRID, REC_QUANT_N };
+enum { REC_OVERDUB, REC_REPLACE, REC_MODE_N };
+enum { CLICK_COUNT_IN, CLICK_RECORDING, CLICK_OFF, CLICK_N };
+enum { CLOCK_OFF, CLOCK_IN, CLOCK_OUT, CLOCK_N };   /* a detent: 4, 2 or 1 fine steps */   /* the guard tiers (design principles 5) */
 const char *tier_name(int32_t t);                    /* "STUDIO", "FOUR-TRACK", "SEVEN-INCH" */
 const char *scale_name(int32_t s);                   /* "NATURAL MINOR" */
 const char *chord_name(int32_t q);                   /* "MINOR" */
