@@ -135,6 +135,48 @@ void app_tick(void)                     /* 1 kHz: the MIDI clock's messages, eac
 }
 
 static float stem_pk[8];                 /* (tests: the stems' peaks, 16-bit full scale) */
+#ifdef PLAT_HOST
+/* (tests, roadmap 5.1: replay.txt) two captures, A and B, each from the transport's first sample to its stop: the
+ * engine's event log (eng_evlog) and the output, to compare a live pass with its replay */
+typedef struct {
+    uint32_t t, kind, id;
+    int32_t v;
+} cap_ev_t;
+#define CAP_EV 16384u
+#define CAP_SAMPLES (44100u * 60u * 2u)
+static struct {
+    cap_ev_t *ev;
+    int32_t *pcm;
+    uint32_t nev, nsmp;
+} cap[2];
+static int cap_armed = -1, cap_on = -1;  /* the capture waiting for the start; the one recording */
+static void cap_log(uint32_t t, uint32_t kind, uint32_t id, int32_t v)
+{
+    if (kind == 0u && id == P_PLAY)
+        return;                          /* (the transport's own start and stop: the script's, not the pass's) */
+    if (cap_on >= 0 && cap[cap_on].nev < CAP_EV) {
+        cap_ev_t *e = &cap[cap_on].ev[cap[cap_on].nev++];
+        e->t = t;
+        e->kind = kind;
+        e->id = id;
+        e->v = v;
+    }
+}
+static void cap_block(const int32_t *lr, uint32_t n)   /* after a block: the capture's start, its samples, its stop */
+{
+    if (cap_armed >= 0 && eng_playing()) {
+        cap_on = cap_armed;
+        cap_armed = -1;
+    }
+    if (cap_on >= 0) {
+        uint32_t i;
+        for (i = 0; i < 2u * n && cap[cap_on].nsmp < CAP_SAMPLES; i++)
+            cap[cap_on].pcm[cap[cap_on].nsmp++] = lr[i];
+        if (!eng_playing())
+            cap_on = -1;
+    }
+}
+#endif
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     uint32_t run = 0;
@@ -144,6 +186,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     live_in(n);
     st = eng_stems(u != 0);
     eng_render(lr, n, master_q12);       /* the commands queued, the channels, the mix (engine/engine.c) */
+#ifdef PLAT_HOST
+    cap_block(lr, n);
+#endif
     if (st) {                            /* the stems into the USB recording (QoL 4), 16-bit, where the ring has them */
         uint32_t f, k;
         for (f = 0; f < n; f++) {
@@ -473,6 +518,26 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         ctl_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1), st);
         return 1;
     }
+    if (!strcmp(cmd, "capture")) {       /* capture A | B: from the next start to its stop (replay.txt) */
+        int k = a[0] == 'B' ? 1 : 0;
+        if (!cap[k].ev) {
+            cap[k].ev = (cap_ev_t *)malloc(CAP_EV * sizeof(cap_ev_t));
+            cap[k].pcm = (int32_t *)malloc(CAP_SAMPLES * sizeof(int32_t));
+        }
+        cap[k].nev = cap[k].nsmp = 0;
+        cap_armed = k;
+        eng_evlog(cap_log);
+        return 1;
+    }
+    if (!strcmp(cmd, "voices")) {        /* voices max | min | def: every voice parameter of every channel there */
+        uint32_t id;
+        for (id = P_VOICE_BASE; id < P_NIDS; id++) {
+            const pdesc_t *d = param_desc(id);
+            if (d)
+                ctl_set(id, !strcmp(a, "max") ? d->max : !strcmp(a, "min") ? d->min : d->def);
+        }
+        return 1;
+    }
     if (!strcmp(cmd, "oldsave")) {       /* a save from before the session (patstore.c), for the next reboot */
         pst_oldsave();
         return 1;
@@ -529,8 +594,94 @@ static int pmeta_name(const char *a, int *id)    /* "chN.len" / ".grid" / ".swin
     return *id;
 }
 
+static int cap_ev_cmp(const void *x, const void *y)
+{
+    const cap_ev_t *a = (const cap_ev_t *)x, *b = (const cap_ev_t *)y;
+    if (a->t != b->t)
+        return a->t < b->t ? -1 : 1;
+    if (a->kind != b->kind)
+        return a->kind < b->kind ? -1 : 1;
+    if (a->id != b->id)
+        return a->id < b->id ? -1 : 1;
+    return a->v < b->v ? -1 : a->v > b->v;
+}
+
+static int cap_expect(const char *what, int *got)   /* cap_*: A against B (printing the first differences) */
+{
+    if (!strcmp(what, "cap_ev_a") || !strcmp(what, "cap_ev_b"))
+        *got = (int)cap[what[7] == 'b'].nev;
+    else if (!strcmp(what, "cap_len_a") || !strcmp(what, "cap_len_b"))   /* frames */
+        *got = (int)(cap[what[8] == 'b'].nsmp / 2u);
+    else if (!strcmp(what, "cap_ev_diff")) {   /* events in one and not the other (as multisets, by time and value),
+                                                * within the shorter capture */
+        uint32_t i = 0, j = 0, d = 0, shown = 0, span;
+        if (!cap[0].ev || !cap[1].ev)
+            return 0;
+        span = (cap[0].nsmp < cap[1].nsmp ? cap[0].nsmp : cap[1].nsmp) / 2u;   /* frames: the shorter capture's */
+        qsort(cap[0].ev, cap[0].nev, sizeof(cap_ev_t), cap_ev_cmp);
+        qsort(cap[1].ev, cap[1].nev, sizeof(cap_ev_t), cap_ev_cmp);
+        while (i < cap[0].nev || j < cap[1].nev) {
+            int c = i == cap[0].nev ? 1 : j == cap[1].nev ? -1 : cap_ev_cmp(&cap[0].ev[i], &cap[1].ev[j]);
+            if (c == 0) {
+                i++, j++;
+                continue;
+            }
+            if ((c < 0 ? cap[0].ev[i].t : cap[1].ev[j].t) >= span) {   /* (past the shorter capture: not compared) */
+                if (c < 0)
+                    i++;
+                else
+                    j++;
+                continue;
+            }
+            d++;
+            if (shown++ < 400u) {
+                const cap_ev_t *e = c < 0 ? &cap[0].ev[i] : &cap[1].ev[j];
+                printf("  cap: only in %c: sample %u kind %u id 0x%03X value %d\n", c < 0 ? 'A' : 'B', e->t, e->kind,
+                       e->id, e->v);
+            }
+            if (c < 0)
+                i++;
+            else
+                j++;
+        }
+        *got = (int)d;
+    } else if (!strcmp(what, "cap_wav_diff") || !strcmp(what, "cap_wav_first") || !strcmp(what, "cap_wav_max")) {
+        uint32_t n = cap[0].nsmp < cap[1].nsmp ? cap[0].nsmp : cap[1].nsmp, i, d = 0, first = 0xFFFFFFFFu;
+        int32_t mx = 0;
+        if (!cap[0].pcm || !cap[1].pcm)
+            return 0;
+        for (i = 0; i < n; i++) {
+            int32_t x = cap[0].pcm[i] - cap[1].pcm[i];
+            if (x) {
+                d++;
+                if (first == 0xFFFFFFFFu)
+                    first = i / 2u;
+                if (x < 0)
+                    x = -x;
+                if (x > mx)
+                    mx = x;
+            }
+        }
+        if (!strcmp(what, "cap_wav_diff")) {     /* samples (both sides) that differ over the shorter span */
+            if (d)
+                printf("  cap: %u of %u samples differ, first at frame %u, the largest by %d (of 2^23)\n", d, n,
+                       first, mx);
+            *got = (int)d;
+        } else
+            *got = !strcmp(what, "cap_wav_first") ? (first == 0xFFFFFFFFu ? -1 : (int)first) : mx;
+    } else
+        return 0;
+    return 1;
+}
+
 int app_expect(const char *what, int *got)
 {
+    if (cap_expect(what, got))
+        return 1;
+    if (!strncmp(what, "src", 3) && what[3] >= '1' && what[3] <= '8' && !strcmp(what + 4, "_db")) {
+        *got = peak_db(eng_src_peak((uint32_t)(what[3] - '1')));   /* srcN_db: voice N's own level, before its strip */
+        return 1;
+    }
     if (pst_expect(what, got))
         return 1;
     if (!strcmp(what, "note"))

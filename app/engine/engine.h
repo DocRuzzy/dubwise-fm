@@ -21,6 +21,12 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12);   /* audio interr
 /* the USB recording's own channels (QoL 4; SETUP: USB STEMS): before eng_render, want = a computer records; the
  * block's stems after it, 8 floats a frame (full scale 1.0), NULL when none are made */
 const float *eng_stems(int want);
+#ifdef PLAT_HOST
+/* (tests, the PC simulator only) a voice's own peak over the last block, before its strip (a muted voice still shows);
+ * the event log: every parameter change and note while playing, at its sample since the start (roadmap 5.1) */
+float eng_src_peak(uint32_t ch);
+void eng_evlog(void (*f)(uint32_t t, uint32_t kind, uint32_t id, int32_t v));
+#endif
 /* the live input (P2.8) for the block about to render: n stereo frames (int32, full scale `full`), on channel 8 as
  * mono, mutable and throwable like any channel; NULL: none. Audio interrupt, before eng_render */
 void eng_live_in(const int32_t *lr, uint32_t n, float full);

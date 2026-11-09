@@ -75,8 +75,10 @@ static float sg_env;                             /* 0 closed .. 1 open */
 static uint32_t sg_hold, sg_hold_n;              /* samples left open; HOLD in samples */
 static float sg_rel = 0.999f;                    /* the closing's factor a sample */
 static void sgate_key(void) { sg_hold = sg_hold_n; }
+static void evlog_ev(uint32_t kind, uint32_t id, int32_t v);   /* (tests: the event log, host only) */
 static void trig(uint32_t ch, int32_t note, uint32_t vel)   /* a voice struck: and a snare keys the gate */
 {
+    evlog_ev(1, ch, note | (int32_t)vel << 8);
     voice_trig(ch, note, vel);
     if (ch == CH_SNARE)
         sgate_key();
@@ -242,7 +244,48 @@ static void set_param(uint32_t id, int32_t v)
 {
     if (id >= P_NIDS || !param_desc(id))
         return;
-    ev[id] = (int16_t)param_clamp(id, v);
+    v = param_clamp(id, v);
+    if (ev[id] != v)
+        evlog_ev(0, id, v);
+    ev[id] = (int16_t)v;
+}
+
+/* (tests) the event log: every parameter that changes and every note, at its sample since the start; the PC
+ * simulator's only (roadmap 5.1, replay.txt). On the device, nothing */
+#ifdef PLAT_HOST
+static void (*evlog_f)(uint32_t t, uint32_t kind, uint32_t id, int32_t v);
+static int16_t evsnap[P_NIDS];
+void eng_evlog(void (*f)(uint32_t t, uint32_t kind, uint32_t id, int32_t v)) { evlog_f = f; }
+static void evlog_ev(uint32_t kind, uint32_t id, int32_t v)
+{
+    if (evlog_f && t_playing)
+        evlog_f(t_samples, kind, id, v);
+}
+static void evlog_snap(void)                     /* before a scene or a song bar is applied straight into ev */
+{
+    uint32_t i;
+    if (evlog_f)
+        for (i = 0; i < P_NIDS; i++)
+            evsnap[i] = ev[i];
+}
+static void evlog_diff(void)                     /* .. and what it changed */
+{
+    uint32_t i;
+    if (evlog_f)
+        for (i = 0; i < P_NIDS; i++)
+            if (ev[i] != evsnap[i])
+                evlog_ev(0, i, ev[i]);
+}
+#else
+static inline void evlog_ev(uint32_t kind, uint32_t id, int32_t v) { (void)kind, (void)id, (void)v; }
+static inline void evlog_snap(void) {}
+static inline void evlog_diff(void) {}
+#endif
+static void vrel(uint32_t ch, int32_t note) { evlog_ev(2, ch, note); voice_release(ch, note); }
+static void ctrig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
+{
+    evlog_ev(3, ch, chord | voicing << 8 | (int32_t)vel << 16);
+    chordv_trig(ch, chord, voicing, vel);
 }
 
 /* motion (P2.7): the tick in the bar (480 a beat); a move by hand recorded (while capturing) */
@@ -335,7 +378,9 @@ static void fire_due(int all)                    /* the cues now due (all: every
             if (cues[i].op == CMD_TEMPLATE)
                 load_template(cues[i].id, (uint16_t)cues[i].v);
             else if (cues[i].op == CMD_SCENE) {
+                evlog_snap();
                 scene_apply(cues[i].id, ev);
+                evlog_diff();
                 scene_fired = cues[i].id;
             } else
                 set_by_hand(cues[i].id, cues[i].v);
@@ -358,7 +403,9 @@ static void cue_add(uint32_t op, uint32_t id, int32_t v, uint32_t beats)
         if (op == CMD_TEMPLATE)
             load_template((int32_t)id, (uint32_t)v);
         else if (op == CMD_SCENE) {
+            evlog_snap();
             scene_apply(id, ev);
+            evlog_diff();
             scene_fired = (int32_t)id;
         } else
             set_param(id, v);
@@ -598,22 +645,29 @@ static void drain(void)                          /* every queued command, at the
             int32_t which = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
             if (which >= 16) {                   /* 16+: a one-shot; 24+: backwards (P3.3) */
                 if (vel)
+                {
+                    evlog_ev(6, (uint32_t)which, vel);
                     fxv_shot_dir((uint32_t)((which - 16) & 7), (uint32_t)vel, which >= 24);
+                }
             } else if (vel)
+            {
+                evlog_ev(4, (uint32_t)which, vel);
                 fxv_on(which, (uint32_t)vel);
-            else
+            } else {
+                evlog_ev(5, (uint32_t)which, 0);
                 fxv_off(which);
+            }
         } else if (c.op == CMD_NOTE && (c.id == CH_SKANK || c.id == CH_ORGAN)) {   /* a pad: the lane's chord now */
             int32_t vel = (c.v >> 8) & 0x7F, lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
             if (vel)
-                chordv_trig(c.id, ev[P_CHORD0 + (int32_t)((t_playing ? t_beat / 4u : 0u) % (uint32_t)lane)],
+                ctrig(c.id, ev[P_CHORD0 + (int32_t)((t_playing ? t_beat / 4u : 0u) % (uint32_t)lane)],
                             c.v & 0x7F, (uint32_t)vel);
         } else if (c.op == CMD_NOTE && c.id < NCH) {
             int32_t note = c.v & 0x7F, vel = (c.v >> 8) & 0x7F;
             if (vel)
                 trig(c.id, note, (uint32_t)vel);
             else
-                voice_release(c.id, note);
+                vrel(c.id, note);
         }
         cmds++;
     }
@@ -717,11 +771,13 @@ static void song_line(uint32_t bar)             /* a bar's line: the song captur
         }
         song_bar_now = b;
         mot_line((int32_t)b, 0, ev);
+        evlog_snap();
         sc = song_apply(b, ev);                  /* the bar's mutes, solos, Big Knob */
         if (sc >= 0 && sc < NSCENES) {           /* its scene first, then the bar's own desk over it */
             scene_apply((uint32_t)sc, ev);
             song_apply(b, ev);
         }
+        evlog_diff();
         if (b + 1u < len || ev[P_SONG_MODE] == SONG_LOOP) {   /* the next bar's patterns: known a bar ahead */
             uint32_t nb = b + 1u < len ? b + 1u : 0u, ch;
             const song_bar_t *s = &song[nb % SONG_BARS];
@@ -868,11 +924,11 @@ static void seq_hit(const sev_t *e)              /* a step, now */
     if (ch == CH_SKANK || ch == CH_ORGAN) {      /* the chord lane's chord at this bar, in the step's voicing */
         int32_t lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
         int32_t chord = ev[P_CHORD0 + (int32_t)(((uint32_t)(e->t > 0 ? e->t : 0) / (4u * PPQ)) % (uint32_t)lane)];
-        chordv_trig(ch, chord, st.note, lvl_vel(st.lvl));
+        ctrig(ch, chord, st.note, lvl_vel(st.lvl));
         chord_last[ch] = chord;
     } else {
         if ((ch == CH_BASS || ch == CH_LEAD) && held_note[ch] >= 0) {   /* one note at a time */
-            voice_release(ch, held_note[ch]);
+            vrel(ch, held_note[ch]);
             held_note[ch] = -1;
         }
         trig(ch, st.note, lvl_vel(st.lvl));
@@ -890,7 +946,7 @@ static void seq_fire(void)                       /* the notes ending now, then t
     uint32_t ch;
     for (ch = CH_BASS; ch <= CH_LEAD; ch += CH_LEAD - CH_BASS)
         if (held_note[ch] >= 0 && seq_due(off_at[ch])) {
-            voice_release(ch, held_note[ch]);
+            vrel(ch, held_note[ch]);
             held_note[ch] = -1;
         }
     while (nsev && seq_due(sev[0].t)) {
@@ -1067,7 +1123,7 @@ static void transport_stop(void)                 /* what a stop does: the cues n
         uint32_t ch;
         for (ch = 0; ch < NCH; ch++)
             if (held_note[ch] >= 0) {
-                voice_release(ch, held_note[ch]);
+                vrel(ch, held_note[ch]);
                 held_note[ch] = -1;
             }
     }
@@ -1169,7 +1225,7 @@ static int live_add(float *o, uint32_t n, int any)   /* the live input into chan
 }
 
 void eng_trig(uint32_t ch, int32_t note, uint32_t vel) { trig(ch, note, vel); }
-void eng_release(uint32_t ch, int32_t note) { voice_release(ch, note); }
+void eng_release(uint32_t ch, int32_t note) { vrel(ch, note); }
 int32_t eng_note(void) { return voice_note(CH_BASS); }
 int32_t eng_voice_note(uint32_t ch) { return voice_note(ch); }
 
@@ -1197,6 +1253,9 @@ static int source(uint32_t ch, float *o, uint32_t n)   /* the channel's sound, m
 }
 
 /* ----------------------------------------------------------------- render --- */
+#ifdef PLAT_HOST
+static float src_pk[NCH], src_last[NCH];         /* (tests) each voice's own peak: this block's, the last block's */
+#endif
 /* the stems (QoL 4: the USB recording's channels 3-10, eng_stems): eight a frame, the block's, full scale 1.0 */
 #define NSTEM 8u
 static PLAT_POOL float stemf[ENG_BLOCK * NSTEM];
@@ -1221,6 +1280,11 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         strip_t *s = &strip[ch];
         float pk = 0.0f;
         int on = source(ch, buf, n);
+#ifdef PLAT_HOST
+        if (on)                                  /* (tests) the voice's own level, before its strip */
+            for (i = 0; i < n; i++)
+                src_pk[ch] = fm_maxf(src_pk[ch], fm_fabsf(buf[i]));
+#endif
         if (on && ((ph_on == PH_HATS && ch == CH_HATS) || (ph_on == PH_SKANK && ch == CH_SKANK)))
             phaser_run(buf, 0, n);               /* the phaser on a channel (before its strip) */
         if (on && drive_on == DRIVE_BASS && ch == CH_BASS)
@@ -1356,6 +1420,10 @@ const float *eng_stems(int want)                 /* before eng_render: 1 = a com
     return stemf;
 }
 
+#ifdef PLAT_HOST
+float eng_src_peak(uint32_t ch) { return ch < NCH ? src_last[ch] : 0.0f; }
+#endif
+
 void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     uint32_t pos = 0;
@@ -1428,6 +1496,15 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             t_step(d);
         pos += d;
     }
+#ifdef PLAT_HOST
+    {
+        uint32_t ch;
+        for (ch = 0; ch < NCH; ch++) {
+            src_last[ch] = src_pk[ch];
+            src_pk[ch] = 0.0f;
+        }
+    }
+#endif
     spin_block(lr, n);
     prof_block();
 }

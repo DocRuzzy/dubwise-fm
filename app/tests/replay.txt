@@ -1,0 +1,62 @@
+# Replay (roadmap 5.1b): a scripted live pass on the DUB page (mute keys, a throw, a knob sweep, the Big Knob up and
+# back, the spring crash, a siren, a one-shot, a freeze), captured into the song by REC and played back, renders the
+# same events at the same samples as the pass, and the same output, bit for bit, over the pass's span.
+# capture A / B: the engine's event log (every parameter change and note, at its sample since PLAY) and the output,
+# from the transport's first sample to its stop. cap_ev_diff: events in one and not the other; cap_wav_diff: output
+# samples that differ over the shorter span (the first differences are printed).
+wait 600
+listen
+# the pass, captured into the song (REC on the DUB page)
+tap REC
+wait 50
+said SONG
+capture A
+tap PLAY
+wait 1500
+tapkey w3
+wait 400
+key w9 down 110
+wait 600
+key w9 up
+wait 300
+turn K2 4 80
+wait 300
+turn SELECT 3 200
+wait 500
+key b0 down
+wait 100
+key b0 up
+wait 400
+key b5 down
+wait 700
+key b5 up
+wait 300
+key b7 down
+wait 60
+key b7 up
+wait 400
+turn SELECT -3 40
+key b1 down
+wait 900
+key b1 up
+tapkey w3
+wait 3000
+tap PLAY
+wait 50
+tap REC
+wait 50
+# back to the start's desk, the tails gone
+param echo.fb 45
+param hpf 0
+param ch4.mute 0
+wait 20000
+# the song once, captured as B
+param song 1
+wait 30
+capture B
+tap PLAY
+wait 17000
+expect cap_ev_a >40
+expect cap_ev_b >40
+expect cap_ev_diff 0
+expect cap_wav_diff 0
