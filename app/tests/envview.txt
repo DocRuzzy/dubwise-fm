@@ -1,0 +1,46 @@
+# The live envelope view (roadmap 5.10; app/envview.c): the SOUND view's centre draws the focused voice's loudness and
+# a second curve from its settings; a knob reshapes them at once; each hit starts a playhead across them (~20 Hz);
+# reduced motion: no playhead; on the DICE bank too (what a roll did, seen).
+wait 600
+listen
+expect env_view 0
+tap EDIT
+wait 30
+expect env_view 1
+# the kick: DECAY 40 draws 404 ms (100..1000 ms, to its 60 dB); DECAY up, a wider drawing
+expect env_span 404
+tap EDIT
+wait 30
+turn K4 20
+wait 100
+expect ui.v1.decay 60
+expect env_span 552
+shot envview-kick.png
+# a hit: the playhead runs, and stops past the end
+expect env_playhead 0
+midi 99 24 7F
+wait 100
+expect env_playhead 1
+wait 800
+expect env_playhead 0
+# reduced motion: no playhead
+param reduced 1
+midi 99 24 7F
+wait 100
+expect env_playhead 0
+param reduced 0
+# the DICE bank: the shapes too (what a roll does, seen)
+tap EDIT
+tap EDIT
+wait 30
+expect dice_bank 1
+expect env_view 1
+# the bass: held and let go (400 ms drawn held, the 60 ms release)
+tap EDIT
+wait 30
+turn ALGO 3
+wait 30
+tap EDIT
+wait 30
+expect env_view 1
+expect env_span 485

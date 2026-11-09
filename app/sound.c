@@ -65,6 +65,25 @@ static int macro_busy;                           /* macro_apply writing the targ
 
 static int has_main(int32_t ch) { return ch >= 0 && ch < (int32_t)NCH && ch != CH_VOX; }
 
+/* the B-3's MAIN (5.15): REGISTRATION (a list of common ones, soft to bright: 0 the default, full upper), PERC,
+ * ROTARY, DRIVE, in the place of the bubble's macros while the organ's MODEL is B-3 */
+static const char B3_REGS[8][10] = {"008000000", "808000000", "868000000", "888000000", "888600000", "888800000",
+                                    "888888000", "888888888"};
+static int b3_main(int32_t ch) { return ch == CH_ORGAN && ctl_get(P_VOICE(CH_ORGAN, VO_MODEL)) == ORG_B3; }
+static int32_t b3_target(uint32_t k, int32_t m, uint32_t bar)   /* the B-3 macro k's target value at macro m */
+{
+    static const int8_t REG[9] = ORG_REG;
+    if (k == 0u) {                               /* REGISTRATION: the bar's offset in the registration m picks */
+        int32_t r = m >= 0 ? 3 + m * 4 / 63 : 3 + m * 3 / 64;
+        return (int32_t)(B3_REGS[r][bar] - '0') - REG[bar];
+    }
+    if (k == 1u)
+        return m <= 0 ? PERC_OFF : m < 32 ? PERC_2ND : PERC_3RD;
+    if (k == 2u)
+        return m <= -22 ? ROT_OFF : m < 22 ? ROT_SLOW : ROT_FAST;
+    return m <= 0 ? 0 : m * 2;
+}
+
 static int macro_of(uint32_t id, int32_t *ch, uint32_t *k)   /* id a macro: its channel and number */
 {
     uint32_t f;
@@ -90,6 +109,17 @@ static void macro_apply(int32_t ch, uint32_t k)  /* the macro's value into its t
 {
     uint32_t j;
     int32_t m = ctl_get(P_VOICE(ch, VM_BASE + k));
+    if (b3_main(ch)) {                           /* the B-3's own (5.15) */
+        static const uint8_t F[4] = {VO_DB0, VO_PERC, VO_ROTARY, VO_ODRIVE};
+        macro_busy = 1;
+        if (k == 0u)
+            for (j = 0; j < 9u; j++)
+                ctl_set(P_VOICE(ch, VO_DB0 + j), b3_target(0, m, j));
+        else
+            ctl_set(P_VOICE(ch, F[k]), b3_target(k, m, 0));
+        macro_busy = 0;
+        return;
+    }
     macro_busy = 1;
     for (j = 0; j < MT; j++) {
         const mtarget_t *t = &MACRO_T[ch][k][j];
@@ -103,6 +133,16 @@ static int macro_moved(int32_t ch, uint32_t k)   /* 1: a target turned since (MA
 {
     uint32_t j;
     int32_t m = ctl_get(P_VOICE(ch, VM_BASE + k));
+    if (b3_main(ch)) {                           /* (the B-3's) */
+        static const uint8_t F[4] = {VO_DB0, VO_PERC, VO_ROTARY, VO_ODRIVE};
+        if (k == 0u) {
+            for (j = 0; j < 9u; j++)
+                if (ctl_get(P_VOICE(ch, VO_DB0 + j)) != b3_target(0, m, j))
+                    return 1;
+            return 0;
+        }
+        return ctl_get(P_VOICE(ch, F[k])) != b3_target(k, m, 0);
+    }
     for (j = 0; j < MT; j++) {
         const mtarget_t *t = &MACRO_T[ch][k][j];
         if (t->f != 0xFFu && ctl_get(P_VOICE(ch, t->f)) != macro_curve((uint32_t)ch, t, m))
@@ -111,9 +151,78 @@ static int macro_moved(int32_t ch, uint32_t k)   /* 1: a target turned since (MA
     return 0;
 }
 
+static void organ_tick(void)                     /* every frame: the B-3's registration into its tables when it moved
+                                                  * (knobs, patches, Dice, the web editor, motion: the mirror's) */
+{
+    static const int8_t REG[9] = ORG_REG;
+    static int8_t last[9] = {-1, -1, -1, -1, -1, -1, -1, -1, -1};
+    int8_t b[9];
+    uint32_t k;
+    int moved = 0;
+    for (k = 0; k < 9u; k++) {
+        int32_t v = REG[k] + ctl_get(P_VOICE(CH_ORGAN, VO_DB0 + k));
+        b[k] = (int8_t)(v < 0 ? 0 : v > 8 ? 8 : v);
+        moved |= b[k] != last[k];
+    }
+    if (!moved)
+        return;
+    for (k = 0; k < 9u; k++)
+        last[k] = b[k];
+    chordv_b3_build(b);
+}
+
+static int organ_bar(uint32_t id, int32_t v, char *t)   /* a drawbar's field shown as the bar (0..8), not its offset */
+{
+    static const int8_t REG[9] = ORG_REG;
+    if (id < P_VOICE(CH_ORGAN, VO_DB0) || id > P_VOICE(CH_ORGAN, VO_DB8))
+        return 0;
+    int_text(REG[id - P_VOICE(CH_ORGAN, VO_DB0)] + v, t);
+    return 1;
+}
+
+static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value as its name (5.7), 0: not one */
+{
+    static const char *const K[KICK_MODELS] = {"SINE", "THUMP", "BOOM"}, *const R[RIM_MODELS] = {"CROSS", "SNARE",
+                                                                                                    "SYNDRUM"};
+    static const char *const H[HAT_MODELS] = {"METAL", "NOISE"}, *const B[BASS_MODELS] = {"ROUND", "PLUCK", "HOLLOW",
+                                                                                          "STEPPERS"};
+    if (v < 0)
+        return 0;
+    if (id == P_VOICE(CH_KICK, VK_MODEL) && v < KICK_MODELS)
+        return K[v];
+    if (id == P_VOICE(CH_SNARE, VR_MODEL) && v < RIM_MODELS)
+        return R[v];
+    if (id == P_VOICE(CH_HATS, VH_MODEL) && v < HAT_MODELS)
+        return H[v];
+    if (id == P_VOICE(CH_BASS, VB_MODEL) && v < BASS_MODELS)
+        return B[v];
+    if (id == P_VOICE(CH_ORGAN, VO_MODEL) && v < ORG_MODELS)
+        return v ? "B-3" : "BUBBLE";
+    if (id == P_VOICE(CH_ORGAN, VO_PERC) && v < PERC_N) {
+        static const char *const P[PERC_N] = {"OFF", "2ND", "3RD"};
+        return P[v];
+    }
+    if (id == P_VOICE(CH_ORGAN, VO_VIBCH) && v < VIB_N) {
+        static const char *const V[VIB_N] = {"OFF", "V1", "V2", "V3", "C1", "C2", "C3"};
+        return V[v];
+    }
+    if (id == P_VOICE(CH_ORGAN, VO_ROTARY) && v < ROT_N) {
+        static const char *const R[ROT_N] = {"OFF", "SLOW", "FAST", "BRAKE"};
+        return R[v];
+    }
+    if (id == P_VOICE(CH_ORGAN, VO_PFAST))
+        return v ? "FAST" : "SLOW";
+    return 0;
+}
+
 static void label_of(uint32_t id, char *l, uint32_t n)   /* a voice field's name as the screen shows it ("m." off) */
 {
     const char *s = param_desc(id)->name;
+    if (id >= P_VOICE(CH_ORGAN, VM_BASE) && id < P_VOICE(CH_ORGAN, VM_BASE + VM_N) && b3_main(CH_ORGAN)) {
+        static const char *const B[VM_N] = {"REGIST", "PERC", "ROTARY", "DRIVE"};   /* (the B-3's MAIN: 5.15) */
+        upper(B[id - P_VOICE(CH_ORGAN, VM_BASE)], l, n);
+        return;
+    }
     if (s[0] == 'm' && s[1] == '.')
         s += 2;
     upper(s, l, n);

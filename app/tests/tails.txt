@@ -1,7 +1,7 @@
 # Tails (roadmap 5.1a): every voice ends under -60 dB within its longest decay after a release, a steal, a mute, a
 # pattern change, a stop, a scene recall and a slot load, with every voice parameter at its maximum and at its minimum
 # (another firmware's endless decay). srcN_db: voice N's own level over the last block, before its strip (a muted
-# voice still shows). The longest decays (voices.c, chordv.c, fxv.c): kick 1,000 ms, rim 200, open hat 800, bass 60
+# voice still shows). The longest decays (voices.c, chordv.c, fxv.c): kick 1,600 ms (BOOM, 5.7; SINE 1,000), rim 600 (SYNDRUM; CROSS 200), open hat 800, bass 60
 # after its release (1,500 while held), skank 200, organ 300, lead 600 after its release, a siren ~200 after its key (a 28 ms time constant),
 # a one-shot 1.5 s at most. Each check is at that time plus ~100 ms.
 wait 600
@@ -12,10 +12,10 @@ voices max
 wait 50
 # hits and releases (MIDI: channel 10 the drums, 1 the bass, 2 the lead)
 midi 99 24 7F
-wait 1100
+wait 1700
 expect src1_db <-60
 midi 99 25 7F
-wait 300
+wait 700
 expect src2_db <-60
 midi 99 2E 7F
 wait 900
@@ -101,10 +101,10 @@ voices min
 wait 50
 # hits and releases (MIDI: channel 10 the drums, 1 the bass, 2 the lead)
 midi 99 24 7F
-wait 1100
+wait 1700
 expect src1_db <-60
 midi 99 25 7F
-wait 300
+wait 700
 expect src2_db <-60
 midi 99 2E 7F
 wait 900
@@ -216,7 +216,7 @@ wait 30
 # ---- a slot load: the lead's release at its longest, a slot loaded as it rings
 tap GLO
 wait 30
-turn K1 -5
+turn K1 -6
 wait 30
 said SAVE TO SLOT
 turn K2 3

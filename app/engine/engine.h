@@ -47,6 +47,7 @@ int32_t eng_voice_note(uint32_t ch);         /* the bass's or the lead's note he
 /* read back (main loop): what the engine has applied, and its meters */
 int32_t eng_param(uint32_t id);
 float eng_ch_peak(uint32_t ch);              /* the channel's post-fader peak over the last block, 0..1+ */
+uint32_t eng_trig_count(uint32_t ch);        /* the channel's hits so far (a new one: a new count; 5.10's playhead) */
 float eng_echo_peak(void);                   /* the echo send bus's */
 float eng_spring_peak(void);
 float eng_echo_ret_peak(void);               /* the echo's return, after its level */

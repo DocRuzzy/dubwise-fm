@@ -12,6 +12,7 @@
 #include "engine/song.h"
 #include "engine/fxv.h"
 #include "engine/motion.h"
+#include "engine/chordv.h"                  /* (the B-3's tables, built in the main loop: 5.15) */
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
@@ -20,7 +21,7 @@ typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
     uint8_t quant;                       /* P_QUANT */
-    uint8_t rsv;
+    uint8_t dice_line;                   /* P_DICE_LINE (5.6; this byte was spare: an older save holds 0, off) */
     uint8_t echo_time, echo_fb, echo_ret, spring_ret;   /* the DUB page's knobs */
     uint8_t setup[P_NGLOBAL];            /* the globals from P_LEAD on: lead, cycle, runway .. (SETUP) */
     uint8_t chords[P_CHORD_END - P_CHORD0];   /* the chord lane */
@@ -218,6 +219,7 @@ static void settings_defaults(void)
     set.magic = SET_MAGIC;
     set.tempo = (int16_t)param_def(P_TEMPO);
     set.quant = (uint8_t)param_def(P_QUANT);
+    set.dice_line = 0;
     set.echo_time = (uint8_t)param_def(P_ECHO_TIME);
     set.echo_fb = (uint8_t)param_def(P_ECHO_FB);
     set.echo_ret = (uint8_t)param_def(P_ECHO_RET);
@@ -241,6 +243,8 @@ static int save_project(int quiet);
 static void settings_save(void) { save_project(0); }
 static int ml_save(void);
 static void ml_load(void);
+static void pl_load(void);                 /* (patches.c: the patch library, 5.4) */
+static void sh_load(void);                 /* (shots.c: your own one-shots, 5.14) */
 
 static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
@@ -251,6 +255,7 @@ static int save_project(int quiet)       /* SAVE (quiet: the autosave, which say
     }
     set.tempo = (int16_t)ctl_get(P_TEMPO);
     set.quant = (uint8_t)ctl_get(P_QUANT);
+    set.dice_line = (uint8_t)ctl_get(P_DICE_LINE);
     set.echo_time = (uint8_t)ctl_get(P_ECHO_TIME);
     set.echo_fb = (uint8_t)ctl_get(P_ECHO_FB);
     set.echo_ret = (uint8_t)ctl_get(P_ECHO_RET);
@@ -331,8 +336,11 @@ static void load_saved(void)             /* the store's objects into both sides 
     }
     proj_load();
     ml_load();
+    pl_load();
+    sh_load();
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
+    ctl_set(P_DICE_LINE, set.dice_line);
     ctl_set(P_ECHO_TIME, set.echo_time);  /* (clamped to their ranges) */
     ctl_set(P_ECHO_FB, set.echo_fb);
     ctl_set(P_ECHO_RET, set.echo_ret);
@@ -542,6 +550,34 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         pst_oldsave();
         return 1;
     }
+    if (!strcmp(cmd, "fields")) {        /* every voice field, as JSON (tools/site/editor: the web editor's table, 5.13) */
+        uint32_t id;
+        int first = 1;
+        printf("FIELDS [");
+        for (id = P_VOICE_BASE; id < P_NIDS; id++) {
+            const pdesc_t *d = param_desc(id);
+            if (!d)
+                continue;
+            printf("%s{\"id\":%u,\"ch\":%u,\"f\":%u,\"name\":\"%s\",\"min\":%d,\"max\":%d,\"def\":%d}",
+                   first ? "" : ",", (unsigned)id, (unsigned)((id - P_VOICE_BASE) / VOICE_STRIDE),
+                   (unsigned)((id - P_VOICE_BASE) % VOICE_STRIDE), d->name, (int)d->min, (int)d->max, (int)d->def);
+            first = 0;
+        }
+        printf("]\n");
+        return 1;
+    }
+    if (!strcmp(cmd, "oldsteps")) {      /* the steps as saved before 5.8 (PST1, a drum's gate a length; patstore.c) */
+        pst_oldsteps();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldsound")) {      /* sounds saved before 5.3, and no patch library (patches.c) */
+        pl_oldsound();
+        return 1;
+    }
+    if (!strcmp(cmd, "foreignpatch")) {  /* a newer firmware's patch library (a downgrade; patches.c) */
+        pl_foreign_obj();
+        return 1;
+    }
     if (!strcmp(cmd, "clearpat")) {      /* clearpat CH PAT: every step off */
         uint32_t ch = (uint32_t)(atoi(a) - 1) % NCH, pt = (uint32_t)(b[0] - 'A') % NPAT, i;
         for (i = 0; i < NSTEPS; i++) {
@@ -563,6 +599,14 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             m.swing = (uint8_t)atoi(b);
         ctl_meta_set(ch, (uint32_t)ctl_get(P_CH(ch, CHF_PAT)), m);
         return 1;
+    }
+    {                                    /* a name with spaces ("v6.5 1/3'", "v6.perc fast"): "_" for each */
+        static char sp[32];
+        uint32_t k;
+        for (k = 0; a[k] && k + 1u < sizeof sp; k++)
+            sp[k] = a[k] == '_' ? ' ' : a[k];
+        sp[k] = 0;
+        a = sp;
     }
     if ((id = param_find(a)) < 0) {
         printf("FAIL: no parameter %s\n", a);
@@ -686,6 +730,10 @@ int app_expect(const char *what, int *got)
         return 1;
     if (!strcmp(what, "note"))
         *got = eng_note();
+    else if (!strcmp(what, "rotor_horn") || !strcmp(what, "rotor_drum"))   /* the B-3's rotors, Hz x 100 (5.15) */
+        *got = (int)(chordv_rotor(what[6] == 'd') * 100.0f + 0.5f);
+    else if (!strcmp(what, "perc_n"))     /* the B-3's percussion strikes so far (5.15) */
+        *got = (int)chordv_perc_n();
     else if (!strcmp(what, "dirty"))
         *got = set_dirty;
     else if (!strcmp(what, "midi_in"))
@@ -696,7 +744,13 @@ int app_expect(const char *what, int *got)
         pmeta_t m = what[0] == 'e' ? eng_pmeta(ch, eng_pat(ch)) : ctl_meta_now(ch);
         *got = f == 0u ? m.len : f == 1u ? m.grid : m.swing;
     } else if (!strncmp(what, "eng.", 4) || !strncmp(what, "ui.", 3)) {   /* a parameter, as applied / as asked */
-        int id = param_find(what + (what[0] == 'e' ? 4 : 3));
+        char sp[32];                     /* (a name with spaces: "_" for each, as param's) */
+        uint32_t k;
+        int id;
+        for (k = 0; what[k] && k + 1u < sizeof sp; k++)
+            sp[k] = what[k] == '_' ? ' ' : what[k];
+        sp[k] = 0;
+        id = param_find(sp + (sp[0] == 'e' ? 4 : 3));
         if (id < 0)
             return 0;
         *got = what[0] == 'e' ? eng_param((uint32_t)id) : ctl_get((uint32_t)id);
@@ -760,6 +814,8 @@ int app_expect(const char *what, int *got)
         *got = (int)eng_chord_last((uint32_t)(atoi(what + 8) - 1) % NCH);
     else if (!strcmp(what, "seq_hits"))
         *got = (int)eng_seq_hits();
+    else if (!strncmp(what, "perf_ch", 7))  /* perf_chN: channel N's average cost, tenths of a % of the device's block */
+        *got = (int)(eng_prof((uint32_t)atoi(what + 7)).avg / 16.0 * 80.0 * 1000.0 / ENG_BLOCK_TICKS + 0.5);
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */
         uint32_t i, tot = 0;
         for (i = 0; i < NPARTS; i++)

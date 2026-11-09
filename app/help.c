@@ -50,16 +50,16 @@ static const help_card_t HELP[] = {
     {B_SEQ, HELP_NONE, "SEQ",
      {"STEPS: FOUR PATTERNS A CHANNEL.", "BLACK 1-8: THE CHANNEL.", "WHITE 1-16: STEPS ON / OFF.",
       "HOME + WHITE 1-4: PLAY A-D.", "SAVE + WHITE 1-4: COPY TO A-D.", "K1 LENGTH (HOME: GRID).",
-      "K2 NOTE, K3 SWING, K4 RIDDIM.", "A STEP HELD: K3 NUDGE, K4 GATE.", "HOME + SEQ, TAPPED: TAP TEMPO."}},
+      "K2 NOTE, K3 SWING, K4 RIDDIM.", "A STEP HELD: K3 NUDGE, K4 GATE.", "DUB: A MUTE HELD + SEQ: ITS."}},
     {B_ARP, HELP_NONE, "ARP",
      {"KEY & CHORDS: KEY, SCALE,", "LOCK, OCTAVE.", "ARP AGAIN: THE CHORD LANE.", "HOME + ARP: LOCK ON / OFF."}},
     {B_FX, HELP_NONE, "FX",
      {"THE EFFECTS, A BANK AT A TIME:", "ECHO, SPRING, CROSS, TAPE,", "PHASER, DRIVE, GATE, WIDTH,",
       "BI-PHASE. FX AGAIN: NEXT BANK.", "K1-K4: THE BANK'S FOUR."}},
     {B_EDIT, HELP_NONE, "EDIT",
-     {"THE FOCUSED CHANNEL'S SOUND.", "FIRST MAIN: FOUR MACROS,", "EACH TURNS SEVERAL AT ONCE.",
-      "EDIT AGAIN: THE RAW BANKS,", "FOUR KNOBS A BANK, THEN", "BACK TO THE ECHO KNOBS.", "A DOT: TURNED BY HAND SINCE.",
-      "ALGORITHM: THE FOCUS."}},
+     {"THE FOCUSED CHANNEL'S SOUND.", "FIRST MAIN: FOUR MACROS;", "EDIT AGAIN: THE RAW BANKS,",
+      "THEN BACK. A DOT: TURNED SINCE.", "PRESET: ITS PATCHES, LOADED.", "SAVE + PRESET: KEEP THE SOUND",
+      "(STOPPED). ALGORITHM: FOCUS."}},
     {B_GLO, HELP_NONE, "GLO",
      {"SETUP: RUNWAY, SAVER, CLOCK,", "SLOTS, AUTOSAVE, DEMO ...", "K1 / SELECT: THE ROW.", "K2 / PRESET: ITS VALUE.",
       "HOME + GLO: REDO."}},
@@ -74,16 +74,23 @@ static const help_card_t HELP[] = {
     {B_SEL, HELP_NONE, "SELECT",
      {"TURN: THE BIG KNOB, A STEPPED", "HIGH-PASS (10, 20 OR 40", "STEPS: SETUP).", "HOME + TURN: TEMPO.",
       "IN SETUP: THE ROW."}},
-    {B_ENV, HELP_NONE, "ENV", {"NO JOB ON DUBWISE YET."}},
+    {B_ENV, PAGE_STEPS, "ENV  (STEPS)",
+     {"HELD + A WHITE KEY: A DRUM", "STEP'S REPEAT: FLAM, X2-X4.", "BLACK 11 + A WHITE: CHANCE", "(100, 75, 50, 25%).",
+      "HOME + ENV: RESEED THE", "PATTERN'S CHANCES.", "A DRUM STEP HELD: K1 DECAY,", "K2 TUNE (ITS LOCKS)."}},
+    {B_ENV, HELP_NONE, "ENV",
+     {"DICE (EDIT TO ITS LAST BANK):", "ENV FIRES: ROLL OR MUTATE.", "K1 AMOUNT, K2 MODE,", "K4 THE LAST 8 RESULTS.",
+      "ENV HELD + A KNOB: HOLD IT.", "HOME + EDIT: FIRE ANYWHERE."}},
     {B_LFO, HELP_NONE, "LFO", {"NO JOB ON DUBWISE YET."}},
 };
 
 static struct {
     uint8_t k, up, drawn, ate;           /* held alone (timing); a card up; drawn; its button's let-go swallowed */
     uint8_t card;                        /* HELP[] */
+    uint8_t index;                       /* 1: opened from SETUP's HELP list (KNOB 2 moves through them; 5.11) */
     uint32_t t, shown;
     uint32_t kswallow, bswallow;         /* presses that closed a card: kept from the page till let go */
-} help = {HELP_NONE, 0, 0, HELP_NONE, 0, 0, 0, 0, 0};
+} help = {HELP_NONE, 0, 0, HELP_NONE, 0, 0, 0, 0, 0, 0};
+#define NHELP (sizeof HELP / sizeof HELP[0])
 
 static int help_find(uint32_t k)
 {
@@ -107,17 +114,15 @@ static void help_close(void)
     dub.page_drawn = 0xFFu;              /* the page again, all of it */
 }
 
-static void help_show(uint32_t k, uint32_t now)
+static void help_open(int c, uint32_t now, uint32_t k)   /* card c up (k: the button that showed it, or HELP_NONE) */
 {
-    int c = help_find(k);
     uint32_t i;
-    if (c < 0)
-        return;
     help.card = (uint8_t)c;
     help.up = 1;
     help.drawn = 0;
     help.shown = now;
     help.ate = (uint8_t)k;
+    help.index = 0;
     if (ann_on()) {                      /* the card, to a screen reader */
         char t[320];
         t[0] = 0;
@@ -130,8 +135,26 @@ static void help_show(uint32_t k, uint32_t now)
     }
 }
 
-static void help_turned(void)            /* a knob turned: not a hold on its own; a card closes (the turn goes on) */
+static void help_show(uint32_t k, uint32_t now)
 {
+    int c = help_find(k);
+    if (c >= 0)
+        help_open(c, now, k);
+}
+
+static void help_index_step(int32_t e)   /* SETUP's HELP row, KNOB 2: the next card in the list, shown (5.11) */
+{
+    int32_t c = help.up && help.index ? (int32_t)help.card + e : e > 0 ? 0 : (int32_t)NHELP - 1;
+    c = (c % (int32_t)NHELP + (int32_t)NHELP) % (int32_t)NHELP;
+    help_open((int)c, plat_ms(), HELP_NONE);
+    help.index = 1;
+    dub.page_drawn = 0xFFu;
+}
+
+static void help_turned(uint32_t enc)    /* a knob turned: not a hold on its own; a card closes (the turn goes on) */
+{
+    if (help.up && help.index && (enc == EN_K2 || enc == EN_PRESET))
+        return;                          /* (the HELP list's: the turn moves to the next card) */
     help.k = HELP_NONE;
     help.ate = HELP_NONE;
     help_close();

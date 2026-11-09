@@ -54,7 +54,7 @@ turn K3 5
 wait 30
 said SWING 55
 expect eng.ch1.swing 55
-# a step held: nudged 3 ticks late, its gate
+# a step held: nudged 3 ticks late; a drum has no gate (5.8: its gate byte keeps its locks)
 key w0 down
 wait 20
 turn K3 3
@@ -63,8 +63,9 @@ turn K4 2
 wait 20
 key w0 up
 wait 30
+said GATE NOT FOR A DRUM
 expect off1_1 3
-expect gate1_1 6
+expect gate1_1 0
 shot session-steps.png
 # playing: B launched for the line (1 bar), every channel's A on bar 2's
 param ch1.grid 2

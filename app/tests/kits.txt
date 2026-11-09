@@ -1,0 +1,187 @@
+# Factory kits (roadmap 5.5; app/kits.c): SETUP -> LOAD KIT, KNOB 2 the kit, KNOB 3 VOICES or VOICES + BUS, SAVE loads
+# (asked twice over unsaved changes). A voice is set whole (its default, then the kit's), the bus only where listed.
+# One undo step. A kit's voices are factory patches too: PRESET on the SOUND view browses them.
+wait 600
+listen
+param v1.drive 50
+tap GLO
+wait 30
+turn K1 -4
+wait 30
+said LOAD KIT TUBBY'S
+turn K2 1
+wait 30
+turn K3 1
+wait 30
+said LOAD KIT CHANNEL ONE +BUS
+expect dirty 0
+tap SAVE
+wait 30
+said CHANNEL ONE VOICES AND BUS LOADED
+expect ui.v1.sweep 60
+expect ui.v1.drive 0
+expect ui.v4.cutoff 45
+expect ui.v7.inst 1
+expect ui.echo.fb 40
+expect eng.echo.fb 40
+expect dirty 1
+# over unsaved changes: asked twice
+turn K2 1
+wait 30
+tap SAVE
+wait 30
+said LOAD KIT OVER CHANGES AGAIN TO CONFIRM
+expect ui.ph.on 0
+tap SAVE
+wait 30
+said BLACK ARK VOICES AND BUS LOADED
+expect ui.ph.on 2
+expect ui.drive.on 2
+expect ui.v4.index 45
+# voices only: the bus stays
+turn K3 -1
+wait 30
+turn K2 3
+wait 30
+said LOAD KIT SLENG TENG
+tap SAVE
+wait 30
+tap SAVE
+wait 30
+said SLENG TENG VOICES LOADED
+expect ui.v4.index 100
+expect ui.v4.feedback 50
+expect ui.echo.fb 65
+expect ui.ph.on 2
+# one undo step
+wait 900
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v4.index 45
+expect ui.v4.feedback 0
+# the kits as factory patches: the bass's SOUND view, PRESET
+tap HOME
+wait 30
+turn ALGO 3
+wait 30
+tap EDIT
+wait 30
+turn PRESET -20 10
+wait 30
+said BASS INIT
+turn PRESET 2
+wait 30
+said BASS TUBBYS
+expect ui.v4.sub 50
+turn PRESET 4
+wait 30
+said BASS SHAKA
+expect ui.v4.sub 100
+expect ui.v4.cutoff 22
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+# every kit, voices and bus, plays clean: no clipping, no DC
+tap GLO
+wait 30
+turn K3 1
+wait 30
+turn K2 -20
+wait 30
+turn K2 -1
+wait 30
+turn K2 1
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 100
+wav kit1.wav
+tap PLAY
+wait 4000
+tap PLAY
+wait 2500
+wavstop
+#wav kit1.wav peak<-1 dc<-40
+turn K2 1
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 100
+wav kit2.wav
+tap PLAY
+wait 4000
+tap PLAY
+wait 2500
+wavstop
+#wav kit2.wav peak<-1 dc<-40
+turn K2 1
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 100
+wav kit3.wav
+tap PLAY
+wait 4000
+tap PLAY
+wait 2500
+wavstop
+#wav kit3.wav peak<-1 dc<-40
+turn K2 1
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 100
+wav kit4.wav
+tap PLAY
+wait 4000
+tap PLAY
+wait 2500
+wavstop
+#wav kit4.wav peak<-1 dc<-40
+turn K2 1
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 100
+wav kit5.wav
+tap PLAY
+wait 4000
+tap PLAY
+wait 2500
+wavstop
+#wav kit5.wav peak<-1 dc<-40
+turn K2 1
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 100
+wav kit6.wav
+tap PLAY
+wait 4000
+tap PLAY
+wait 2500
+wavstop
+#wav kit6.wav peak<-1 dc<-40
+turn K2 1
+wait 30
+tap SAVE
+wait 30
+tap SAVE
+wait 100
+wav kit7.wav
+tap PLAY
+wait 4000
+tap PLAY
+wait 2500
+wavstop
+#wav kit7.wav peak<-1 dc<-40

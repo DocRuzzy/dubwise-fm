@@ -12,7 +12,7 @@
 #define APP_TICK                           /* app_tick: the MIDI clock's sends, on time */
 /* backup and restore over USB (fm1.toml backup = true; base/tools/fm1_backup.py): the saved project and settings */
 #define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SOUND, OBJ_PATTERN, OBJ_SCENES, OBJ_SCNPAT0, OBJ_SCNPAT0 + 1, OBJ_SCNPAT0 + 2, \
-                         OBJ_SCNPAT0 + 3, OBJ_SCNPAT0 + 4, OBJ_SCNPAT5, OBJ_SONG}
+                         OBJ_SCNPAT0 + 3, OBJ_SCNPAT0 + 4, OBJ_SCNPAT5, OBJ_SONG, OBJ_PATCH0, OBJ_PATCH1}
 #define APP_BACKUP_MAGIC 0x31425744u       /* "DWB1" */
 #define APP_BACKUP_VERSION 1u
 #define APP_BACKUP_WHAT "replaces the saved project"
@@ -31,9 +31,9 @@ void app_backup_restored(void);
 
 /* the store: the app's objects and the panel calibration (the platform's), and their flash offsets */
 enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SOUND, OBJ_PATTERN, OBJ_SCENES, OBJ_SCNPAT0, OBJ_SCNPAT5 = OBJ_SCNPAT0 + 5,
-       OBJ_SONG, OBJ_NOBJ };
+       OBJ_SONG, OBJ_PATCH0, OBJ_PATCH1, OBJ_NOBJ };   /* (the patches: roadmap 5.4) */
 #define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDA000u, 0xD8000u, 0xCA000u, 0xCC000u, 0xCE000u, 0xD0000u, 0xD2000u, \
-                       0xD4000u, 0xD6000u, 0xC8000u}
+                       0xD4000u, 0xD6000u, 0xC8000u, 0xC5000u, 0xDE000u}
 
 /* the contract: the platform calls these */
 void app_init(void);                     /* boot: the engine, then the saved settings (or defaults) */

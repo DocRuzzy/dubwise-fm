@@ -1,0 +1,125 @@
+# Voice models (roadmap 5.7; voices.c): a MODEL field on the kick (SINE, FM THUMP, BOOM), rim (CROSS-STICK, SNARE,
+# SYNDRUM), hats (METAL, NOISE) and bass (ROUND, PLUCK, HOLLOW, STEPPERS); 0 is the model built first. Each renders
+# clean and as its own sound, and costs no more than its channel did (the gate: perf_chN, tenths of a % of a device
+# block; bounds at about twice the roadmap's figures, so host jitter doesn't fail them: kick 3.8, hats 1.9, bass 2.5 %).
+wait 600
+listen
+# the SOUND view names the model
+param v1.model 2
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+said SOUND KICK 2
+expect ui.v1.model 2
+tap EDIT
+tap EDIT
+wait 30
+expect sound_bank 0
+param v1.model 0
+# a hit of each
+param v1.model 0
+wait 30
+wav kick-sine.wav
+midi 99 24 7F
+wait 1200
+wavstop
+#wav kick-sine.wav peak<-1 dc<-40 hf<-56
+param v1.model 1
+wait 30
+wav kick-thump.wav
+midi 99 24 7F
+wait 1200
+wavstop
+#wav kick-thump.wav peak<-1 dc<-40 hf>-55
+param v1.model 2
+wait 30
+wav kick-boom.wav
+midi 99 24 7F
+wait 1200
+wavstop
+#wav kick-boom.wav peak<-1 dc<-40 rms>-33 zc_hz<45
+param v2.model 0
+wait 30
+wav rim-cross.wav
+midi 99 25 7F
+wait 1200
+wavstop
+#wav rim-cross.wav peak<-1 dc<-40 hf<-18 hf>-26
+param v2.model 1
+wait 30
+wav rim-snare.wav
+midi 99 25 7F
+wait 1200
+wavstop
+#wav rim-snare.wav peak<-1 dc<-40 hf>-16
+param v2.model 2
+wait 30
+wav rim-syndrum.wav
+midi 99 25 7F
+wait 1200
+wavstop
+#wav rim-syndrum.wav peak<-1 dc<-40 hf<-40 click<-55
+param v3.model 0
+wait 30
+wav hat-metal.wav
+midi 99 2A 7F
+wait 1200
+wavstop
+#wav hat-metal.wav peak<-1 dc<-40 rms>-58 rms<-52
+param v3.model 1
+wait 30
+wav hat-noise.wav
+midi 99 2A 7F
+wait 1200
+wavstop
+#wav hat-noise.wav peak<-1 dc<-40 rms>-58 rms<-52
+param v4.model 0
+wait 30
+wav bass-round.wav
+midi 90 21 64
+wait 600
+midi 80 21 00
+wait 400
+wavstop
+#wav bass-round.wav peak<-1 dc<-40 fund55>-8
+param v4.model 1
+wait 30
+wav bass-pluck.wav
+midi 90 21 64
+wait 600
+midi 80 21 00
+wait 400
+wavstop
+#wav bass-pluck.wav peak<-1 dc<-40 fund55>-8
+param v4.model 2
+wait 30
+wav bass-hollow.wav
+midi 90 21 64
+wait 600
+midi 80 21 00
+wait 400
+wavstop
+#wav bass-hollow.wav peak<-1 dc<-40 fund55>-8
+param v4.model 3
+wait 30
+wav bass-steppers.wav
+midi 90 21 64
+wait 600
+midi 80 21 00
+wait 400
+wavstop
+#wav bass-steppers.wav peak<-1 dc<-40 fund55>-8
+# the cost, the riddim playing with the busiest models
+param v1.model 1
+param v2.model 1
+param v3.model 0
+param v4.model 3
+tap PLAY
+wait 6000
+expect perf_ch1 <76
+expect perf_ch2 <38
+expect perf_ch3 <38
+expect perf_ch4 <50
+tap PLAY
+wait 600

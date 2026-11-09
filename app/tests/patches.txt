@@ -1,0 +1,296 @@
+# Sound patches (roadmap 5.4, spec 4.9; app/patches.c). On the SOUND view, PRESET steps through the focused channel's
+# patches (factory first: INIT, then the tuned ones), loading each; SAVE held + PRESET stores the sound in the next free
+# user slot, or asks to overwrite the user patch shown. Never while playing. 16 a channel; kept over a reboot; a sound
+# saved before 5.3 loads as it was, and a newer firmware's library is left alone until asked.
+wait 600
+listen
+expect voice_int8 1
+# the bass's SOUND view
+turn ALGO 3
+wait 30
+expect focus 4
+tap EDIT
+wait 30
+expect sound_bank 1
+expect pl_used4 0
+expect pl_pos -1
+# the factory patches: INIT, STEPPERS, then the seven kits' (5.5); at an end it stays
+turn PRESET 1
+wait 30
+said BASS INIT
+expect pl_pos 0
+turn PRESET -1
+wait 30
+expect pl_pos 0
+turn PRESET 20 10
+wait 30
+said BASS ROCKERS
+expect pl_pos 8
+turn PRESET -7 10
+wait 30
+said BASS STEPPERS
+expect pl_pos 1
+expect ui.v4.sub 100
+expect ui.v4.cutoff 20
+expect pl_edited 0
+# a sound of our own (TONE +10 over STEPPERS), saved: BASS 01
+turn K1 10 60
+wait 900
+expect pl_edited 1
+expect ui.v4.cutoff 45
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said SAVED BASS 01
+expect pl_used4 1
+expect pl_pos 9
+expect pl_edited 0
+# away and back: the saved sound comes back field by field
+turn PRESET -8 10
+wait 30
+said BASS STEPPERS
+expect ui.v4.cutoff 20
+expect ui.v4.m.tone 0
+turn PRESET 8 10
+wait 30
+said BASS 01
+expect ui.v4.cutoff 45
+expect ui.v4.index 56
+expect ui.v4.sub 100
+expect ui.v4.m.tone 10
+# a run of PRESET turns is one undo step
+wait 900
+turn PRESET -9 30
+wait 900
+expect pl_pos 0
+expect ui.v4.sub 0
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v4.cutoff 45
+expect ui.v4.sub 100
+# overwrite: the user patch shown, edited, saved over (asked twice)
+turn PRESET 9 30
+wait 30
+said BASS 01
+turn K4 5 60
+wait 900
+expect pl_edited 1
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said OVERWRITE BASS 01 AGAIN TO CONFIRM
+expect pl_edited 1
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said SAVED BASS 01
+expect pl_used4 1
+expect pl_edited 0
+# from a factory patch: the next free slot
+turn PRESET -1
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said SAVED BASS 02
+expect pl_used4 2
+# not while playing
+tap PLAY
+wait 500
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said PATCH STOP TO SAVE
+expect pl_used4 2
+tap PLAY
+wait 1000
+# sixteen, then no more
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+expect pl_used4 15
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+expect pl_used4 16
+turn PRESET -20 10
+wait 30
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said 16 ALREADY BROWSE TO OVERWRITE
+expect pl_used4 16
+# the library is the device's: kept over a reboot
+reboot
+wait 600
+expect pl_used4 16
+expect pl_used1 0
+# a newer firmware's library (a downgrade): read as empty, not written over until asked
+foreignpatch
+reboot
+wait 600
+expect pl_foreign 1
+expect pl_used4 0
+expect focus 4
+expect sound_bank 1
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said REPLACE NEWER PATCHES AGAIN TO CONFIRM
+expect pl_foreign 1
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said SAVED BASS 01
+expect pl_foreign 0
+expect pl_used4 1
+# a sound saved before 5.3 (no new fields, no macros) and no library: loads as it was (its tuned kick and bass
+# cutoff off their macros' curves: those two show the dot)
+oldsound
+reboot
+wait 600
+expect ui.v1.tune 50
+expect ui.v4.cutoff 60
+expect ui.v1.drive 0
+expect ui.v4.feedback 0
+expect ui.v7.detune 0
+expect ui.v4.m.tone 0
+expect moved1_1 1
+expect moved1_3 0
+expect moved4_1 1
+expect moved4_3 0
+expect pl_used4 0
+expect pl_foreign 0

@@ -69,7 +69,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | HOME + SEQ, tapped | Tap tempo: from the second tap, the average of the last four gaps (a pause over 2 s starts again). Refused while MIDI clock in has the tempo. |
 | Any button, held a second on its own | Its help card for this page. It stays when you let go, and the next press (which does nothing else) or 12 s puts the page back. A combo you hold while thinking still works: a knob or key pressed with the button held closes the card and does its job. |
 | ALGORITHM | Moves the focus between the channels. |
-| EDIT | The SOUND view of the focused channel. First MAIN: four macros, each turning several settings at once along a shaped curve (the kick's PUNCH: the sweep up, the fall quicker, the click up); in the middle (0) everything is at its default. Press EDIT again for the raw settings, four at a time, then once more to go back to the echo's knobs. A raw setting turned after its macro leaves the macro where it is, and MAIN shows a small dot by it. ALGORITHM picks the channel. Channel 8 (VOX) has no MAIN: its first bank is the siren's. |
+| EDIT | The SOUND view of the focused channel. While it's open, the middle of the screen draws the voice's shape from its settings: its loudness (white, filled) and a second curve in amber (the kick's pitch falling, the rim's ring, the open hat, the bass's pluck, the lead's vibrato, the siren's sweep), redrawn as you turn a knob, with a line running across it on each hit (not with REDUCED MOTION). First MAIN: four macros, each turning several settings at once along a shaped curve (the kick's PUNCH: the sweep up, the fall quicker, the click up); in the middle (0) everything is at its default. Press EDIT again for the raw settings, four at a time, then once more to go back to the echo's knobs. A raw setting turned after its macro leaves the macro where it is, and MAIN shows a small dot by it. ALGORITHM picks the channel. Channel 8 (VOX) has no MAIN: its first bank is the siren's. **Patches:** on the SOUND view, PRESET steps through the channel's patches and loads each as you turn (INIT and the factory ones first, then your own; a run of turns is one undo step); the footer shows the patch's name, with a * once you've changed it. Hold SAVE and turn PRESET to keep the sound: into the next free slot of the channel's 16 (named BASS 01, BASS 02 ...), or, if one of your patches is showing, over it (it asks twice). Stopped only (writing the flash would interrupt the sound). Your patches belong to the FM-1, not to a project: they're there in every project. **Dice** (the last bank, after the raw ones): press ENV to roll the channel a new sound inside safe bounds (KNOB 2: ROLL), or nudge the current one (MUTATE, by KNOB 1's AMOUNT, 5–100 %). KNOB 4 steps back through the channel's last 8 results, each played in as you reach it. KNOB 3 MORPHs from your sound (as it was when you started turning) towards the result KNOB 4 shows: at 50 % halfway between the two, at 100 % the result, back at 0 % your sound exactly. A good way to find the in-between: roll something wild, load your patch again (PRESET), then turn MORPH. To keep a setting out of it, hold ENV and turn that knob on MAIN or a raw bank: a lock shows. HOME + EDIT rolls from any page. Dice only ever changes the focused voice: never levels, sends, the dub bus, patterns or other channels. Each roll is one undo step; SETUP's DICE ON LINE makes it land on the next quantise line while playing. |
 | GLO | The SETUP page (below). |
 | MASTER | Sets the volume. |
 | SAVE | Saves your project: the tempo, sounds, patterns, scenes, the song and its moves, the FX and SETUP. SAVE lights while there's something to save. On SETUP's slot rows it saves to (or loads from) a song slot instead. |
@@ -117,7 +117,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | COUNTDOWN NUMERALS | The big countdown number on the screen. |
 | CUE TICK | A short tick on the runway's beats, higher on each bar's first. |
 | REDUCED MOTION | No pulsing border, no green flash. The count still shows, and the screen reader still hears it. |
-| SCREEN SAVER | OFF, 1, 5 (the default) or 15 minutes: while stopped and untouched that long, echo rings ripple out on the tempo. Any key, button or knob wakes it, and that touch does nothing else, so waking it never mutes or starts anything. It never comes on while playing. |
+| SCREEN SAVER | OFF, 1, 5 (the default) or 15 minutes: while stopped and untouched that long, a selector at his desk; every 20 seconds his smoke billows out into a big comic-book cloud in the shape of the SpIllt Beats mark, holds, and breaks up, leaving the picture clear for the other half. Any key, button or knob wakes it, and that touch does nothing else, so waking it never mutes or starts anything. It never comes on while playing. |
 | CUE LEAD | How early a quantised change lands before its line: 0–50 ms (10 by default, so it catches the downbeat). |
 | LOCK MIDI IN | The key lock filters MIDI notes coming in, too (off by default). |
 | BIG KNOB ON | Where the Big Knob sits: the whole MIX, or only the ECHO RETURN. |
@@ -132,27 +132,35 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | MIDI LEARN | Turn KNOB 2 up, then move a DUBWISE control (any knob, the Big Knob, a mute or throw key, a black key's move), then your controller's knob, fader or pad: it now moves that control, over its whole range (a switch: on from the middle up). Up to 32; SAVE keeps them. Turn KNOB 2 down twice to forget them all. A controller's moves are recorded into the song like your hands', but undo doesn't keep them. |
 | USB PORT | COMPUTER (the default) or KEYBOARD: a USB-MIDI keyboard or controller plugged into the FM-1 itself, through a powered hub or adapter (the FM-1 gives the port no power). It plays as MIDI does (below), and its knobs work as learned. While it's a keyboard, there's no computer: no USB audio, mirror or backup. |
 | AUTOSAVE | ON (the default): what SAVE keeps is saved by itself once you've stopped and left the FM-1 alone for a few seconds (and the echo has died away), so switching off never loses a session; SAVE's light going out says it's done. OFF: only SAVE saves. |
+| DICE ON LINE | OFF (the default): a Dice roll lands at once. ON: while playing, it waits for the next quantise line, like a cued mute. |
+| HELP | Every help card, to read anywhere: turn KNOB 2 and each card comes up in turn (the same cards as holding a button for a second). Any press puts the page back. |
 | TEST TONES | A test tone on every channel (not saved). |
+| ONE SHOTS | FACTORY, or YOURS when you've put your own on the FM-1 (below, "Your own one-shots"). Turn KNOB 2 twice to have BIM, HORN and LASER back (stopped). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
 | NEW PROJECT | Turn KNOB 2 twice: a clean start. The desk, sounds, key and chords back to how they were at the first switch-on, ONE DROP in pattern A of each channel, the other patterns, the scenes, the song and its motion empty. Your SETUP preferences and the song slots stay. Until you SAVE (or autosave does), switching off brings your last save back. |
 | SAVE TO SLOT | Keep the whole project in one of four slots: the desk, the sounds, the key and chords, the patterns, the scenes, the song and its recorded moves. KNOB 2 picks the slot (it says whether it's empty), then press SAVE. Stopped only. Your SETUP preferences aren't part of it. |
 | LOAD SLOT | Bring a slot's project back (KNOB 2 picks it, SAVE loads it), in place of the current one. Press SAVE again afterwards to make it the one that's there at power-on. Stopped only. |
 | DEMO SONG | Turn KNOB 2 to load RIGHTEOUS DUB, the demo: an original riddim and its dub in the 1970s Kingston manner, 72 BPM in A minor, 32 bars (INTRO of drum and bass, VERSE with the melodica, VERSION, a DUB section where the hats drop and the Big Knob climbs, a DROP without the bass, the VERSE again, OUTRO, and an END where everything drops to the echo). The engineer's moves are in it, as the song's motion: throws, spring crashes, a freeze, an echo swell, a dub push, a tape dive. It replaces the patterns, scenes, song and motion (until you SAVE, nothing is lost: switch off to get yours back). Press PLAY: the song plays once. Play on top of it: sirens, one-shots, more throws. |
+| LOAD KIT | Seven starting points, each a sound for every voice and a suggested dub bus, after the rooms the music came from: TUBBY'S, CHANNEL ONE, BLACK ARK, STUDIO ONE, SHAKA STEPPERS, SLENG TENG (the digital turn) and ROCKERS UPTOWN (the melodica forward). KNOB 2 picks one, KNOB 3 VOICES or VOICES + BUS (the echo, spring, phaser and drive as well), then press SAVE to load it (it asks twice if you have unsaved changes; HOME + REC undoes it). Each voice is set whole, so a kit sounds the same whatever was there before. They're homages, not the rooms' own sounds: tune them by ear. A kit's voices are also patches: on the SOUND view, PRESET finds them by the kit's name (TUBBYS, CH.ONE, BLACKARK ...). |
 | UK STEPPERS | Turn KNOB 2 to set the desk up for UK steppers: 140 BPM, A minor, the UK STEPPERS riddim, the sub bass through the tape, the rim into the echo, the skank into the spring, siren A ready. It changes the patterns, sounds and effects, not your song or scenes. Press PLAY, then throw the rim, hold the siren, take the kick out for a bar. 140 BPM is a starting point: set the tempo by ear. |
 
 ## 3c. The STEPS page (SEQ)
 
 ![The STEPS page: every channel's 16 steps at the top, the bass's below with its notes; LEN 16, RIDDIM ONE DROP](img/screen-steps.png "The STEPS page")
 
-Press SEQ for the steps, HOME to go back to the DUB page. The top shows every channel's 16 steps, the middle the
+Press SEQ for the steps, HOME to go back to the DUB page. From the DUB page, hold a channel's mute key and press SEQ to land straight on that channel (its mute stays as it was). The top shows every channel's 16 steps, the middle the
 channel you're editing, bigger, with its notes.
 
 | Control | What it does |
 | --- | --- |
-| White keys 1–16 | Turn a step on or off. |
+| White keys 1–16 | Turn a step on or off. Hold an on step to edit it (nudge, gate, locks): it only turns off if you let go without turning a knob. |
 | Black keys 1–8 | Pick the channel to edit. |
 | Hold black key 9 or 10 + a white key | Make that step an accent or a ghost note (again: back to normal). |
+| Hold black key 11 + a white key | That step's CHANCE: 100, 75, 50, 25 % (again: the next). Any channel. Whether it plays is worked out from the pattern's seed, the step and which time round the pattern is, so a song plays the same every time; a step that won't play this time round is drawn hollow. |
+| HOME + ENV | RESEED the pattern: other steps play and skip (HOME + REC takes it back). |
+| Hold ENV + a white key | A drum step's REPEAT: OFF, FLAM (a ghost hit just before it), ×2, ×3, ×4 (hits evenly inside the step). Kick, rim and hats. |
+| Hold a drum step + KNOB 1 · KNOB 2 | Its DECAY lock and TUNE lock (−8 to +7; the hats keep KNOB 2 for closed / open): that hit only, shorter or longer, lower or higher. A white tick marks a step with locks. |
 | OCT− · OCT+ | The page of 16 steps: 1–16, 17–32, 33–48, 49–64. |
 | KNOB 1 · LEN | The pattern's length, 1 to 64 steps. Hold HOME: its GRID instead, 1/8, 1/8T, 1/16, 1/16T (triplets) or 1/32. |
 | KNOB 2 · NOTE | The note of the step you hold, or the last one you touched: a semitone a click. On the hats, closed or open. |
@@ -305,12 +313,13 @@ The voices:
 
 | Voice | MAIN (macros) | Settings (SOUND view) |
 | --- | --- | --- |
-| Kick | PITCH · PUNCH · DECAY · DRIVE | TUNE (where the pitch lands, 40–70 Hz), SWEEP (where it starts), PTIME (how fast it falls), DECAY, CLICK (the beater), DRIVE (a soft clip on the body: rounder to harder), CTONE (the click's pitch: duller below 0, brighter above) |
-| Rim | TUNE · SNAP · DECAY · BODY | TUNE, DECAY, NOISE, INDEX (how metallic), DROP (a fast pitch drop on the hit), HPF (its high-pass: fuller below 0, thinner above) |
-| Hats | TONE · CLOSED · OPEN · HPF | TONE, CLOSED and OPEN (their lengths), NOISE, HPF (lower: more body; higher: sizzle only) |
-| Bass | TONE · PLUCK · LENGTH · WEIGHT | INDEX (the pluck's brightness), IDECAY (how fast the pluck fades to a pure tone), DECAY, CUTOFF, RATIO (1:1 or 2:1, hollow), SUB (an octave below), SUSTAIN, FEEDBACK (a growl: the modulator feeds itself, capped so the note stays on top), DRIVE (saturation before the filter), GLIDE (slides between notes held together; none from silence) |
+| Kick | PITCH · PUNCH · DECAY · DRIVE | TUNE (where the pitch lands, 40–70 Hz), SWEEP (where it starts), PTIME (how fast it falls), DECAY, CLICK (the beater), DRIVE (a soft clip on the body: rounder to harder), CTONE (the click's pitch: duller below 0, brighter above), MODEL: SINE (the swept sine), THUMP (an FM burst in the body: a punchier, woodier kick), BOOM (lower, longer and driven: a sound-system boom) |
+| Rim | TUNE · SNAP · DECAY · BODY | TUNE, DECAY, NOISE, INDEX (how metallic), DROP (a fast pitch drop on the hit), HPF (its high-pass: fuller below 0, thinner above), MODEL: CROSS (the cross-stick), SNARE (a lower body with a longer rattle of noise), SYNDRUM (a pure tone falling in pitch: the Channel One fill) |
+| Hats | TONE · CLOSED · OPEN · HPF | TONE, CLOSED and OPEN (their lengths), NOISE, HPF (lower: more body; higher: sizzle only), MODEL: METAL (four detuned squares), NOISE (noise alone: softer, airier) |
+| Bass | TONE · PLUCK · LENGTH · WEIGHT | INDEX (the pluck's brightness), IDECAY (how fast the pluck fades to a pure tone), DECAY, CUTOFF, RATIO (1:1 or 2:1, hollow), SUB (an octave below), SUSTAIN, FEEDBACK (a growl: the modulator feeds itself, capped so the note stays on top), DRIVE (saturation before the filter), GLIDE (slides between notes held together; none from silence), MODEL: ROUND, PLUCK (a brighter attack, the filter opened), HOLLOW (2:1, whatever RATIO says), STEPPERS (the growl and the sub under it) |
 | Skank | TONE · LENGTH · COLOUR · ATTACK | INDEX (the chop's bite), DECAY, TONE (where its band sits), RATIO (1:1 or 1:3, nasal), ATTACK (0 the chop, up: a softer swell). It sends to the spring by default. |
-| Organ | DRAWBAR · LENGTH · CLICK · DETUNE | DRAWBAR (how much of the upper partials), DECAY (the bubble's length), CLICK (the key click), DETUNE (the voices drift apart: a chorus) |
+| Organ | DRAWBAR · LENGTH · CLICK · DETUNE | DRAWBAR (how much of the upper partials), DECAY (the bubble's length), CLICK (the key click), DETUNE (the voices drift apart: a chorus), MODEL: BUBBLE (the stab the riddims are built on) or B-3 (a tonewheel organ through a rotary speaker; below) |
+| Organ, B-3 | REGISTRATION · PERC · ROTARY · DRIVE | REGISTRATION steps through eight drawbar settings, soft to bright (the middle is 888 000 000, the full upper); PERC: OFF, 2ND, 3RD (the harmonic struck at a chord's start, and only from silence: a chord played straight after another doesn't strike it, as on the real one); ROTARY: OFF, SLOW, FAST (each rotor speeds up or slows down at its own pace, the horn quickly, the drum slowly; BRAKE in the raw settings stops them); DRIVE (into the cabinet). The raw settings: the nine drawbars 16′ 5⅓′ 8′ 4′ 2⅔′ 2′ 1⅗′ 1⅓′ 1′, 0–8 as on the real bars, then PERC FAST, VIB/CHORUS (V1–3, C1–3: the scanner) and the rest. A B-3 chord holds as long as its step's GATE (a step if AUTO) and dies over DECAY when let go. In the STUDIO tier the horn is stereo (only above ~500 Hz: the low end stays mono); FOUR-TRACK sums it; SEVEN-INCH keeps the rotary's throb but drops the horn's pitch wobble and the scanner. The factory patches B3 SOFT and B3 PERC are a start (PRESET on the organ's SOUND view). |
 | Lead | BRIGHT · ATTACK · RELEASE · VIBRATO | INST (MELODICA: two reeds beating, vibrato after a moment; BRASS: brighter as it gets louder, a scoop up into each note, doubled like a section), BRIGHT, ATTACK, RELEASE, VIBRATO, DETUNE (the reeds or the section closer, below 0, or wider). It sends to the echo by default. Play it from the STEPS page (REC, two octaves above the bass) or MIDI channel 2. |
 | Vox (sirens) | — | PITCH, RATE (how fast it moves), DEPTH (how far, 1–24 semitones), WAVE (sine or triangle); second bank (EDIT again): LIVE, the live input's level (0 off, 100 as it comes) |
 
@@ -370,7 +379,9 @@ see felucca-bsp's `tools/fm1_rescue.sh`.
 ## Backing up, and sharing songs
 
 **The whole FM-1 to a file.** `python3 base/tools/fm1_backup.py backup FILE` saves what's stored (your project and
-settings); `restore FILE` puts it back (the FM-1 asks you to confirm with SEL; stop playing first).
+settings); `restore FILE` puts it back (the FM-1 asks you to confirm with SEL; stop playing first). The backup includes your
+sound patches. Restoring a backup made before patches existed empties the patch library (it puts the FM-1 back as it
+was then), so keep the patches you want with `dubwise_slots.py patch get` first.
 
 **One song slot to a file, to keep or share.** With the FM-1 connected over USB and stopped:
 
@@ -382,6 +393,42 @@ python3 tools/dubwise_slots.py info mydub.dws      # what a file holds
 
 A `.dws` file is a whole project: the desk, sounds, key, patterns, scenes, the song and every recorded move. After a
 `put`, load it on the FM-1 with SETUP → LOAD SLOT. (Both tools need `pip install mido python-rtmidi`.)
+
+**Sound patches to a file, to keep or share.** Channels are 1–8 (KICK SNARE HATS BASS SKANK ORGAN LEAD VOX), slots
+1–16:
+
+```
+python3 tools/dubwise_slots.py patch list 4                 # the bass's 16 slots, by name
+python3 tools/dubwise_slots.py patch get 4 1 mybass.dwpatch # bass slot 1 to a file
+python3 tools/dubwise_slots.py patch put 4 7 mybass.dwpatch # a file into bass slot 7 (stopped)
+python3 tools/dubwise_slots.py patch current 4 now.dwpatch  # the bass as it sounds now
+python3 tools/dubwise_slots.py patch name mybass.dwpatch "SUB ROLL"   # rename a file (8 characters)
+```
+
+A `.dwpatch` file is one channel's sound (48 bytes); it goes back onto the same channel.
+
+**Your own one-shots.** Black keys 8, 9 and 10 play BIM, HORN and LASER. Put your own sounds there instead: a vocal
+tag, an air horn, a "selecta!". Make WAV files on a computer (any rate, mono or stereo; set their levels as you want
+them: nothing is changed but a 10 ms fade at the end), 1.5 seconds in all, split any way between the three. Then, with
+the FM-1 connected and stopped:
+
+```
+python3 tools/dubwise_slots.py shots put tag.wav horn.wav zap.wav   # black keys 8, 9, 10 (named by the files)
+python3 tools/dubwise_slots.py shots get myshots.dwshots            # what's on the FM-1, to a file
+python3 tools/dubwise_slots.py shots put myshots.dwshots            # .. and back
+python3 tools/dubwise_slots.py shots factory                        # BIM, HORN and LASER back
+```
+
+They play at once, and they stay through a reboot, a firmware update and NEW PROJECT; the screen shows their names
+(the files', 8 characters). `python3 tools/make_oneshots.py user a.wav b.wav c.wav -o mine.dwshots --names TAG,AIR,ZAP`
+makes a `.dwshots` file without the FM-1. A backup (`fm1_backup.py`) doesn't carry them: keep `shots get`'s file beside
+it. SETUP → ONE SHOTS also brings the factory ones back.
+
+**The sound editor in your browser.** On the project's site, the Sound editor page shows every setting of all eight
+voices as sliders. Connect the FM-1 over USB, press Connect (Chrome or Edge: they let a page talk MIDI; allow SysEx when
+asked), pick a channel's tab and move the sliders: the FM-1 changes as if you'd turned its knobs, so a song that's
+capturing keeps the moves and HOME + REC undoes them. The page also reads your 16 patches a channel, loads one into the
+sound or keeps the sound in a slot, and saves or opens `.dwpatch` files.
 
 ---
 

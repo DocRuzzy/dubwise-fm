@@ -16,4 +16,12 @@ void fxv_off(int32_t which);
 void fxv_shot(uint32_t k, uint32_t vel);         /* one-shot k (0..2), from the top (main loop or render) */
 void fxv_shot_dir(uint32_t k, uint32_t vel, int rev);   /* rev: backwards, its end first (P3.3) */
 const char *fxv_shot_name(uint32_t k);
+uint32_t fxv_shot_len(uint32_t k);               /* its bytes (22,050 a second) */
+/* the owner's one-shots (5.14): 1.5 s in all at 22,050 Hz, mu-law, split any way between the three. Main loop */
+#define FXV_SHOT_MAX 33075u
+#define FXV_NSHOTS 3u
+uint8_t *fxv_shots_ram(void);                    /* FXV_SHOT_MAX bytes: written only between hold and use */
+void fxv_shots_hold(void);
+void fxv_shots_use(const uint32_t off[3], const uint32_t len[3], const char *const name[3]);
+void fxv_shots_factory(void);
 int fxv_render(float *o, uint32_t n);            /* 1: wrote n samples; 0: silent */

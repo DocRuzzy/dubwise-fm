@@ -14,7 +14,8 @@
 #define NSLOTS 4u
 #define SLOT_BYTES 0x8000u
 static const uint32_t SLOT_AT[NSLOTS] = {0x97000u, 0x9F000u, 0xA7000u, 0xBD000u};
-#define SLOT_MAGIC 0x324C5344u                   /* "DSL2" (the session) */
+#define SLOT_MAGIC 0x334C5344u                   /* "DSL3" (5.8, 5.9: steps as PST2; a pattern's SEED kept) */
+#define SLOT_MAGIC2 0x324C5344u                  /* "DSL2" (the session): the same layout, its drum gates cleared */
 #define SLOT_MAGIC1 0x314C5344u                  /* "DSL1" (before it) */
 typedef struct {
     uint32_t magic, len, sum, moves;
@@ -28,7 +29,7 @@ typedef char slot_fits[SLOT_FIXED + sizeof(slot_head_t) < SLOT_BYTES ? 1 : -1];
 
 static int slot_head_ok(const slot_head_t *h)    /* a whole slot of either form */
 {
-    uint32_t fixed = h->magic == SLOT_MAGIC ? SLOT_FIXED : h->magic == SLOT_MAGIC1 ? SLOT_FIXED1 : 0u;
+    uint32_t fixed = h->magic == SLOT_MAGIC || h->magic == SLOT_MAGIC2 ? SLOT_FIXED : h->magic == SLOT_MAGIC1 ? SLOT_FIXED1 : 0u;
     return fixed && h->moves <= SLOT_BYTES && h->len == fixed + h->moves * (uint32_t)sizeof(mot_ev_t)
            && h->len <= SLOT_BYTES - sizeof *h;
 }
@@ -57,7 +58,8 @@ static const slot_head_t *slot_head(uint32_t s)  /* the slot's header in the fla
         return 0;
     for (i = 0; i < sizeof h; i++)
         ((uint8_t *)&h)[i] = p[i];
-    return (h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC1) && h.len <= SLOT_BYTES - sizeof h ? &h : 0;
+    return (h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC2 || h.magic == SLOT_MAGIC1) && h.len <= SLOT_BYTES - sizeof h
+           ? &h : 0;
 }
 
 static uint32_t slot_sum(uint32_t h, const uint8_t *p, uint32_t n)
@@ -180,7 +182,7 @@ static int slot_load(uint32_t s)
                 m.len = p[0];
                 m.grid = p[1];
                 m.swing = p[2];
-                m.rsv = 0;
+                m.rsv = h.magic == SLOT_MAGIC ? p[3] : 0u;   /* (the SEED, 5.9) */
                 ctl_meta_set(ch, i, m);
             }
         for (ch = 0; ch < NCH; ch++)
@@ -188,10 +190,12 @@ static int slot_load(uint32_t s)
                 uint32_t k;
                 for (k = 0; k < NSTEPS; k++, p += 4) {
                     step_t st;
-                    st.lvl = p[0] < LVL_N ? p[0] : LVL_OFF;
+                    st.lvl = h.magic == SLOT_MAGIC ? p[0] : (uint8_t)(p[0] & 3u);   /* (DSL2: the converter, as PST1's) */
                     st.note = (int8_t)p[1];
                     st.off = (int8_t)p[2];
-                    st.gate = p[3];
+                    st.gate = h.magic == SLOT_MAGIC2 && is_drum(ch) ? 0u : p[3];
+                    if (STEP_REPEAT(st) >= REP_N)
+                        STEP_REPEAT_SET(st, REP_OFF);
                     ctl_step_at(ch, i, k, st);
                 }
             }
@@ -354,12 +358,20 @@ static void slot_sx_tick(void)                   /* every frame: a dump's next p
     }
 }
 
+static int pl_sysex(const uint8_t *p, uint32_t n);   /* (patches.c: 31..37, the patches) */
+static int sh_sysex(const uint8_t *p, uint32_t n);   /* (shots.c: 51..54, the one-shots) */
 static int slot_sysex(const uint8_t *p, uint32_t n)   /* app_sysex: the bytes between F0 and F7; 1: ours */
 {
     uint32_t cmd, s, idx, i, got, off;
-    if (n < 5u || p[0] != 0x7Du || p[1] != 0x44u || p[2] != 0x57u)
+    if (n < 4u || p[0] != 0x7Du || p[1] != 0x44u || p[2] != 0x57u)
         return 0;
     cmd = p[3];
+    if (cmd >= 0x51u && cmd <= 0x54u)            /* (shots.c: the one-shots) */
+        return sh_sysex(p, n);
+    if (n < 5u)
+        return 1;
+    if ((cmd >= 0x31u && cmd <= 0x37u) || cmd == 0x40u)   /* (patches.c: the patches, a field set) */
+        return pl_sysex(p, n);
     s = p[4];
     if (s >= NSLOTS)
         return 1;

@@ -1,0 +1,45 @@
+# The web sound editor's command (roadmap 5.13; patches.c): SysEx 40 sets a voice field as the hands do: a macro moves
+# its targets, a run of the same field is one undo step, a non-voice ID is refused. (The page itself: tools/site/editor/.)
+wait 600
+listen
+sysex F0 7D 44 57 40 00 02 3C 40 F7
+wait 30
+expect ui.v1.tune 60
+expect eng.v1.tune 60
+sysex F0 7D 44 57 40 00 02 46 40 F7
+wait 30
+expect ui.v1.tune 70
+# a macro: PUNCH +10 moves SWEEP, PTIME, CLICK (5.3's curves)
+sysex F0 7D 44 57 40 1D 02 0A 40 F7
+wait 30
+expect ui.v1.m.punch 10
+expect ui.v1.sweep 49
+expect ui.v1.ptime 27
+# a negative value: the lead's DETUNE -20
+sysex F0 7D 44 57 40 45 03 6C 3F F7
+wait 30
+expect ui.v7.detune -20
+# not a voice field: refused (the tempo stays)
+sysex F0 7D 44 57 40 00 00 04 47 F7
+wait 30
+expect ui.tempo 750
+# undo: the lead's change, then the macro's, then the tune's run (60, 70) in one step
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v7.detune 0
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v1.m.punch 0
+expect ui.v1.sweep 40
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v1.tune 42

@@ -1,0 +1,223 @@
+# The tonewheel organ (roadmap 5.15; docs/plan-5.15-organ.md): channel 6's second MODEL, B-3. Nine drawbars stored as
+# offsets from the full upper (88 8000 000), so 0 everywhere is that registration and an older sound (MODEL 0) stays
+# the bubble. Percussion, the scanner and a rotary speaker (two bands: a Doppler horn and an AM drum); the horn's
+# side is stereo in the Studio tier only, and the low end stays mono (side_lo). One long organ note (step 1, gate 255:
+# about 3.4 s at 75 BPM), solo and dry.
+wait 600
+listen
+clearpat 6 A
+step 6 A 1 2 0 0 255
+param ch6.solo 1
+param ch6.spring 0
+param ch6.echo 0
+param tier.lock 1
+# BUBBLE still (an older sound, MODEL 0)
+expect ui.v6.model 0
+# B-3 with nothing else changed: the default registration plays (no silence), steady and mono with the rotary off
+param v6.model 1
+wait 50
+wav b3-plain.wav
+tap PLAY
+wait 1500
+tap PLAY
+wavstop
+wait 400
+# the 16' alone (5 1/3' and 8' pushed in): darker and lower
+param v6.5_1/3' -8
+param v6.8' -8
+wait 50
+expect ui.v6.8' -8
+wav b3-16.wav
+tap PLAY
+wait 1500
+tap PLAY
+wavstop
+wait 400
+# and the 1' pulled out with it: brighter
+param v6.1' 8
+wait 50
+wav b3-16-1.wav
+tap PLAY
+wait 1500
+tap PLAY
+wavstop
+wait 400
+param v6.5_1/3' 0
+param v6.8' 0
+param v6.1' 0
+# percussion (3rd, fast): a strike at the note's start that dies, so the head is louder against the tail
+param v6.perc 2
+param v6.perc_fast 1
+wait 50
+wav b3-perc.wav
+tap PLAY
+wait 1500
+tap PLAY
+wavstop
+wait 400
+expect perc_n 1
+# single-triggered: a chord struck legato (step 9, and step 1 again, while the last still holds) gets none; after a
+# gap (each 80 ticks long) every chord strikes it: 1, 9 and 1 again in 4 s
+step 6 A 9 2 0 0 255
+tap PLAY
+wait 4000
+tap PLAY
+expect perc_n 2
+wait 500
+step 6 A 1 2 0 0 20
+step 6 A 9 2 0 0 20
+tap PLAY
+wait 4000
+tap PLAY
+expect perc_n 5
+step 6 A 1 2 0 0 255
+step 6 A 9 0
+wait 400
+param v6.perc 0
+param v6.perc_fast 0
+# the rotary, FAST: the level moves at the rotors' rates (horn ~6.7 Hz); the horn's side stereo in Studio,
+# the low end mono. The note held 3 s, measured over its second half (the glide up is over)
+param v6.rotary 2
+wait 50
+wav b3-fast.wav
+tap PLAY
+wait 3000
+tap PLAY
+wavstop
+expect rotor_horn >640
+expect rotor_horn <700
+expect rotor_drum >330
+expect rotor_drum <590
+wait 400
+# SLOW: the horn ~0.83 Hz, the drum ~0.67, each at its own pace (the horn there in ~2 s, the drum still on its way)
+param v6.rotary 1
+tap PLAY
+wait 2000
+expect rotor_horn <120
+expect rotor_drum >150
+wait 4000
+tap PLAY
+expect rotor_drum <130
+wait 400
+wav b3-slow.wav
+tap PLAY
+wait 3000
+tap PLAY
+wavstop
+wait 400
+# BRAKE: both stop
+param v6.rotary 3
+tap PLAY
+wait 6000
+tap PLAY
+expect rotor_horn <5
+expect rotor_drum <20
+wait 400
+# Four-track: the horn's movement summed (no side)
+param v6.rotary 2
+param tier.lock 2
+wait 3000
+wav b3-four.wav
+tap PLAY
+wait 3000
+tap PLAY
+wavstop
+wait 400
+# the cost (tenths of a % of a device block; measured 2026-11-09: tone 2.8 %, rotary 1.6, scanner 0.7, drive 0.6),
+# the note held throughout: Studio with everything on (rotary FAST, scanner C3, perc, drive), bound at about twice
+# that (host jitter); Seven-inch (no Doppler, no scanner) no dearer
+step 6 A 9 2 0 0 255
+param tier.lock 1
+param v6.vib/chorus 6
+param v6.perc 1
+param v6.drive 60
+tap PLAY
+wait 500
+perf reset
+wait 3000
+expect perf_ch6 <115
+tap PLAY
+wait 400
+param tier.lock 3
+tap PLAY
+wait 500
+perf reset
+wait 3000
+expect perf_ch6 <115
+tap PLAY
+wait 400
+param tier.lock 1
+step 6 A 9 0
+# MAIN on the B-3 (the organ selected, EDIT): REGISTRATION (K1) at its top is all nine bars out (888 888 888),
+# at its bottom the 8' alone (008 000 000); no dot (no target moved since); PERC (K2) and ROTARY (K3) step
+turn ALGO 5
+wait 30
+expect focus 6
+tap EDIT
+wait 30
+said SOUND ORGAN MAIN
+expect sound_bank 1
+expect env_view 1
+shot organ-b3.png
+turn K1 80 10
+wait 300
+expect ui.v6.m.drawbar 63
+expect ui.v6.1' 8
+expect ui.v6.16' 0
+expect moved6_1 0
+turn K1 -160 10
+wait 300
+expect ui.v6.m.drawbar -64
+expect ui.v6.16' -8
+expect ui.v6.8' 0
+expect ui.v6.1' 0
+param v6.rotary 0
+turn K3 40 10
+wait 300
+expect ui.v6.rotary 2
+# patches: the factory B3 SOFT (after INIT) loads the B-3's fields; a drawbar moved and saved as ORGAN 01 comes back
+# field by field (stopped: no saves while playing; INIT, B3 SOFT, B3 PERC and the seven kits come before it)
+turn PRESET 1
+wait 30
+said ORGAN INIT
+expect ui.v6.model 0
+turn PRESET 1
+wait 30
+said ORGAN B3 SOFT
+expect ui.v6.model 1
+expect ui.v6.5_1/3' -8
+expect ui.v6.rotary 1
+param v6.2' 6
+param v6.perc 1
+wait 50
+press SAVE
+wait 20
+turn PRESET 1
+wait 30
+release SAVE
+wait 30
+said SAVED ORGAN 01
+turn PRESET -10 10
+wait 30
+said ORGAN INIT
+expect ui.v6.2' 0
+expect ui.v6.model 0
+turn PRESET 10 10
+wait 30
+expect ui.v6.model 1
+expect ui.v6.2' 6
+expect ui.v6.5_1/3' -8
+expect ui.v6.perc 1
+expect ui.v6.rotary 1
+tap HOME
+wait 30
+# back to BUBBLE: the bubble as before
+param v6.model 0
+param tier.lock 0
+#wav b3-plain.wav peak<-1 dc<-40 rms>-40 side<-150 tail>-40
+#wav b3-16.wav peak<-1 dc<-40 rms>-45 hf<-40
+#wav b3-16-1.wav peak<-1 dc<-40 hf>-36
+#wav b3-perc.wav peak<-1 dc<-40 peak>-20 crest>13
+#wav b3-fast.wav peak<-1 dc<-40 click<-30 side>-80 side_lo<-80
+#wav b3-slow.wav peak<-1 dc<-40 side_lo<-80
+#wav b3-four.wav peak<-1 dc<-40 side<-150

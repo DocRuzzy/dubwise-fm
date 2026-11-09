@@ -1,0 +1,120 @@
+# Drum step locks and repeats (roadmap 5.8; plan docs/plan-5.8-5.9-steps.md). A drum step held on STEPS: KNOB 2 its TUNE
+# lock (kick, rim), KNOB 1 its DECAY lock (-8..+7, 0 none), KNOB 4 no gate (a drum's gate byte keeps its locks). ENV
+# held + a white key cycles its REPEAT: off, FLAM (a ghost 20 ms early), x2, x3, x4 within the step.
+wait 600
+listen
+clearpat 1 A
+clearpat 2 A
+clearpat 3 A
+clearpat 4 A
+clearpat 5 A
+clearpat 6 A
+clearpat 7 A
+clearpat 8 A
+tap SEQ
+wait 30
+said STEPS KICK
+tapkey w0
+wait 30
+expect step1_1 2
+# the locks: TUNE +7 (seven semitones), DECAY -3
+key w0 down
+wait 20
+turn K2 7
+wait 20
+turn K1 -3
+wait 20
+turn K4 1
+wait 20
+key w0 up
+wait 30
+said GATE NOT FOR A DRUM
+expect lockt1_1 7
+expect lockd1_1 -3
+# it sounds: higher and shorter than the same step without locks
+wav lock-on.wav
+tap PLAY
+wait 1500
+tap PLAY
+wait 600
+wavstop
+#wav lock-on.wav peak<-1 dc<-40 hf>-56 rms<-41
+key w0 down
+wait 20
+turn K2 -7
+wait 20
+turn K1 3
+wait 20
+key w0 up
+wait 30
+expect lockt1_1 0
+expect lockd1_1 0
+wav lock-off.wav
+tap PLAY
+wait 1500
+tap PLAY
+wait 600
+wavstop
+#wav lock-off.wav peak<-1 dc<-40 hf<-57 rms>-41
+# REPEAT, on step 5 (step 1 off): FLAM is two hits a bar, x3 three (seq_hits counts since the start: 2 so far)
+tapkey w0
+wait 30
+expect step1_1 0
+tapkey w4
+wait 30
+press ENV
+wait 20
+tapkey w4
+wait 20
+release ENV
+wait 30
+said REPEAT 5 FLAM
+expect repeat1_5 1
+tap PLAY
+wait 3150
+expect seq_hits 4
+tap PLAY
+wait 600
+press ENV
+wait 20
+tapkey w4
+wait 20
+tapkey w4
+wait 20
+release ENV
+wait 30
+said REPEAT 5 X3
+expect repeat1_5 3
+tap PLAY
+wait 3150
+expect seq_hits 7
+tap PLAY
+wait 600
+# not on a bass step
+tapkey b3
+wait 30
+tapkey w0
+wait 30
+press ENV
+wait 20
+tapkey w0
+wait 20
+release ENV
+wait 30
+said REPEAT THE DRUMS ONLY
+expect repeat4_1 0
+# one undo step a change: the bass step (the last), then the kick's REPEAT back to x2
+tapkey b0
+wait 30
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect step4_1 0
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect repeat1_5 2

@@ -76,9 +76,14 @@ static uint32_t sg_hold, sg_hold_n;              /* samples left open; HOLD in s
 static float sg_rel = 0.999f;                    /* the closing's factor a sample */
 static void sgate_key(void) { sg_hold = sg_hold_n; }
 static void evlog_ev(uint32_t kind, uint32_t id, int32_t v);   /* (tests: the event log, host only) */
+static PLAT_POOL float org_side[ENG_BLOCK];                /* the B-3's horn side, at the organ strip's level (5.15) */
+static uint32_t org_side_n;
+static volatile uint32_t trig_n[NCH];            /* each channel's hits so far (the envelope view's playhead, 5.10) */
 static void trig(uint32_t ch, int32_t note, uint32_t vel)   /* a voice struck: and a snare keys the gate */
 {
     evlog_ev(1, ch, note | (int32_t)vel << 8);
+    if (ch < NCH)
+        trig_n[ch]++;
     voice_trig(ch, note, vel);
     if (ch == CH_SNARE)
         sgate_key();
@@ -136,10 +141,11 @@ static uint8_t pnext_on[NCH];
 typedef struct {
     int32_t t;                                   /* its fine tick */
     uint8_t ch, p, i;
+    uint8_t sub;                                 /* 0 the step; 1..3 a repeat (5.8); 0x80 a flam's ghost */
 } sev_t;
 static sev_t sev[NSEV];                          /* this sixteenth's steps, in time order */
 static uint32_t nsev;
-static int32_t held_note[NCH], off_at[NCH];      /* the bass's and the lead's note the sequencer holds, its end */
+static int32_t held_note[NCH], off_at[NCH];      /* the note the sequencer holds (bass, lead, the B-3), its end */
 static int32_t last_tick = -1;                   /* the sixteenth last gathered since the start */
 static void seq_start(void);
 static volatile uint32_t seq_hits;               /* steps played since boot (tests) */
@@ -269,8 +275,10 @@ static void set_param(uint32_t id, int32_t v)
     if (id == P_SIREN) {                         /* the siren (5.1: a parameter, so motion captures it) */
         if (ev[id])
             fxv_off((ev[id] & 15) - 1);
-        if (v)
+        if (v) {
             fxv_on((v & 15) - 1, (uint32_t)(v >> 4) & 127u);
+            trig_n[CH_VOX]++;
+        }
     }
     ev[id] = (int16_t)v;
 }
@@ -306,10 +314,19 @@ static inline void evlog_ev(uint32_t kind, uint32_t id, int32_t v) { (void)kind,
 static inline void evlog_snap(void) {}
 static inline void evlog_diff(void) {}
 #endif
-static void vrel(uint32_t ch, int32_t note) { evlog_ev(2, ch, note); voice_release(ch, note); }
+static void vrel(uint32_t ch, int32_t note)
+{
+    evlog_ev(2, ch, note);
+    if (ch == CH_ORGAN)
+        chordv_release(ch);                      /* (the B-3's held chord: 5.15) */
+    else
+        voice_release(ch, note);
+}
 static void ctrig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
 {
     evlog_ev(3, ch, chord | voicing << 8 | (int32_t)vel << 16);
+    if (ch < NCH)
+        trig_n[ch]++;
     chordv_trig(ch, chord, voicing, vel);
 }
 
@@ -738,9 +755,11 @@ static void drain(void)                          /* every queued command, at the
     }
 }
 
+static void spin_init(void);                     /* (the spin-back's ring, below) */
 void eng_init(void)
 {
     uint32_t id, ch;
+    spin_init();
     for (id = 0; id < P_NIDS; id++) {
         ev[id] = (int16_t)param_def(id);
     }
@@ -908,7 +927,7 @@ static void pat_sync(void)                       /* CHF_PAT changed (a cue, a sc
     }
 }
 
-static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i)   /* into the list, in time order */
+static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i, uint32_t sb)   /* into the list, in time order */
 {
     uint32_t k;
     if (nsev == NSEV)
@@ -919,8 +938,10 @@ static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i)   /* into th
     sev[k].ch = (uint8_t)ch;
     sev[k].p = (uint8_t)p;
     sev[k].i = (uint8_t)i;
+    sev[k].sub = (uint8_t)sb;
     nsev++;
 }
+
 
 /* channel ch's steps that land in [w0, w1), for those whose grid line is in [lo, hi), played from s */
 static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t w0, int32_t w1)
@@ -935,13 +956,26 @@ static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t
         if (line < lo || line >= hi)
             continue;
         st = pat[ch][s->p][i];
-        if (!st.lvl)
+        if (!LVL(st) || !chance_plays(ch, s->p, (uint32_t)i, (uint32_t)(n / len), STEP_CHANCE(st), m.rsv))
             continue;
         t = line + swing_fine(m, n) + st.off;
         if (t < w0 && line >= w0 && w0 == 0)     /* (at the very start, nothing before: early is on the one) */
             t = 0;
         if (t >= w0 && t < w1)
-            sev_add(t, ch, s->p, (uint32_t)i);
+            sev_add(t, ch, s->p, (uint32_t)i, 0);
+        {                                        /* REPEAT (5.8): a flam's ghost 20 ms early, or 2-4 within the step */
+            uint32_t r = STEP_REPEAT(st), k;
+            if (r == REP_FLAM) {
+                int32_t tf = t - ev[P_TEMPO] / 125;   /* (20 ms: tempo x 10 / 1250 of a beat's 240 ticks) */
+                if (tf >= w0 && tf < w1 && tf >= 0)
+                    sev_add(tf, ch, s->p, (uint32_t)i, 0x80u);
+            } else if (r >= REP_2 && r <= REP_4)
+                for (k = 1; k < r; k++) {
+                    int32_t tk = t + (int32_t)k * sl / (int32_t)r;
+                    if (tk >= w0 && tk < w1)
+                        sev_add(tk, ch, s->p, (uint32_t)i, k);
+                }
+        }
     }
 }
 
@@ -972,19 +1006,32 @@ static void seq_hit(const sev_t *e)              /* a step, now */
     uint32_t ch = e->ch;
     step_t st = pat[ch][e->p][e->i];
     pmeta_t m = pmeta[ch][e->p];
-    if (!st.lvl)
+    uint32_t vel = lvl_vel(e->sub == 0x80u ? LVL_GHOST : LVL(st));   /* (a flam's ghost: softer) */
+    if (!LVL(st))
         return;                                  /* (cleared since it was gathered) */
+    if (is_drum(ch))                             /* its TUNE and DECAY locks, for this hit (5.8) */
+        voice_locks(ch, lock_tune(st), lock_decay(st));
     if (ch == CH_SKANK || ch == CH_ORGAN) {      /* the chord lane's chord at this bar, in the step's voicing */
         int32_t lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
         int32_t chord = ev[P_CHORD0 + (int32_t)(((uint32_t)(e->t > 0 ? e->t : 0) / (4u * PPQ)) % (uint32_t)lane)];
-        ctrig(ch, chord, st.note, lvl_vel(st.lvl));
+        if (held_note[ch] >= 0) {                /* (a B-3 chord still held: let go first) */
+            vrel(ch, held_note[ch]);
+            held_note[ch] = -1;
+        }
+        ctrig(ch, chord, st.note, vel);
         chord_last[ch] = chord;
+        if (ch == CH_ORGAN && ev[P_VOICE(CH_ORGAN, VO_MODEL)] == ORG_B3) {   /* the B-3 held for its gate (5.15): a
+                                                  * step, or the gate's length; the bubble a stab, as built */
+            chordv_hold(ch);
+            held_note[ch] = 0;
+            off_at[ch] = e->t + (st.gate ? 4 * (int32_t)st.gate : grid_fine(m.grid));
+        }
     } else {
         if ((ch == CH_BASS || ch == CH_LEAD) && held_note[ch] >= 0) {   /* one note at a time */
             vrel(ch, held_note[ch]);
             held_note[ch] = -1;
         }
-        trig(ch, st.note, lvl_vel(st.lvl));
+        trig(ch, st.note, vel);
         if (ch == CH_BASS || ch == CH_LEAD) {    /* held for its gate: the bass a step (staccato), the lead two */
             held_note[ch] = st.note;
             off_at[ch] = e->t + (st.gate ? 4 * (int32_t)st.gate : grid_fine(m.grid) * (ch == CH_LEAD ? 2 : 1));
@@ -997,7 +1044,7 @@ static void seq_hit(const sev_t *e)              /* a step, now */
 static void seq_fire(void)                       /* the notes ending now, then the steps landing now */
 {
     uint32_t ch;
-    for (ch = CH_BASS; ch <= CH_LEAD; ch += CH_LEAD - CH_BASS)
+    for (ch = CH_BASS; ch <= CH_LEAD; ch++)
         if (held_note[ch] >= 0 && seq_due(off_at[ch])) {
             vrel(ch, held_note[ch]);
             held_note[ch] = -1;
@@ -1015,7 +1062,7 @@ static void seq_fire(void)                       /* the notes ending now, then t
 static uint32_t until_seq(void)                  /* samples to the next step or note end */
 {
     uint32_t d = nsev ? until_fine(sev[0].t) : 0xFFFFFFFFu, ch, u;
-    for (ch = CH_BASS; ch <= CH_LEAD; ch += CH_LEAD - CH_BASS)
+    for (ch = CH_BASS; ch <= CH_LEAD; ch++)
         if (held_note[ch] >= 0 && (u = until_fine(off_at[ch])) < d)
             d = u;
     return d;
@@ -1048,12 +1095,41 @@ static uint32_t until_cue(void)                  /* samples to the first cue's m
 }
 
 /* ------------------------------------------------------------- spin-back --- */
-/* P3.5: the output's last 1.6 s kept (11,025 Hz, mono, int16: 35 KB in the pool); HOME + PLAY plays it backwards,
+/* P3.5: the output's last 1.6 s kept (11,025 Hz, mono, 8-bit mu-law since review-2026-11 5.4: 17.3 KB in the pool, was
+ * 35 KB as int16; a rewind is lo-fi anyway); HOME + PLAY plays it backwards,
  * the "record" dragged back faster and faster (1x .. 2.6x) and fading over 0.8 s, then a beat of silence with the
  * effects wiped, then the tune again from bar 1 ("pull up, come again"), if it was playing */
 #define SPIN_N 17664u
 #define SPIN_SECS 0.8f
-static PLAT_POOL int16_t spin_ring[SPIN_N];
+static PLAT_POOL uint8_t spin_ring[SPIN_N];      /* G.711 mu-law */
+static PLAT_POOL int16_t spin_dec[256];          /* mu-law -> int16 */
+#define MULAW_SILENT 0xFFu
+
+static uint8_t mulaw_enc(int32_t v)              /* int16 -> G.711 mu-law */
+{
+    uint32_t sign = 0, mag, exp = 7, mant;
+    if (v < 0) {
+        sign = 0x80u;
+        v = -v;
+    }
+    mag = (uint32_t)(v > 32635 ? 32635 : v) + 0x84u;
+    while (exp > 0u && !(mag & (0x4000u >> (7u - exp))))
+        exp--;
+    mant = (mag >> (exp + 3u)) & 0x0Fu;
+    return (uint8_t)~(sign | exp << 4 | mant);
+}
+
+static void spin_init(void)                      /* the decoder's table; the ring silent */
+{
+    uint32_t i;
+    for (i = 0; i < 256u; i++) {
+        uint32_t u = ~i & 0xFFu, exp = (u >> 4) & 7u, mant = u & 0x0Fu;
+        int32_t mag = (int32_t)(((mant << 3) + 0x84u) << exp) - 0x84;
+        spin_dec[i] = (int16_t)(u & 0x80u ? -mag : mag);
+    }
+    for (i = 0; i < SPIN_N; i++)
+        spin_ring[i] = MULAW_SILENT;
+}
 static uint32_t spin_w, spin_acc_n, spin_gap, spin_again;
 static int32_t spin_acc;
 static float spin_pos, spin_t;
@@ -1202,7 +1278,7 @@ static void spin_block(int32_t *lr, uint32_t n)  /* after the render: the ring f
             spin_acc += (lr[2u * i] >> 9) + (lr[2u * i + 1u] >> 9);
             if (++spin_acc_n == 4u) {
                 int32_t v = spin_acc / 4;
-                spin_ring[spin_w] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+                spin_ring[spin_w] = mulaw_enc(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
                 spin_w = spin_w + 1u == SPIN_N ? 0u : spin_w + 1u;
                 spin_acc = 0;
                 spin_acc_n = 0;
@@ -1221,8 +1297,8 @@ static void spin_block(int32_t *lr, uint32_t n)  /* after the render: the ring f
             k0 = (uint32_t)spin_pos;
             k1 = k0 + 1u == SPIN_N ? 0u : k0 + 1u;
             fr = spin_pos - (float)k0;
-            a = (float)spin_ring[k0];
-            b = (float)spin_ring[k1];
+            a = (float)spin_dec[spin_ring[k0]];
+            b = (float)spin_dec[spin_ring[k1]];
             amp = spin_t < SPIN_SECS - 0.25f ? 1.0f : (SPIN_SECS - spin_t) * 4.0f;
             out = (a + (b - a) * fr) * (amp > 0.0f ? amp : 0.0f) * 256.0f;   /* (stored as (L + R) / 512) */
             spin_t += 1.0f / 44100.0f;
@@ -1343,6 +1419,16 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         if (on && drive_on == DRIVE_BASS && ch == CH_BASS)
             tape_run(buf, 0, n);                 /* the bass through the tape (C7) */
         prof_mark(PART_CH0 + ch);
+        if (ch == CH_ORGAN) {                    /* the B-3's stereo horn (5.15): its side, at the strip's level */
+            const float *sd = on ? chordv_side() : 0;
+            org_side_n = 0;
+            if (sd && s->dry.g != 0.0f) {
+                float g = s->dry.g;
+                for (i = 0; i < n; i++)
+                    org_side[i] = g * sd[i];
+                org_side_n = n;
+            }
+        }
         if (!on) {
             ramp_jump(&s->dry);
             ramp_jump(&s->echo);
@@ -1437,6 +1523,11 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             srp = fm_maxf(srp, fm_maxf(fm_fabsf(sr), fm_fabsf(srr)));
             dryr[i] = dry[i] + rr + srr;         /* the mono dry path to both sides; the returns stereo */
             dry[i] += r + sr;
+            if (org_side_n) {                    /* (the organ's horn, its side only: above 800 Hz, so the low end
+                                                  * stays mono; 5.15) */
+                dry[i] += org_side[i];
+                dryr[i] -= org_side[i];
+            }
             if (stem_mode == STEMS_BUSES) {      /* the returns, L R: the echo's on 5-6, the spring's on 7-8 */
                 stem_add(i, 4, r);
                 stem_add(i, 5, rr);
@@ -1589,6 +1680,7 @@ void eng_panic(void) { voices_panic(); }
 
 int32_t eng_param(uint32_t id) { return id < P_NIDS ? ev[id] : 0; }
 float eng_ch_peak(uint32_t ch) { return ch < NCH ? strip[ch].peak : 0.0f; }
+uint32_t eng_trig_count(uint32_t ch) { return ch < NCH ? trig_n[ch] : 0u; }
 float eng_echo_peak(void) { return echo_peak; }
 float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
