@@ -1,0 +1,150 @@
+# Dice (roadmap 5.6, spec 4.10; app/dice.c): the SOUND view's last bank. ENV fires ROLL (a new sound inside the
+# channel's bounds) or MUTATE (AMOUNT % of each range away); ENV held + a knob holds that field; KNOB 4 steps back
+# through the channel's last 8 results; HOME + EDIT fires anywhere. Only the focused voice changes: never levels,
+# sends, the bus or other channels. A fixed seed gives the same rolls. One undo step a fire. SETUP's DICE ON LINE
+# makes a fire wait for the quantise line.
+wait 600
+listen
+param dice.seed 1234
+param ch1.level 77
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+said SOUND KICK DICE
+expect dice_bank 1
+# ROLL: every field inside the kick's bounds (TUNE 40..60 Hz), the macros left as they were
+tap ENV
+wait 30
+said ROLL KICK
+expect ui.v1.tune 66
+expect ui.v1.sweep 25
+expect ui.v1.ptime 47
+expect ui.v1.decay 80
+expect ui.v1.click 56
+expect ui.v1.drive 29
+expect ui.v1.ctone 38
+expect ui.v1.m.pitch 0
+expect dice_n1 1
+# another seed, another roll; the first seed again: the first roll again
+param dice.seed 99
+wait 900
+tap ENV
+wait 30
+expect ui.v1.tune 12
+expect dice_n1 2
+param dice.seed 1234
+wait 900
+tap ENV
+wait 30
+expect ui.v1.tune 66
+expect ui.v1.sweep 25
+expect ui.v1.ctone 38
+expect dice_n1 3
+# HOLD: ENV held + KNOB 1 on raw bank 1 holds TUNE; a fire leaves it
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+said SOUND KICK 1
+press ENV
+wait 20
+turn K1 1
+wait 30
+release ENV
+wait 30
+said HOLD TUNE
+expect dice_hold1 1
+expect ui.v1.tune 66
+# MUTATE 10 %: each field at most a tenth of its range away; TUNE held
+tap EDIT
+tap EDIT
+wait 30
+said SOUND KICK DICE
+turn K2 1
+wait 30
+said MODE MUTATE
+turn K1 -4
+wait 30
+said AMOUNT 10%
+wait 900
+tap ENV
+wait 30
+said MUTATE 10 KICK
+expect ui.v1.tune 66
+expect ui.v1.sweep >16
+expect ui.v1.sweep <34
+expect ui.v1.decay >71
+expect ui.v1.decay <89
+expect dice_n1 4
+# HISTORY: back one, the roll played in again
+wait 900
+turn K4 -1
+wait 30
+said HISTORY 3 OF 4
+expect ui.v1.sweep 25
+expect ui.v1.decay 80
+# one undo step a history move
+wait 900
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v1.sweep >16
+expect ui.v1.sweep <34
+# HOME + EDIT: a fire from the DUB page, the view closed
+tap EDIT
+wait 30
+expect sound_bank 0
+wait 900
+press HOME
+wait 20
+tap EDIT
+wait 30
+release HOME
+said MUTATE 10 KICK
+expect dice_n1 5
+expect sound_bank 0
+# nothing else changed: the kick's level, the bus, another voice
+expect ui.ch1.level 77
+expect ui.echo.fb 45
+expect ui.v4.index 50
+expect dice_n4 0
+# DICE ON LINE: playing, a fire waits for the bar line
+tap GLO
+wait 30
+turn K1 23
+wait 30
+said DICE ON LINE OFF
+turn K2 1
+wait 30
+said DICE ON LINE ON
+tap HOME
+wait 30
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+turn K2 -1
+wait 30
+said MODE ROLL
+param v1.sweep 50
+wait 30
+tap PLAY
+wait 500
+press HOME
+wait 20
+tap EDIT
+wait 30
+release HOME
+wait 100
+expect eng.v1.sweep 50
+expect dice_n1 6
+# the bar line (75 BPM: 3.2 s a bar): it lands
+wait 3500
+expect eng.v1.sweep 36
+tap PLAY
+wait 600

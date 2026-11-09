@@ -47,6 +47,7 @@ expect eng.v1.sweep 40
 tap EDIT
 tap EDIT
 tap EDIT
+tap EDIT
 wait 30
 expect sound_bank 1
 turn K1 80 10
@@ -99,6 +100,7 @@ wait 100
 wavstop
 #wav bass-cap.wav fund55>-3 peak<-1 dc<-40
 # MIDI learn on a macro: the controller's CC moves the macro and its targets
+tap EDIT
 tap EDIT
 tap EDIT
 tap EDIT

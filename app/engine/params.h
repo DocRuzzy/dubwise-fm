@@ -97,6 +97,8 @@ enum {
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */
     P_CLICK = 0x030,          /* the click on every beat now (the UI's: a count-in, a recording; never saved) */
+    P_DICE_LINE = 0x031,      /* 1: a Dice fire waits for the quantise line (5.6; SETUP; saved in the settings' spare byte) */
+    P_DICE_SEED = 0x032,      /* Dice's generator seeded with this (tests; 0: from the clock; never saved) */
     P_DEV_LOAD = 0x03E,       /* development: this much % added to the measured load (the guard's host tests) */
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };

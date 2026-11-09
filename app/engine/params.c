@@ -194,6 +194,8 @@ static const pdesc_t VOX[P_VOX_END - P_SIREN] = {
 static const pdesc_t TAILS = {"tails", 0, 1, 0};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
+static const pdesc_t DICE_LINE = {"dice.line", 0, 1, 0};
+static const pdesc_t DICE_SEED = {"dice.seed", 0, 30000, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
 const char *tier_name(int32_t t)
 {
@@ -278,6 +280,10 @@ const pdesc_t *param_desc(uint32_t id)
         return &DEV_TONES;
     if (id == P_CLICK)
         return &CLICK;
+    if (id == P_DICE_LINE)
+        return &DICE_LINE;
+    if (id == P_DICE_SEED)
+        return &DICE_SEED;
     if (id == P_DEV_LOAD)
         return &DEV_LOAD;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)

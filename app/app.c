@@ -20,7 +20,7 @@ typedef struct {
     uint32_t magic;
     int16_t tempo;                       /* P_TEMPO: BPM x 10 */
     uint8_t quant;                       /* P_QUANT */
-    uint8_t rsv;
+    uint8_t dice_line;                   /* P_DICE_LINE (5.6; this byte was spare: an older save holds 0, off) */
     uint8_t echo_time, echo_fb, echo_ret, spring_ret;   /* the DUB page's knobs */
     uint8_t setup[P_NGLOBAL];            /* the globals from P_LEAD on: lead, cycle, runway .. (SETUP) */
     uint8_t chords[P_CHORD_END - P_CHORD0];   /* the chord lane */
@@ -218,6 +218,7 @@ static void settings_defaults(void)
     set.magic = SET_MAGIC;
     set.tempo = (int16_t)param_def(P_TEMPO);
     set.quant = (uint8_t)param_def(P_QUANT);
+    set.dice_line = 0;
     set.echo_time = (uint8_t)param_def(P_ECHO_TIME);
     set.echo_fb = (uint8_t)param_def(P_ECHO_FB);
     set.echo_ret = (uint8_t)param_def(P_ECHO_RET);
@@ -252,6 +253,7 @@ static int save_project(int quiet)       /* SAVE (quiet: the autosave, which say
     }
     set.tempo = (int16_t)ctl_get(P_TEMPO);
     set.quant = (uint8_t)ctl_get(P_QUANT);
+    set.dice_line = (uint8_t)ctl_get(P_DICE_LINE);
     set.echo_time = (uint8_t)ctl_get(P_ECHO_TIME);
     set.echo_fb = (uint8_t)ctl_get(P_ECHO_FB);
     set.echo_ret = (uint8_t)ctl_get(P_ECHO_RET);
@@ -335,6 +337,7 @@ static void load_saved(void)             /* the store's objects into both sides 
     pl_load();
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
+    ctl_set(P_DICE_LINE, set.dice_line);
     ctl_set(P_ECHO_TIME, set.echo_time);  /* (clamped to their ranges) */
     ctl_set(P_ECHO_FB, set.echo_fb);
     ctl_set(P_ECHO_RET, set.echo_ret);
