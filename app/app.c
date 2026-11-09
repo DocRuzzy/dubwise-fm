@@ -547,6 +547,22 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         pst_oldsave();
         return 1;
     }
+    if (!strcmp(cmd, "fields")) {        /* every voice field, as JSON (tools/site/editor: the web editor's table, 5.13) */
+        uint32_t id;
+        int first = 1;
+        printf("FIELDS [");
+        for (id = P_VOICE_BASE; id < P_NIDS; id++) {
+            const pdesc_t *d = param_desc(id);
+            if (!d)
+                continue;
+            printf("%s{\"id\":%u,\"ch\":%u,\"f\":%u,\"name\":\"%s\",\"min\":%d,\"max\":%d,\"def\":%d}",
+                   first ? "" : ",", (unsigned)id, (unsigned)((id - P_VOICE_BASE) / VOICE_STRIDE),
+                   (unsigned)((id - P_VOICE_BASE) % VOICE_STRIDE), d->name, (int)d->min, (int)d->max, (int)d->def);
+            first = 0;
+        }
+        printf("]\n");
+        return 1;
+    }
     if (!strcmp(cmd, "oldsound")) {      /* sounds saved before 5.3, and no patch library (patches.c) */
         pl_oldsound();
         return 1;

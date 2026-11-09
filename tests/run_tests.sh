@@ -15,6 +15,8 @@ for t in app/tests/*.txt; do
 done
 echo "== tests/slot_transfer_test.py"
 python3 tests/slot_transfer_test.py >/dev/null || { echo "FAIL slot transfer (run tests/slot_transfer_test.py)"; exit 1; }
+echo "== tools/site/editor/fields.js (the web editor's table, from the firmware)"
+python3 -I tools/site/editor/mkfields.py --check || exit 1
 echo "== tests/patch_transfer_test.py"
 python3 tests/patch_transfer_test.py >/dev/null || { echo "FAIL patch transfer (run tests/patch_transfer_test.py)"; exit 1; }
 echo "  ok slot transfer"

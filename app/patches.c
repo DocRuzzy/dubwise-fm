@@ -11,8 +11,9 @@
  * A field appended to a voice must sound neutral at 0 (params.h), so a patch from before it loads as it was.
  * SysEx (4.3's framing, F0 7D 44 57): 31 ch slot (dump) -> 32 ch slot + 48 bytes 7-bit packed, or 13 ch slot
  * (empty); 33 ch slot + patch (put: 16 kept, 15 refused); 34 ch (the channel's 16, then 12 ch); 36 ch (the current
- * sound as a patch: 32 ch 127 ...); 37 ch + patch (into the current sound). Part of the unity build: dub.c includes it
- * after slots.c (pack7, unpack7). */
+ * sound as a patch: 32 ch 127 ...); 37 ch + patch (into the current sound); 40 id_lo id_hi v_lo v_hi (5.13, the web
+ * editor: a voice field set, value + 8192 in 14 bits, as the hands set it: captured and undone like a knob's turn).
+ * Part of the unity build: dub.c includes it after slots.c (pack7, unpack7). */
 
 #define PATCH_VER 1u
 #define PATCH_N 16u                              /* user patches a channel */
@@ -318,11 +319,38 @@ static int pl_check(const uint8_t *raw, uint32_t got, uint32_t ch, patch_t *p)  
     return p->ver >= 1u && p->ver <= PATCH_VER && p->ch == ch && pl_used(p);
 }
 
-static int pl_sysex(const uint8_t *p, uint32_t n)   /* (slot_sysex) commands 31..37: 1 ours */
+static void undo_live_set(int on);              /* (undo.c) */
+static void undo_mark(uint32_t tag, uint32_t now);
+
+static void pl_set_field(const uint8_t *p, uint32_t n)   /* 40: a voice field from the web editor (5.13) */
+{
+    uint32_t id, mk;
+    int32_t v, mch;
+    if (n < 8u)
+        return;
+    id = (uint32_t)p[4] | (uint32_t)p[5] << 7;
+    v = (int32_t)((uint32_t)p[6] | (uint32_t)p[7] << 7) - 8192;
+    if (id < P_VOICE_BASE || id >= P_NIDS || !param_desc(id))
+        return;
+    undo_live_set(1);                            /* (as the hands: one undo step a run of the same field) */
+    undo_mark(0x800u + id, plat_ms());          /* (0x800..0x9FF: a field's run joins; 0x200: knobs, 0x1000+: presses) */
+    ctl_set(id, v);
+    if (macro_of(id, &mch, &mk))                 /* a macro: its targets too */
+        macro_apply(mch, mk);
+    undo_live_set(0);
+    set_dirty = 1;
+    dub.dirty_strips = dub.dirty_foot = dub.dirty_centre = 1;
+}
+
+static int pl_sysex(const uint8_t *p, uint32_t n)   /* (slot_sysex) commands 31..37, 40: 1 ours */
 {
     uint32_t cmd = p[3], ch = p[4], s = n > 5u ? p[5] : 0u, got;
     uint8_t raw[56];
     patch_t pt;
+    if (cmd == 0x40u) {
+        pl_set_field(p, n);
+        return 1;
+    }
     if (ch >= NCH)
         return 1;
     if (cmd == 0x31u && n >= 6u && s < PATCH_N) {   /* dump one */

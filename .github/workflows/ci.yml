@@ -47,3 +47,4 @@ jobs:
           npm install --no-save playwright@1.48.2
           npx playwright install --with-deps chromium
           node tests/web_smoke.mjs
+          node tests/editor_test.mjs

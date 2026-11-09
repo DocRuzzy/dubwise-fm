@@ -361,7 +361,7 @@ static int slot_sysex(const uint8_t *p, uint32_t n)   /* app_sysex: the bytes be
     if (n < 5u || p[0] != 0x7Du || p[1] != 0x44u || p[2] != 0x57u)
         return 0;
     cmd = p[3];
-    if (cmd >= 0x31u && cmd <= 0x37u)
+    if ((cmd >= 0x31u && cmd <= 0x37u) || cmd == 0x40u)   /* (patches.c: the patches, a field set) */
         return pl_sysex(p, n);
     s = p[4];
     if (s >= NSLOTS)

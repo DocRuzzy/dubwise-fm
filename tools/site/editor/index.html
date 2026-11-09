@@ -1,0 +1,224 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Copyright (C) 2026 Dubwise FM contributors -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUBWISE sound editor</title>
+<meta name="description" content="Edit every voice of Dubwise FM from a browser over USB MIDI: sliders, your patch library, patch files.">
+<style>
+:root { --paper: #fbf8f1; --ink: #20263a; --muted: #5d6585; --hot: #c4471f; --card: #f2ecdf; --line: #ddd3c0; color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #17161a; --ink: #ece6da; --muted: #a9a294; --hot: #f28a5a; --card: #24211d; --line: #3a352e; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --paper: #17161a; --ink: #ece6da; --muted: #a9a294; --hot: #f28a5a; --card: #24211d; --line: #3a352e; color-scheme: dark; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 "Helvetica Neue", Arial, sans-serif; padding: 24px 16px; }
+main { max-width: 860px; margin: 0 auto; }
+h1 { font-size: 1.9rem; margin: 0; letter-spacing: .03em; }
+h1 a { color: inherit; text-decoration: none; }
+.tag, .note { color: var(--muted); margin: .3rem 0 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 18px 0; }
+button, select { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+button.hot { background: var(--hot); color: #fff; border-color: var(--hot); }
+button:disabled { opacity: .45; cursor: default; }
+#status { color: var(--muted); }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 16px; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .08em; color: var(--hot); margin: 18px 0 6px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px 18px; }
+.f { background: var(--card); border-radius: 10px; padding: 8px 10px; }
+.f label { display: flex; justify-content: space-between; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+.f output { font-variant-numeric: tabular-nums; color: var(--hot); }
+.f input { width: 100%; accent-color: var(--hot); }
+.lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.slot { background: var(--card); border-radius: 10px; padding: 8px 10px; font-size: .9rem; }
+.slot b { display: block; font-variant-numeric: tabular-nums; }
+.slot .empty { color: var(--muted); }
+.slot button { padding: 2px 8px; margin: 4px 4px 0 0; font-size: .8rem; }
+footer { color: var(--muted); font-size: .9rem; margin-top: 32px; }
+</style>
+</head>
+<body>
+<main>
+<h1><a href="../">DUBWISE</a> sound editor</h1>
+<p class="tag">Every voice of an FM-1 running Dubwise, from your browser over USB MIDI. Your edits go in as if turned on the
+desk: the song captures them and HOME + REC undoes them.</p>
+<div class="bar">
+  <button id="connect" class="hot">Connect</button>
+  <select id="port" aria-label="MIDI port"></select>
+  <span id="status">Needs a browser with WebMIDI (Chrome, Edge) and the FM-1 on USB.</span>
+</div>
+<div class="tabs" role="tablist" id="tabs"></div>
+<div id="fields"></div>
+<h2>Your patches on the FM-1</h2>
+<p class="note">Load one into the sound, or keep the sound in a slot (stop the FM-1 first: it won't write its memory while playing).</p>
+<div class="bar"><button id="list" disabled>Read the 16 slots</button></div>
+<div class="lib" id="lib"></div>
+<h2>Files</h2>
+<div class="bar">
+  <button id="save" disabled>Save the sound to a file</button>
+  <label><button id="openbtn" disabled>Open a file into the sound</button>
+  <input type="file" id="open" accept=".dwpatch" hidden></label>
+</div>
+<p class="note">A .dwpatch file is one channel's sound (48 bytes), the same as <code>tools/dubwise_slots.py patch</code> makes.</p>
+<footer>GPL-3.0 · <a href="https://github.com/DocRuzzy/dubwise-fm">source on GitHub</a> · not affiliated with M-VAVE</footer>
+</main>
+<script src="fields.js"></script>
+<script>
+"use strict";
+const CH = ["KICK", "SNARE", "HATS", "BASS", "SKANK", "ORGAN", "LEAD", "VOX"];
+const HDR = [0x7D, 0x44, 0x57];
+let inp = null, out = null, ch = 0, pending = {};
+const $ = (id) => document.getElementById(id);
+const say = (t) => { $("status").textContent = t; };
+
+function pack7(b) {
+  const o = [];
+  for (let i = 0; i < b.length; i += 7) {
+    const c = b.slice(i, i + 7); let top = 0;
+    c.forEach((v, k) => { top |= (v >> 7) << k; });
+    o.push(top, ...c.map((v) => v & 0x7F));
+  }
+  return o;
+}
+function unpack7(d) {
+  const o = [];
+  for (let i = 0; i < d.length;) {
+    const top = d[i++];
+    for (let k = 0; k < 7 && i < d.length; k++) o.push(d[i++] | (((top >> k) & 1) << 7));
+  }
+  return o;
+}
+function crc16(b) {
+  let c = 0xFFFF;
+  for (const v of b) { c ^= v << 8; for (let k = 0; k < 8; k++) c = (c & 0x8000 ? (c << 1) ^ 0x1021 : c << 1) & 0xFFFF; }
+  return c;
+}
+function send(body) { if (out) out.send([0xF0, ...HDR, ...body, 0xF7]); }
+function patchName(p) { return String.fromCharCode(...p.slice(4, 12).filter((v) => v)); }
+function patchOk(p) { return p.length >= 48 && (p[3] & 1) && (p[44] | p[45] << 8) === crc16(p.slice(0, 44)); }
+
+// the sound: one slider a field, MAIN (the macros) first
+function fieldsOf(c) { return FIELDS.filter((x) => x.ch === c); }
+function label(x) { return x.name.replace(/^m\./, ""); }
+function draw() {
+  const box = $("fields"); box.innerHTML = "";
+  const all = fieldsOf(ch), main = all.filter((x) => x.f >= 28), raw = all.filter((x) => x.f < 28);
+  for (const [title, list] of [["Main", main], ["Every setting", raw]]) {
+    if (!list.length) continue;
+    const h = document.createElement("h2"); h.textContent = title; box.append(h);
+    const g = document.createElement("div"); g.className = "grid";
+    for (const x of list) {
+      const d = document.createElement("div"); d.className = "f";
+      d.innerHTML = `<label for="f${x.id}"><span>${label(x)}</span><output id="o${x.id}">${x.def}</output></label>` +
+        `<input type="range" id="f${x.id}" min="${x.min}" max="${x.max}" value="${x.def}">`;
+      const r = d.querySelector("input");
+      r.addEventListener("input", () => { $("o" + x.id).textContent = r.value; setField(x.id, +r.value); });
+      g.append(d);
+    }
+    box.append(g);
+  }
+}
+function setField(id, v) {                        // (a slider's run: at most one message a field every 25 ms)
+  pending[id] = v;
+  if (pending["t" + id]) return;
+  pending["t" + id] = setTimeout(() => {
+    const w = pending[id] + 8192; delete pending["t" + id];
+    send([0x40, id & 0x7F, (id >> 7) & 0x7F, w & 0x7F, (w >> 7) & 0x7F]);
+  }, 25);
+}
+function showPatch(p) {                           // a patch's values onto the sliders (the macros too)
+  for (const x of fieldsOf(ch)) {
+    const v = (p[12 + x.f] << 24) >> 24, r = $("f" + x.id);
+    if (r) { r.value = v; $("o" + x.id).textContent = v; }
+  }
+}
+function tabs() {
+  const t = $("tabs"); t.innerHTML = "";
+  CH.forEach((n, i) => {
+    const b = document.createElement("button"); b.textContent = n; b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", i === ch ? "true" : "false");
+    b.onclick = () => { ch = i; tabs(); draw(); $("lib").innerHTML = ""; send([0x36, ch]); };
+    t.append(b);
+  });
+}
+
+// replies from the FM-1
+let library = {}, waitCurrent = null;
+function onMsg(e) {
+  const d = [...e.data];
+  if (d[0] !== 0xF0 || d[1] !== HDR[0] || d[2] !== HDR[1] || d[3] !== HDR[2]) return;
+  const cmd = d[4], c = d[5], s = d[6];
+  if (c !== ch) return;
+  if (cmd === 0x32) {
+    const p = unpack7(d.slice(7, -1)).slice(0, 48);
+    if (s === 0x7F) { if (waitCurrent) { waitCurrent(p); waitCurrent = null; } else showPatch(p); }
+    else { library[s] = p; libDraw(); }
+  } else if (cmd === 0x13) { library[s] = null; libDraw(); }
+  else if (cmd === 0x16) say(s === 0x7F ? "Loaded into the sound." : `Kept in slot ${s + 1}.`);
+  else if (cmd === 0x15) say("Refused: stop the FM-1 first (or the patch is for another channel, or damaged).");
+}
+function libDraw() {
+  const box = $("lib"); box.innerHTML = "";
+  for (let s = 0; s < 16; s++) {
+    const p = library[s], d = document.createElement("div"); d.className = "slot";
+    d.innerHTML = `<b>${s + 1}</b>` + (p ? patchName(p) : '<span class="empty">empty</span>') + "<br>";
+    if (p) {
+      const l = document.createElement("button"); l.textContent = "Load";
+      l.onclick = () => { send([0x37, ch, ...pack7(p)]); setTimeout(() => send([0x36, ch]), 80); };
+      d.append(l);
+    }
+    const k = document.createElement("button"); k.textContent = "Keep here";
+    k.onclick = () => keepIn(s);
+    d.append(k);
+    box.append(d);
+  }
+}
+function current() { return new Promise((res) => { waitCurrent = res; send([0x36, ch]); }); }
+async function keepIn(s) {                        // the sound as it is, named BASS 03 ..., into slot s
+  const p = await current(), name = (CH[ch].slice(0, 5) + " " + String(s + 1).padStart(2, "0")).slice(0, 8);
+  for (let i = 0; i < 8; i++) p[4 + i] = i < name.length ? name.charCodeAt(i) : 0;
+  const c = crc16(p.slice(0, 44)); p[44] = c & 0xFF; p[45] = c >> 8;
+  send([0x33, ch, s, ...pack7(p)]);
+  setTimeout(() => send([0x31, ch, s]), 120);
+}
+
+$("connect").onclick = async () => {
+  if (!navigator.requestMIDIAccess) { say("This browser has no WebMIDI: try Chrome or Edge."); return; }
+  try {
+    const m = await navigator.requestMIDIAccess({ sysex: true });
+    const outs = [...m.outputs.values()], ins = [...m.inputs.values()];
+    const sel = $("port"); sel.innerHTML = "";
+    outs.forEach((o, i) => { const op = document.createElement("option"); op.value = i; op.textContent = o.name; sel.append(op); });
+    const pick = outs.findIndex((o) => /DUBWISE|FM-1/i.test(o.name));
+    sel.value = pick >= 0 ? pick : 0;
+    const use = () => {
+      out = outs[+sel.value]; inp = ins.find((x) => x.name === out?.name) || ins[+sel.value] || null;
+      if (inp) inp.onmidimessage = onMsg;
+      ["list", "save", "openbtn"].forEach((id) => { $(id).disabled = !out; });
+      say(out ? `Connected: ${out.name}.` : "No MIDI output found.");
+      send([0x36, ch]);
+    };
+    sel.onchange = use; use();
+  } catch (err) { say("MIDI refused: allow it in the browser's site settings (SysEx too)."); }
+};
+$("list").onclick = () => { library = {}; libDraw(); send([0x34, ch]); };
+$("save").onclick = async () => {
+  const p = await current(), a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([new Uint8Array(p)], { type: "application/octet-stream" }));
+  a.download = `${CH[ch].toLowerCase()}.dwpatch`; a.click();
+};
+$("openbtn").onclick = () => $("open").click();
+$("open").onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const p = [...new Uint8Array(await f.arrayBuffer())];
+  if (!patchOk(p)) { say("Not a Dubwise patch (or damaged)."); return; }
+  if (p[1] !== ch) { say(`That patch is for ${CH[p[1]]}: pick its tab first.`); return; }
+  send([0x37, ch, ...pack7(p.slice(0, 48))]);
+  setTimeout(() => send([0x36, ch]), 80);
+};
+tabs(); draw();
+</script>
+</body>
+</html>

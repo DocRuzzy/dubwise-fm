@@ -401,6 +401,12 @@ python3 tools/dubwise_slots.py patch name mybass.dwpatch "SUB ROLL"   # rename a
 
 A `.dwpatch` file is one channel's sound (48 bytes); it goes back onto the same channel.
 
+**The sound editor in your browser.** On the project's site, the Sound editor page shows every setting of all eight
+voices as sliders. Connect the FM-1 over USB, press Connect (Chrome or Edge: they let a page talk MIDI; allow SysEx when
+asked), pick a channel's tab and move the sliders: the FM-1 changes as if you'd turned its knobs, so a song that's
+capturing keeps the moves and HOME + REC undoes them. The page also reads your 16 patches a channel, loads one into the
+sound or keeps the sound in a slot, and saves or opens `.dwpatch` files.
+
 ---
 
 ## For those who read to the end
