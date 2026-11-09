@@ -1196,6 +1196,17 @@ static int source(uint32_t ch, float *o, uint32_t n)   /* the channel's sound, m
 }
 
 /* ----------------------------------------------------------------- render --- */
+/* the stems (QoL 4: the USB recording's channels 3-10, eng_stems): eight a frame, the block's, full scale 1.0 */
+#define NSTEM 8u
+static PLAT_POOL float stemf[ENG_BLOCK * NSTEM];
+static uint32_t stem_mode = STEMS_OFF, stem_at;   /* (this block's; render_seg's segment from stem_at) */
+static inline void stem_add(uint32_t i, uint32_t k, float x) { stemf[(stem_at + i) * NSTEM + k] += x; }
+static uint32_t stem_col(uint32_t ch)            /* the channel's stem: its own, or its bus's */
+{
+    static const uint8_t BUS[NCH] = {0, 0, 0, 1, 2, 2, 3, 3};   /* drums, bass, chords, lead and vox */
+    return stem_mode == STEMS_CHANNELS ? ch : BUS[ch];
+}
+
 static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the parameters as they are now */
 {
     uint32_t ch, i;
@@ -1228,15 +1239,22 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
                 ebus[i] += ramp_next(&s->echo) * x;
                 sbus[i] += ramp_next(&s->spring) * x;
                 pk = fm_maxf(pk, fm_fabsf(d));
+                if (stem_mode != STEMS_OFF)
+                    stem_add(i, stem_col(ch), d);
             }
         } else {                                 /* (most blocks) still: constant gains, a send at 0 skipped */
             float gd = s->dry.g, ge = s->echo.g, gs = s->spring.g;
-            if (gd != 0.0f)
+            if (gd != 0.0f) {
+                uint32_t k = stem_col(ch);
                 for (i = 0; i < n; i++) {
                     float d = gd * buf[i];
                     dry[i] += d;
                     pk = fm_maxf(pk, fm_fabsf(d));
                 }
+                if (stem_mode != STEMS_OFF)
+                    for (i = 0; i < n; i++)
+                        stem_add(i, k, gd * buf[i]);
+            }
             if (ge != 0.0f)
                 for (i = 0; i < n; i++)
                     ebus[i] += ge * buf[i];
@@ -1287,6 +1305,12 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             srp = fm_maxf(srp, fm_maxf(fm_fabsf(sr), fm_fabsf(srr)));
             dryr[i] = dry[i] + rr + srr;         /* the mono dry path to both sides; the returns stereo */
             dry[i] += r + sr;
+            if (stem_mode == STEMS_BUSES) {      /* the returns, L R: the echo's on 5-6, the spring's on 7-8 */
+                stem_add(i, 4, r);
+                stem_add(i, 5, rr);
+                stem_add(i, 6, sr);
+                stem_add(i, 7, srr);
+            }
         }
         spring_ret_peak = srp;
         if (ph_on == PH_MIX)                     /* the phaser on the whole mix: both sides the same sweep */
@@ -1317,6 +1341,18 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
     echo_peak = ep;
     spring_peak = sp;
     prof_mark(PART_OUT);
+}
+
+const float *eng_stems(int want)                 /* before eng_render: 1 = a computer records (the stems for this block)
+                                                  * (0: none made); the block's frames, NSTEM floats each */
+{
+    uint32_t i;
+    stem_mode = want ? (uint32_t)ev[P_USB_STEMS] : STEMS_OFF;
+    if (stem_mode == STEMS_OFF)
+        return 0;
+    for (i = 0; i < ENG_BLOCK * NSTEM; i++)
+        stemf[i] = 0.0f;
+    return stemf;
 }
 
 void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
@@ -1385,6 +1421,7 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         if (pos >= n)
             break;
         live_at = pos;
+        stem_at = pos;
         render_seg(lr + 2u * pos, d, gain);
         if (t_playing)
             t_step(d);

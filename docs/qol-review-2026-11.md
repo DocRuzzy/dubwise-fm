@@ -37,7 +37,7 @@ Hortator, Bubba Machine and Felucca [Salt] couldn't be found, and TRIBE's reposi
 | Screen mirror (play the panel from a computer) | LOOM-8; fm1-base `mirror` | **Yes** (2026-11-09: `mirror = true`, `app_redraw`) |
 | USB MIDI host (a keyboard straight into the FM-1) | LOOM-8, Melodee; fm1-base `usb_host` | No |
 | MIDI learn (a controller knob to any parameter) | SLOOP, Melodee, GR!MM, FM Stud1o | No |
-| Per-channel USB audio (each track separately into a DAW) | fm1-base `usb_audio_channels` | No |
+| Per-channel USB audio (each track separately into a DAW) | fm1-base `usb_audio_channels` | **Yes** (2026-11-09: 10 channels, SETUP USB STEMS: channels or buses) |
 | MIDI timestamps on arrival (tighter clock in) | fm1-base `midi_stamp` | **Yes** (2026-11-09: `midi_stamp = true`, clock in uses it) |
 | Clock follows only the device that sent Start; stops after 0.5 s of silence | Amenity | No |
 | Encoder acceleration | ORBIT, Amenity | No |

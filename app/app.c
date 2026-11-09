@@ -129,11 +129,35 @@ void app_tick(void)                     /* 1 kHz: the MIDI clock's messages, eac
         plat_midi_send(0x0Fu | st << 8, TO_USB);
 }
 
+static float stem_pk[8];                 /* (tests: the stems' peaks, 16-bit full scale) */
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
+    uint32_t run = 0;
+    int16_t *u = PLAT_USB_CH >= 8 ? plat_usb_ch(0, &run) : 0;   /* (a computer recording the channels 3-10) */
+    const float *st;
     midi_in();
     live_in(n);
+    st = eng_stems(u != 0);
     eng_render(lr, n, master_q12);       /* the commands queued, the channels, the mix (engine/engine.c) */
+    if (st) {                            /* the stems into the USB recording (QoL 4), 16-bit, where the ring has them */
+        uint32_t f, k;
+        for (f = 0; f < n; f++) {
+            if (!run) {
+                u = plat_usb_ch(f, &run);
+                if (!u)
+                    break;
+            }
+            for (k = 0; k < 8u; k++) {
+                float x = st[f * 8u + k] * 32767.0f;
+                int32_t v = (int32_t)(x > 32767.0f ? 32767.0f : x < -32767.0f ? -32767.0f : x);
+                if (fm_fabsf(x) > stem_pk[k])
+                    stem_pk[k] = fm_fabsf(x);
+                u[k] = (int16_t)(u[k] + v);
+            }
+            u += PLAT_USB_CH_STRIDE;
+            run--;
+        }
+    }
 }
 
 void app_panic(void) { eng_panic(); }
@@ -517,7 +541,11 @@ int app_expect(const char *what, int *got)
         *got = what[0] == 'e' ? eng_param((uint32_t)id) : ctl_get((uint32_t)id);
     } else if (!strncmp(what, "ch", 2) && what[2] >= '1' && what[2] <= '8' && !strcmp(what + 3, "_db"))
         *got = peak_db(eng_ch_peak((uint32_t)(what[2] - '1')));   /* post-fader, dBFS (-120: silent) */
-    else if (!strcmp(what, "out_db"))        /* the mix, before MASTER */
+    else if (!strncmp(what, "stem", 4) && what[4] >= '1' && what[4] <= '8' && !strcmp(what + 5, "_db")) {
+        float pk = stem_pk[what[4] - '1'] / 32767.0f;   /* stemN_db: USB channel N + 2's peak since the last look */
+        stem_pk[what[4] - '1'] = 0.0f;
+        *got = peak_db(pk);
+    } else if (!strcmp(what, "out_db"))        /* the mix, before MASTER */
         *got = peak_db(eng_out_peak());
     else if (!strcmp(what, "echo_db"))
         *got = peak_db(eng_echo_peak());

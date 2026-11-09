@@ -128,6 +128,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | REC MODE | Recording into a pattern with steps: OVERDUB (adds) or REPLACE (clears what the playhead passes, keeping what you play). |
 | REC OFFSET | 0–60 ms (12 by default) taken off each played note's time, for the sound's way to your ears. |
 | CLICK | COUNT-IN (the default: a click on every beat while a pass waits for its line), RECORDING (and while recording), or OFF. |
+| USB STEMS | What a computer recording the FM-1 over USB gets on channels 3–10, beside the mix on 1–2: CHANNELS (the default: each of the eight channels on its own, dry, after its fader and mute), BUSES (drums, bass, chords, lead and vox, then the echo's return left and right and the spring's left and right), or OFF. |
 | AUTOSAVE | ON (the default): what SAVE keeps is saved by itself once you've stopped and left the FM-1 alone for a few seconds (and the echo has died away), so switching off never loses a session; SAVE's light going out says it's done. OFF: only SAVE saves. |
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
@@ -312,7 +313,7 @@ The keys sense how hard you play them, with no change to the FM-1. The 20 lowest
 (F3 to C5) give velocity and pressure. The top seven give velocity only.
 
 Over the USB cable, the FM-1 is also a sound card. Your computer can record what it plays from an input named
-"DUBWISE FM-1". It can also play through the FM-1: choose "DUBWISE FM-1" as the output, and you'll hear it from
+"DUBWISE FM-1": ten channels, the mix on 1–2 and the stems on 3–10 (see "Recording into a computer" below). It can also play through the FM-1: choose "DUBWISE FM-1" as the output, and you'll hear it from
 the FM-1's speaker and headphones, mixed with the FM-1's own sound, at MASTER's volume.
 
 **Live input (coming).** In a future firmware, your computer's audio will come in on channel 8 instead, so you can mix
@@ -322,6 +323,12 @@ been proposed upstream. Until that change lands, the computer's audio is mixed i
 nothing.
 
 ---
+
+**Recording into a computer.** Over USB the FM-1 is an audio interface with ten channels in: the mix on 1–2, and
+on 3–10 the stems SETUP's USB STEMS chooses. CHANNELS gives each channel dry, as the desk hears it before the
+effects: record a take as a multitrack, the way a dub was mixed from the tape. BUSES gives the drums, bass, chords and
+lead with vox, and the echo's and the spring's returns in stereo: mix the dub again in your computer, or keep the
+effects as they happened. 16-bit, 44.1 kHz; MASTER doesn't change the stems' level.
 
 **Screen mirror.** Over USB, a computer can show the FM-1's screen and panel, and you can play the panel from it:
 fm1-base's mirror page (base/web/mirror/) or `tools/fm1_mirror.py`. Handy for teaching, streaming or a screen
