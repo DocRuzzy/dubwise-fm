@@ -5,17 +5,18 @@
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
 enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_SAVER, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_HPF_RES, SU_THROW_VEL, SU_CLOCK,
-       SU_TIER, SU_PERF, SU_AUTOSAVE, SU_REC_QUANT, SU_REC_MODE, SU_REC_OFFSET, SU_REC_CLICK, SU_STEMS, SU_LEARN, SU_USB_PORT, SU_DICE_LINE, SU_TONES, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_KIT, SU_DEMO, SU_STEPPERS, SU_NEW, SU_N };
+       SU_TIER, SU_PERF, SU_AUTOSAVE, SU_REC_QUANT, SU_REC_MODE, SU_REC_OFFSET, SU_REC_CLICK, SU_STEMS, SU_LEARN, SU_USB_PORT, SU_DICE_LINE, SU_HELP, SU_TONES, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_KIT, SU_DEMO, SU_STEPPERS, SU_NEW, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
                                           "REDUCED MOTION", "SCREEN SAVER", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "BIG KNOB STEPS",
                                           "THROW VELOCITY", "MIDI CLOCK", "GUARD TIER",
                                           "PERFORMANCE", "AUTOSAVE", "REC QUANTISE", "REC MODE", "REC OFFSET", "CLICK", "USB STEMS", "MIDI LEARN", "USB PORT",
-                                          "DICE ON LINE", "TEST TONES", "SAVE TO SLOT", "LOAD SLOT", "LOAD KIT", "DEMO SONG", "UK STEPPERS",
+                                          "DICE ON LINE", "HELP", "TEST TONES", "SAVE TO SLOT", "LOAD SLOT", "LOAD KIT", "DEMO SONG", "UK STEPPERS",
                                           "NEW PROJECT"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_SAVER, P_LEAD,
                                      P_LOCK_MIDI, P_HPF_ON, P_HPF_RES, P_THROW_VEL, P_CLOCK, P_TIER_LOCK, 0, P_AUTOSAVE, P_REC_QUANT, P_REC_MODE,
-                                     P_REC_OFFSET, P_REC_CLICK, P_USB_STEMS, 0, P_USB_PORT, P_DICE_LINE, P_DEV_TONES, 0, 0, 0, 0, 0, 0};
+                                     P_REC_OFFSET, P_REC_CLICK, P_USB_STEMS, 0, P_USB_PORT, P_DICE_LINE, 0, P_DEV_TONES, 0, 0, 0, 0, 0, 0};
 static int32_t su_cur;
+static void help_index_step(int32_t e);          /* (help.c) */
 static uint32_t su_sig;
 
 static void su_value(uint32_t i, char *t)        /* (t: 24 bytes) */
@@ -29,6 +30,8 @@ static void su_value(uint32_t i, char *t)        /* (t: 24 bytes) */
         text_cat(t, v == 0 && i == SU_RUNWAY ? " BAR" : " BARS");
     } else if (i == SU_SLOT_SAVE || i == SU_SLOT_LOAD) {
         slot_value(t, i == SU_SLOT_LOAD);
+    } else if (i == SU_HELP) {                   /* every help card (5.11) */
+        text_cat(t, "K2: READ THEM");
     } else if (i == SU_KIT) {                    /* factory kits (5.5; kits.c) */
         kit_value(t);
     } else if (i == SU_CLOCK) {
@@ -109,6 +112,10 @@ static void setup_change(int32_t e)
     if (su_cur == SU_SLOT_SAVE || su_cur == SU_SLOT_LOAD) {   /* KNOB 2 picks the slot; SAVE does it */
         slot_pick(e);
         setup_say();
+        return;
+    }
+    if (su_cur == SU_HELP) {                     /* KNOB 2: the help cards, one after another (5.11) */
+        help_index_step(e);
         return;
     }
     if (su_cur == SU_KIT) {                      /* KNOB 2 picks the kit (KNOB 3 the bus); SAVE loads it */

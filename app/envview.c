@@ -5,7 +5,7 @@
  * line) and a second curve (amber): the kick's pitch falling, the rim's index (or the SYNDRUM's drop), the open hat
  * over the closed one, the bass's pluck, the skank's bite, the lead's vibrato, the siren's sweep. Each hit (the
  * engine's count, eng_trig_count) starts a playhead across them, redrawn at ~20 Hz in the centre's rectangle only.
- * Reduced motion: no playhead. The shapes follow voices.c, chordv.c and fxv.c's formulas (not their sound): a guide
+ * Reduced motion: no playhead. Its title is the patch shown and the bank (the footer has no room for it). The shapes follow voices.c, chordv.c and fxv.c's formulas (not their sound): a guide
  * for the hand, not a scope. Part of the unity build: dub.c includes it. UI only. */
 
 typedef struct {
@@ -117,7 +117,8 @@ static struct {
     int32_t ch;
 } envv = {0, 0, 0, -1};
 
-static int env_view(void) { return dub.sound && dub.page == PAGE_DUB && voice_fields(dub.focus) && !dice_bank(); }
+static void sound_title(char *t);                /* (dub.c: the patch shown and the bank: "BASS 07* DICE") */
+static int env_view(void) { return dub.sound && dub.page == PAGE_DUB && voice_fields(dub.focus); }
 
 static void env_tick(uint32_t now)               /* every frame: a hit starts the playhead; it moves at ~20 Hz */
 {
@@ -150,13 +151,15 @@ static void env_draw(void)                       /* (draw_centre) the shapes, th
 {
     env_t e = env_of((uint32_t)dub.focus);
     int32_t x, x0 = 8, w = 224, y0 = 18, h = 50, lx, ly = -1;
-    char t[16], n[8];
+    char t[16], n[8];   /* (t: the width's text) */
     uint32_t now = plat_ms();
     envv.drawn_ms = now;
-    t[0] = 0;
-    text_cat(t, CH_NAME[dub.focus]);
-    cv_text(8, 4, &FONT_XS, t, C_GRAY);
-    lx = cv_text(80, 4, &FONT_XS, "LEVEL", C_WHITE);
+    {                                    /* the patch and the bank (here, not the footer: room; 5.11) */
+        char tt[28];
+        sound_title(tt);
+        cv_text(8, 4, &FONT_XS, tt, C_AMB);
+    }
+    lx = cv_text(112, 4, &FONT_XS, "LEVEL", C_WHITE);
     cv_text(lx + 10, 4, &FONT_XS, e.what, C_AMB);
     int_text((int32_t)(e.span + 0.5f), n);
     t[0] = 0;

@@ -133,6 +133,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | USB PORT | COMPUTER (the default) or KEYBOARD: a USB-MIDI keyboard or controller plugged into the FM-1 itself, through a powered hub or adapter (the FM-1 gives the port no power). It plays as MIDI does (below), and its knobs work as learned. While it's a keyboard, there's no computer: no USB audio, mirror or backup. |
 | AUTOSAVE | ON (the default): what SAVE keeps is saved by itself once you've stopped and left the FM-1 alone for a few seconds (and the echo has died away), so switching off never loses a session; SAVE's light going out says it's done. OFF: only SAVE saves. |
 | DICE ON LINE | OFF (the default): a Dice roll lands at once. ON: while playing, it waits for the next quantise line, like a cued mute. |
+| HELP | Every help card, to read anywhere: turn KNOB 2 and each card comes up in turn (the same cards as holding a button for a second). Any press puts the page back. |
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
@@ -147,7 +148,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 
 ![The STEPS page: every channel's 16 steps at the top, the bass's below with its notes; LEN 16, RIDDIM ONE DROP](img/screen-steps.png "The STEPS page")
 
-Press SEQ for the steps, HOME to go back to the DUB page. The top shows every channel's 16 steps, the middle the
+Press SEQ for the steps, HOME to go back to the DUB page. From the DUB page, hold a channel's mute key and press SEQ to land straight on that channel (its mute stays as it was). The top shows every channel's 16 steps, the middle the
 channel you're editing, bigger, with its notes.
 
 | Control | What it does |

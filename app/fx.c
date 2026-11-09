@@ -143,8 +143,28 @@ static void fx_draw(int all)
         return;
     fx_sig = sig;
     cv_begin(240, PAGE_H, C_BLACK);
-    for (i = 0; i < FX_NBANKS; i++)              /* the banks, this one lit */
-        cv_text(6 + (int32_t)i * 70, 2, &FONT_XS, FX_BANK[i].title, i == fx_bank ? C_HI : C_DIM);
+    {                                            /* the banks, this one lit, in view (the tabs scroll: 5.11) */
+        uint32_t first = 0;
+        int32_t x, w;
+        for (;;) {                               /* (the first tab from which this one fits on the screen) */
+            for (x = 6, i = first; i <= fx_bank; i++)
+                x += text_w(&FONT_XS, FX_BANK[i].title) + 12;
+            if (x - 12 <= 234 || first == fx_bank)
+                break;
+            first++;
+        }
+        if (first)
+            cv_text(0, 2, &FONT_XS, "<", C_DIM);
+        for (x = 6, i = first; i < FX_NBANKS && x < 234; i++) {
+            w = text_w(&FONT_XS, FX_BANK[i].title);
+            if (x + w > 234) {
+                cv_text(234, 2, &FONT_XS, ">", C_DIM);
+                break;
+            }
+            cv_text(x, 2, &FONT_XS, FX_BANK[i].title, i == fx_bank ? C_HI : C_DIM);
+            x += w + 12;
+        }
+    }
     for (i = 0; i < 4u; i++) {
         int32_t y = 26 + (int32_t)i * 28;
         if (!b->id[i])
@@ -162,7 +182,7 @@ static void fx_draw(int all)
         int32_t x = 6 + (int32_t)i * 59;
         cv_text(x, 4, &FONT_XS, b->label[i], C_GRAY);
         fx_value(b->id[i], t);
-        cv_text(x, 18, &FONT_XS, t, C_HI);
+        cv_text(x, 18, &FONT_B, t, C_HI);   /* (a value: the page font, never the smallest; 5.11) */
     }
     cv_blit(0, FOOT_Y);
 }

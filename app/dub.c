@@ -101,7 +101,7 @@ static void undo_reset(void);
 static void undo_live_set(int on);
 static void undo_join(void);
 static int help_input(uint32_t *keys, uint32_t *btn, uint32_t now);   /* (help.c: help cards, tap tempo) */
-static void help_turned(void);
+static void help_turned(uint32_t enc);
 static int help_ate_release(uint32_t k);
 static void tap_tempo(uint32_t now);
 static void slot_sx_tick(void);
@@ -421,6 +421,7 @@ static void quant_step(int32_t d)
     app_say("QUANTISE", quant_name(q));
 }
 
+static int32_t held_mute(void);          /* (below: the mute key held, -1 none) */
 static void button_press(uint32_t k)
 {
     if ((k == B_OCTDN || k == B_OCTUP) && dub.page == PAGE_STEPS)
@@ -435,6 +436,17 @@ static void button_press(uint32_t k)
     } else if (k == B_SEQ && dub.page == PAGE_STEPS && st.kb) {   /* SEQ on the keyboard: the steps again */
         kb_off();
         app_say("STEPS", CH_NAME[st.ch]);
+    } else if (k == B_SEQ && dub.page == PAGE_DUB && held_mute() >= 0) {   /* a mute key held + SEQ: STEPS on that
+                                                                         * channel's patterns (5.11, spec 4.11) */
+        int32_t ch = held_mute();
+        if (!dub.dbl[ch]) {              /* (the hold is for choosing: the mute stays as it was) */
+            dub.dbl[ch] = 1;
+            ctl_cue(P_CH(ch, CHF_MUTE), dub.m0[ch], act_beats());
+        }
+        st.ch = ch;
+        st.last = -1;
+        dub.page = PAGE_STEPS;
+        app_say("STEPS", CH_NAME[ch]);
     } else if (k == B_SEQ) {
         dub.page = PAGE_STEPS;
         app_say("STEPS", CH_NAME[st.ch]);
@@ -495,7 +507,7 @@ static void button_press(uint32_t k)
         dub.sound = (uint8_t)(dub.sound + 1u);
         if (dub.sound > sound_banks(dub.focus))
             dub.sound = 0;
-        dub.dirty_foot = 1;
+        dub.dirty_foot = dub.dirty_centre = 1;
         if (dub.sound) {                 /* "SOUND" "KICK MAIN" / "KICK 2" (spec 4.9) */
             char t[20], b[4];
             t[0] = 0;
@@ -657,6 +669,28 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "saver.c"                       /* the boot splash and the screen saver (GPL-3.0-only) */
 #include "slots.c"                       /* song slots (GPL-3.0-only) */
 #include "patches.c"                     /* sound patches (GPL-3.0-only; roadmap 5.4) */
+
+static void sound_title(char *t2)        /* the SOUND view's title: the patch shown (* edited since) and the bank */
+{
+    patch_t pp;
+    t2[0] = 0;
+    if (pl_get((uint32_t)dub.focus, pl_pos[dub.focus], &pp)) {
+        pl_name(&pp, t2);
+        if (pl_edited((uint32_t)dub.focus))
+            text_cat(t2, "*");
+    } else
+        text_cat(t2, CH_NAME[dub.focus]);
+    if (dub.sound == 1u && has_main(dub.focus))
+        text_cat(t2, "  MAIN");
+    else if (dice_bank())
+        text_cat(t2, "  DICE");
+    else {
+        char b[4];
+        int_text((int32_t)dub.sound - has_main(dub.focus), b);
+        text_cat(t2, "  BANK ");
+        text_cat(t2, b);
+    }
+}
 #include "undo.c"                        /* undo and redo (GPL-3.0-only) */
 #include "help.c"                        /* help cards and tap tempo (GPL-3.0-only) */
 #include "midilearn.c"                   /* MIDI learn and the USB MIDI host (GPL-3.0-only) */
@@ -939,7 +973,7 @@ encoders:
     for (k = 0; k < NE; k++)
         if ((e = plat_enc((int)k)) != 0) {
             saver_touch(now);
-            help_turned();
+            help_turned(k);
             undo_mark(0x200u + k, now);  /* (a knob's turns run together) */
             encoder(k, e);
         }
@@ -1300,28 +1334,6 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
     }
     if (ch >= 0)
         cv_text(234 - text_w(&FONT_T, CH_NAME[ch]), 4, &FONT_T, CH_NAME[ch], C_AMB);
-    else if (dub.sound && held_throw() < 0) {   /* which voice, which bank */
-        char t2[28];
-        patch_t pp;
-        t2[0] = 0;
-        if (pl_get((uint32_t)dub.focus, pl_pos[dub.focus], &pp)) {   /* the patch shown (5.4), * when edited since */
-            pl_name(&pp, t2);
-            if (pl_edited((uint32_t)dub.focus))
-                text_cat(t2, "*");
-        } else
-            text_cat(t2, CH_NAME[dub.focus]);
-        if (dub.sound == 1u && has_main(dub.focus))
-            text_cat(t2, " MAIN");
-        else if (dice_bank())
-            text_cat(t2, " DICE");
-        else {
-            char b[4];
-            int_text((int32_t)dub.sound - has_main(dub.focus), b);
-            text_cat(t2, " ");
-            text_cat(t2, b);
-        }
-        cv_text(234 - text_w(&FONT_T, t2), 4, &FONT_T, t2, C_AMB);
-    }
     cv_blit(0, FOOT_Y);
 }
 
@@ -1499,6 +1511,10 @@ void dub_draw(void)
         fx_sig = 0;
         arr.sig = 0;
         perf_t = 0;
+        if (dub.page == PAGE_DUB) {      /* (the rows DUB doesn't draw: what another page left there, cleared; 5.11) */
+            lcd_fill(0, STRIP_Y + STRIP_H, 240, CENTRE_Y - STRIP_Y - STRIP_H, C_BLACK);
+            lcd_fill(0, CENTRE_Y + CENTRE_H, 240, FOOT_Y - CENTRE_Y - CENTRE_H, C_BLACK);
+        }
     }
     if (help.up) {                       /* a help card in the page's place */
         drew |= !help.drawn;

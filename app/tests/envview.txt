@@ -1,6 +1,6 @@
 # The live envelope view (roadmap 5.10; app/envview.c): the SOUND view's centre draws the focused voice's loudness and
 # a second curve from its settings; a knob reshapes them at once; each hit starts a playhead across them (~20 Hz);
-# reduced motion: no playhead; not on the DICE bank (its knobs aren't the voice's).
+# reduced motion: no playhead; on the DICE bank too (what a roll did, seen).
 wait 600
 listen
 expect env_view 0
@@ -29,12 +29,12 @@ midi 99 24 7F
 wait 100
 expect env_playhead 0
 param reduced 0
-# the DICE bank: the echo's centre again
+# the DICE bank: the shapes too (what a roll does, seen)
 tap EDIT
 tap EDIT
 wait 30
 expect dice_bank 1
-expect env_view 0
+expect env_view 1
 # the bass: held and let go (400 ms drawn held, the 60 ms release)
 tap EDIT
 wait 30

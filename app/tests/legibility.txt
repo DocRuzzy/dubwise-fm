@@ -1,0 +1,39 @@
+# Legibility and reach (roadmap 5.11; spec 4.11, 5.5): a mute key held + SEQ opens STEPS on that channel (the mute
+# left as it was), HOME returns; SETUP -> HELP shows every help card in turn with KNOB 2, a press closes it.
+wait 600
+listen
+# the bass's mute key held + SEQ: STEPS on the bass, its mute as it was
+key w3 down
+wait 30
+tap SEQ
+wait 30
+key w3 up
+wait 30
+said STEPS BASS
+expect page 1
+expect steps_ch 4
+expect ui.ch4.mute 0
+tap HOME
+wait 30
+expect page 0
+# SETUP -> HELP: KNOB 2 reads the cards one after another; a press closes
+tap GLO
+wait 30
+turn K1 24
+wait 30
+said HELP K2: READ THEM
+turn K2 1
+wait 30
+expect help 6
+said HOME
+turn K2 1
+wait 30
+expect help 10
+said PLAY
+turn K2 -1
+wait 30
+expect help 6
+tap OCT+
+wait 30
+expect help -1
+expect page 2

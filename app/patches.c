@@ -272,7 +272,7 @@ static void pl_save_key(void)                    /* SAVE held + PRESET on the SO
     pl_pos[ch] = (int8_t)(nf + s);
     pl_name(u, t);
     app_say("SAVED", t);
-    dub.dirty_foot = 1;
+    dub.dirty_foot = dub.dirty_centre = 1;
 }
 
 /* ---------------------------------------------------------------------------------------------- SysEx --- */
