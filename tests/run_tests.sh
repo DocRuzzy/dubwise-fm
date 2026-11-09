@@ -16,3 +16,6 @@ done
 echo "== tests/slot_transfer_test.py"
 python3 tests/slot_transfer_test.py >/dev/null || { echo "FAIL slot transfer (run tests/slot_transfer_test.py)"; exit 1; }
 echo "  ok slot transfer"
+echo "== tests/spring_alias_test.c"
+cc -O2 -w -DPLAT_HOST -Iapp/engine -Ibase/include -Iapp tests/spring_alias_test.c -o $OUT/spring_alias_test -lm
+$OUT/spring_alias_test || { echo "FAIL spring aliasing"; exit 1; }

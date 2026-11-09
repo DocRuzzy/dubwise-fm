@@ -4,8 +4,8 @@
  * delay loop (37 and 43 ms) through twelve stretched all-passes (each pass round, the spring's dispersive chirp
  * grows: its "drip") and a ~4.5 kHz damping low-pass, decaying in DECAY. The input is high-passed at ~200 Hz (a
  * tank carries little bass; the low end stays the dry path's). The crash strikes both springs at once: a 6 ms
- * noise burst and a thump, the "thunderclap" of a kicked tank. Stereo since P1.5: a spring each side. In the
- * pool: ~8 KB. */
+ * noise burst and a ringing ~110 Hz thump (no DC), the "thunderclap" of a kicked tank. Stereo since P1.5: a
+ * spring each side. Down to and up from half rate through a 39-tap half-band FIR (spring.c). In the pool: ~8 KB. */
 #pragma once
 #include <stdint.h>
 
