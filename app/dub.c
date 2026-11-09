@@ -404,7 +404,7 @@ static void button_press(uint32_t k)
         dub.page = PAGE_KEY;
         ks.sig = 0;
         app_say("KEY", ks.bank ? "CHORD LANE" : "AND LOCK");
-    } else if (k == B_REC && dub.page == PAGE_STEPS) {
+    } else if (k == B_REC && dub.page == PAGE_STEPS && !(dub.btn >> B_HOME & 1u)) {
         steps_rec();
     } else if (k == B_REC && (dub.btn >> B_SAVE & 1u)
                && (dub.page == PAGE_DUB || dub.page == PAGE_ARRANGE)) {   /* SAVE + REC: the motion cleared (P2.7) */
@@ -650,6 +650,15 @@ static void encoder(uint32_t k, int32_t e)
         app_say("FOCUS", CH_NAME[dub.focus]);
     } else if (dub.page == PAGE_ARRANGE && k >= EN_K1 && k <= EN_K4) {
         arr_knob(k - EN_K1, e);
+    } else if (k == EN_PRESET && dub.page == PAGE_DUB && held_mute() >= 0) {   /* a mute key held + PRESET: that
+                                                                                * channel's pattern, on the line (4.8) */
+        int32_t ch = held_mute();
+        if (!dub.dbl[ch]) {              /* (the hold is for choosing: the mute stays as it was) */
+            dub.dbl[ch] = 1;
+            ctl_cue(P_CH(ch, CHF_MUTE), dub.m0[ch], act_beats());
+        }
+        pat_launch(ch, (uint32_t)(((int32_t)pat_now(ch) + e % (int32_t)NPAT + (int32_t)NPAT) % (int32_t)NPAT), 0);
+        dub.dirty_strips = 1;
     } else if (k == EN_PRESET && dub.page == PAGE_DUB) {   /* PRESETS on the DUB page: cue the next scene (spec 4.1) */
         arr_step(e);
     } else if (dub.page == PAGE_FX && k >= EN_K1 && k <= EN_K4) {
@@ -1002,6 +1011,11 @@ static void draw_strips(void)
             cv_rect(x + 4, 0, 20, 17, C_HI);
         cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, thrown ? C_BLACK : on ? C_WHITE : C_GRAY);
         cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
+        {                                /* its pattern (4.8): amber while one launched waits for its line */
+            uint32_t pw = (uint32_t)ctl_get(P_CH(ch, CHF_PAT)) & 3u;
+            char l[2] = {(char)('A' + pw), 0};
+            cv_text(x + 21, 3, &FONT_T, l, eng_pat(ch) != pw ? C_AMB : pw ? C_GRAY : C_DIM);
+        }
         if (on) {                        /* filled = playing; the meter brighter over it */
             int32_t m = meter_px(eng_ch_peak(ch), bh);
             cv_rect(bx, by, bw, bh, C_LINE);

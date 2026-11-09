@@ -1,0 +1,105 @@
+# The session's controls (roadmap 4.8). STEPS: SAVE + white 1-4 copies the pattern into A..D; HOME + white 1-4
+# launches one (now while stopped, on the line while playing); HOME + white 9-12 launches it on every channel;
+# HOME + OCT+ doubles, HOME + OCT- clears; HOME + KNOB 1 the grid, KNOB 3 the swing; a step held: KNOB 3 nudges it,
+# KNOB 4 its gate. DUB: a mute key held + PRESET launches that channel's next pattern (the mute as it was).
+wait 600
+listen
+tap SEQ
+wait 30
+expect step1_9 3
+# copy A into C, then play C (stopped: at once)
+press SAVE
+tapkey w2
+release SAVE
+wait 30
+said COPIED
+expect dirty 1
+press HOME
+tapkey w2
+release HOME
+wait 30
+said KICK C
+expect ui.ch1.pat 2
+expect eng.ch1.pat 2
+expect step1_9 3
+expect page 1
+# clear C; undo brings it back
+press HOME
+tap OCT-
+release HOME
+wait 30
+said KICK C CLEARED
+expect step1_9 0
+press HOME
+tap REC
+release HOME
+wait 30
+expect step1_9 3
+# double it: 32 steps, the second half the first again
+press HOME
+tap OCT+
+release HOME
+wait 30
+said DOUBLED
+expect ui.ch1.len 32
+expect step1_25 3
+# the grid (HOME + KNOB 1), the swing (KNOB 3)
+press HOME
+turn K1 1
+release HOME
+wait 30
+said GRID 1/16T
+expect ui.ch1.grid 3
+turn K3 5
+wait 30
+said SWING 55
+expect eng.ch1.swing 55
+# a step held: nudged 3 ticks late, its gate
+key w0 down
+wait 20
+turn K3 3
+wait 20
+turn K4 2
+wait 20
+key w0 up
+wait 30
+expect off1_1 3
+expect gate1_1 6
+shot session-steps.png
+# playing: B launched for the line (1 bar), every channel's A on bar 2's
+param ch1.grid 2
+press HOME
+tapkey w1
+release HOME
+wait 30
+expect ui.ch1.pat 1
+tap PLAY
+wait 200
+expect eng.ch1.pat 1
+press HOME
+tapkey w8
+release HOME
+wait 30
+said ALL A ON THE LINE
+expect ui.ch1.pat 0
+expect ui.ch4.pat 0
+expect eng.ch1.pat 1
+wait 3200
+expect eng.ch1.pat 0
+# DUB: the snare's mute key held + PRESET: its B, the mute as it was
+tap HOME
+wait 30
+expect page 0
+key w1 down
+wait 20
+turn PRESET 1
+wait 20
+key w1 up
+wait 30
+said SNARE B
+expect ui.ch2.pat 1
+expect ui.ch2.mute 0
+wait 3300
+expect eng.ch2.pat 1
+shot session-dub.png
+tap PLAY
