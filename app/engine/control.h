@@ -16,7 +16,11 @@ int32_t ctl_get(uint32_t id);              /* the desired value */
 void ctl_flush(void);                      /* resend what is pending, in ID order, until the queue is full */
 void ctl_follow(void);                     /* every frame: the values the song's motion played back (P2.7) */
 void ctl_motion_clear(void);               /* the song's motion, all of it, cleared (in the queue's order) */
-void ctl_motion(uint32_t what);            /* CMD_MOTION: 0 clear, 1 handed to the main loop (mot_suspended), 2 back */
+void ctl_motion(uint32_t what);
+#define CTL_STEP_KEY 0x8000u                 /* the undo hook's key for a step (| channel x NSTEPS + step) */
+void ctl_set_watch(void (*f)(uint32_t key, int32_t old, int32_t nw));   /* each change to the mirror (undo.c) */
+int32_t ctl_step_pack(step_t s);
+step_t ctl_step_unpack(int32_t v);            /* CMD_MOTION: 0 clear, 1 handed to the main loop (mot_suspended), 2 back */
 
 /* the patterns (riddim.h): the UI's mirror, each change sent as CMD_STEP (pending and resent like parameters) */
 void ctl_step(uint32_t ch, uint32_t i, step_t st);

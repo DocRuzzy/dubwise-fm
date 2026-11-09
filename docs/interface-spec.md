@@ -119,7 +119,7 @@ When the lock is on, keys outside the allowed set are **silent**. They are never
 ### 4.6 Shift (hold HOME)
 | HOME + | Function |
 |---|---|
-| REC / PLAY | Undo / redo |
+| REC / GLO | Undo / redo (built 2026-11-09: GLO, because HOME + PLAY became the rewind, P3.5) |
 | SELECT | Tempo |
 | SEQ taps | Tap tempo |
 | ARP | Key/scale lock on/off |

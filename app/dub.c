@@ -94,6 +94,11 @@ static void slot_value(char *t, int load);      /* (slots.c: song slots) */
 static void slot_pick(int32_t e);
 static void slot_action(int load);
 static void slot_tick(void);
+static uint32_t undo_seq_next(void);             /* (undo.c: undo and redo) */
+static void undo_key(int redo);
+static void undo_mark(uint32_t tag, uint32_t now);
+static void undo_reset(void);
+static void undo_live_set(int on);
 static void slot_sx_tick(void);
 static void steppers_load(void);
 void dub_init(void);
@@ -400,9 +405,12 @@ static void button_press(uint32_t k)
         set_dirty = 1;
         arr_mark();
         app_say("MOTION", "CLEARED");
-    } else if (k == B_REC && (dub.btn >> B_HOME & 1u)) {   /* HOME + REC: undo the last song capture */
+    } else if (k == B_REC && (dub.btn >> B_HOME & 1u)) {   /* HOME + REC: undo (the last song capture, if latest) */
         dub.home_used = 1;
-        song_undo_last();
+        undo_key(0);
+    } else if (k == B_GLO && (dub.btn >> B_HOME & 1u)) {   /* HOME + GLO: redo */
+        dub.home_used = 1;
+        undo_key(1);
     } else if (k == B_REC && (dub.page == PAGE_DUB || dub.page == PAGE_ARRANGE)) {
         song_rec_toggle();
     } else if (k == B_FX) {
@@ -548,6 +556,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "perf.c"                        /* the PERF page (GPL-3.0-only) */
 #include "saver.c"                       /* the boot splash and the screen saver (GPL-3.0-only) */
 #include "slots.c"                       /* song slots (GPL-3.0-only) */
+#include "undo.c"                        /* undo and redo (GPL-3.0-only) */
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
@@ -650,7 +659,15 @@ static void encoder(uint32_t k, int32_t e)
     }
 }
 
-void dub_input(void)
+static void dub_input_hands(void);
+void dub_input(void)                     /* (what the hands change goes into the undo history) */
+{
+    undo_live_set(1);
+    dub_input_hands();
+    undo_live_set(0);
+}
+
+static void dub_input_hands(void)
 {
     uint32_t keys, btn = plat_buttons(), k, now = plat_ms();
     int32_t e;
@@ -658,6 +675,10 @@ void dub_input(void)
     keys = touch_keys();
     if (saver_input(&keys, &btn, now))   /* the screen saver up: a touch only wakes it */
         return;
+    if ((keys & ~dub.keys) || (btn & ~dub.btn)) {   /* a press: a new step of the undo history */
+        static uint32_t presses;
+        undo_mark(0x1000u + ++presses, now);
+    }
     for (k = 0; k < NB; k++) {           /* buttons first: a modifier pressed with a key counts */
         uint32_t bit = 1u << k;
         if ((btn & bit) && !(dub.btn & bit)) {
@@ -772,6 +793,7 @@ encoders:
     for (k = 0; k < NE; k++)
         if ((e = plat_enc((int)k)) != 0) {
             saver_touch(now);
+            undo_mark(0x200u + k, now);  /* (a knob's turns run together) */
             encoder(k, e);
         }
     if (keys != dub.keys)
@@ -1387,7 +1409,8 @@ static int dub_expect(const char *what, int *got)
         *got = (int)dub.pulses;
     else if (!strcmp(what, "key_flashes"))
         *got = (int)dub.key_flashes;
-    else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got))
+    else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got)
+             || undo_expect(what, got))
         return 1;
     else if (!strcmp(what, "roots"))     /* 1: the cycle bar red, gold and green (72.0 BPM's first bar) */
         *got = roots_now();

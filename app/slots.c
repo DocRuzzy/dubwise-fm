@@ -147,6 +147,7 @@ static int slot_load(uint32_t s)
     song_dirty = 1;
     set_dirty = 1;
     arr.sig = 0;
+    undo_reset();
     return 1;
 }
 

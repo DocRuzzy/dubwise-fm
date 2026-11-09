@@ -1,0 +1,84 @@
+# Undo and redo (undo.c): HOME + REC undoes, HOME + GLO redoes, a step at a time: a press, or a knob's run of turns.
+# Throws aren't kept. A song capture, when the latest thing done, is what HOME + REC takes back.
+wait 600
+listen
+tapkey w0
+wait 100
+expect ui.ch1.mute 1
+turn SELECT 3 60
+wait 900
+expect ui.hpf 12
+turn K2 5 60
+wait 900
+expect ui.echo.fb 50
+key w8 down
+wait 200
+key w8 up
+wait 900
+# back, a step at a time
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+said UNDO
+expect ui.echo.fb 45
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.hpf 0
+expect eng.hpf 0
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.ch1.mute 0
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+said UNDO NOTHING MORE
+# forward again
+press HOME
+wait 20
+tap GLO
+wait 30
+release HOME
+said REDO
+expect ui.ch1.mute 1
+press HOME
+wait 20
+tap GLO
+wait 30
+release HOME
+expect ui.hpf 12
+# a new change: what was left to redo is gone
+turn K1 1
+wait 900
+press HOME
+wait 20
+tap GLO
+wait 30
+release HOME
+said REDO NOTHING MORE
+expect page 0
+# a song capture, the latest thing: HOME + REC takes it back
+tap REC
+wait 30
+said SONG CAPTURE ON
+tap PLAY
+wait 3500
+tap PLAY
+wait 30
+tap REC
+wait 30
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+said SONG CAPTURE UNDONE

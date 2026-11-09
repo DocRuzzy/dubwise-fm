@@ -21,7 +21,8 @@ static struct {
     int32_t cursor;                      /* the song's bar shown / marked while stopped */
     uint8_t has_undo;
 } arr = {-1, SCOPE_DESK, 0, 0, 0};
-static PLAT_POOL song_bar_t song_undo[SONG_BARS];          /* the song before the last capture */
+static PLAT_POOL song_bar_t song_undo[SONG_BARS];
+static uint32_t arr_cap_seq;                     /* the capture's place among the undo history's steps (undo.c) */          /* the song before the last capture */
 static uint8_t song_dirty;
 
 static void song_rec_toggle(void)        /* REC: capture on / off */
@@ -32,6 +33,7 @@ static void song_rec_toggle(void)        /* REC: capture on / off */
         for (i = 0; i < SONG_BARS; i++)
             song_undo[i] = song[i];
         arr.has_undo = 1;
+        arr_cap_seq = undo_seq_next();
     }
     ctl_set(P_SONG_REC, on);
     song_dirty = 1;

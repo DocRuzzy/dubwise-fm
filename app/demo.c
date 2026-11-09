@@ -171,6 +171,7 @@ static void demo_load(void)
     ctl_motion(1);                               /* the song's motion handed over; demo_tick writes its moves */
     demo_moves_due = 1;
     set_dirty = 1;
+    undo_reset();
     app_say("RIGHTEOUS DUB", "LOADED: PRESS PLAY");
 }
 
@@ -223,5 +224,6 @@ static void steppers_load(void)
     ctl_set(P_SONG_MODE, SONG_OFF);
     ctl_set(P_SONG_REC, 0);
     set_dirty = 1;
+    undo_reset();
     app_say("UK STEPPERS", "LOADED: PRESS PLAY");
 }

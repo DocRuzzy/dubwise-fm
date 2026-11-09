@@ -359,9 +359,11 @@ void app_backup_flush(void)
         settings_save();
 }
 void app_backup_hold(int on) { save_hold = (uint8_t)(on != 0); }
+static void undo_reset(void);
 void app_backup_restored(void)           /* the restored objects, read as at boot */
 {
     load_saved();
+    undo_reset();
     set_dirty = 0;
 }
 

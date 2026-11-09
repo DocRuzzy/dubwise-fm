@@ -17,6 +17,28 @@ static uint32_t ctl_step_pend[NCH * NSTEPS / 32u];
 static uint32_t ctl_steps_pending;
 static int32_t ctl_tpl_t = -1;                   /* a template the full queue refused */
 static uint32_t ctl_tpl_mask, ctl_tpl_beats;
+/* the undo history's hook (undo.c): each change to the mirror, a parameter (key: its ID) or a step (key: CTL_STEP_KEY
+ * | channel x NSTEPS + step; values step_t packed: level << 8 | note) */
+static void (*ctl_watch)(uint32_t key, int32_t old, int32_t nw);
+void ctl_set_watch(void (*f)(uint32_t key, int32_t old, int32_t nw)) { ctl_watch = f; }
+int32_t ctl_step_pack(step_t s) { return (int32_t)((uint32_t)s.lvl << 8 | (uint8_t)s.note); }
+step_t ctl_step_unpack(int32_t v)
+{
+    step_t s;
+    s.lvl = (uint8_t)(v >> 8 & 0xFF);
+    s.note = (int8_t)(v & 0xFF);
+    return s;
+}
+static step_t ctl_pat_was[NCH][NSTEPS];          /* (a template's or a scene's patterns: the steps before, to diff) */
+static void pat_diff(void)
+{
+    uint32_t ch, i;
+    for (ch = 0; ch < NCH; ch++)
+        for (i = 0; i < NSTEPS; i++)
+            if (ctl_step_pack(ctl_pat_was[ch][i]) != ctl_step_pack(ctl_pat[ch][i]))
+                ctl_watch(CTL_STEP_KEY | (ch * NSTEPS + i), ctl_step_pack(ctl_pat_was[ch][i]),
+                          ctl_step_pack(ctl_pat[ch][i]));
+}
 static uint8_t ctl_stamp[P_NIDS];                /* the frame a parameter was last set by hand (ctl_follow) */
 static uint8_t ctl_frame;
 #define MOT_PEND 4u
@@ -113,7 +135,10 @@ static int tpl_push(void)
 void ctl_step(uint32_t ch, uint32_t i, step_t st)
 {
     uint32_t k = (ch % NCH) * NSTEPS + i % NSTEPS, bit = 1u << (k & 31u);
+    int32_t was = ctl_step_pack(ctl_pat[ch % NCH][i % NSTEPS]);
     ctl_pat[ch % NCH][i % NSTEPS] = st;
+    if (ctl_watch && was != ctl_step_pack(st))
+        ctl_watch(CTL_STEP_KEY | k, was, ctl_step_pack(st));
     if (ctl_steps_pending || ctl_tpl_t >= 0 || ctl_stats.pending || !step_push(k)) {
         if (!(ctl_step_pend[k >> 5] & bit)) {   /* (a newer value for a waiting step: sent as it is then) */
             ctl_step_pend[k >> 5] |= bit;
@@ -127,9 +152,15 @@ step_t ctl_get_step(uint32_t ch, uint32_t i) { return ctl_pat[ch % NCH][i % NSTE
 void ctl_template(int32_t t, uint32_t mask, uint32_t beats)
 {
     uint32_t ch, w;
+    if (ctl_watch)
+        for (ch = 0; ch < NCH; ch++)
+            for (w = 0; w < NSTEPS; w++)
+                ctl_pat_was[ch][w] = ctl_pat[ch][w];
     for (ch = 0; ch < NCH; ch++)
         if (mask >> ch & 1u)
             template_fill(t, ch, ctl_pat[ch]);
+    if (ctl_watch)
+        pat_diff();
     /* steps still waiting for those channels are now the template's: theirs no longer to send */
     for (w = 0; w < NCH * NSTEPS / 32u; w++) {
         uint32_t m = ctl_step_pend[w], b;
@@ -174,9 +205,13 @@ int ctl_set(uint32_t id, int32_t v) { return ctl_cue(id, v, 0); }
 
 int ctl_cue(uint32_t id, int32_t v, uint32_t beats)
 {
+    int16_t was;
     if (id >= P_NIDS || !param_desc(id))
         return -1;
+    was = ctl_val[id];
     ctl_val[id] = (int16_t)param_clamp(id, v);
+    if (ctl_watch && was != ctl_val[id])
+        ctl_watch(id, was, ctl_val[id]);
     ctl_stamp[id] = ctl_frame;
     ctl_beats[id] = (uint8_t)(beats > 128u ? 128u : beats);
     if (ctl_stats.pending) {                 /* something is waiting: keep the order fair, this joins it */
@@ -271,7 +306,22 @@ void ctl_scene_store(uint32_t s, uint32_t scope) { scene_capture(s, scope, ctl_v
 
 void ctl_scene_recall(uint32_t s, uint32_t beats)
 {
+    static int16_t was[SCENE_DESK];
+    uint32_t k, ch, i;
+    if (ctl_watch) {
+        for (k = 0; k < SCENE_DESK; k++)
+            was[k] = ctl_val[scene_param(k)];
+        for (ch = 0; ch < NCH; ch++)
+            for (i = 0; i < NSTEPS; i++)
+                ctl_pat_was[ch][i] = ctl_pat[ch][i];
+    }
     scene_apply(s, ctl_val, ctl_pat);            /* the mirror at once (the strips show it cued) */
+    if (ctl_watch) {
+        for (k = 0; k < SCENE_DESK; k++)
+            if (was[k] != ctl_val[scene_param(k)])
+                ctl_watch(scene_param(k), was[k], ctl_val[scene_param(k)]);
+        pat_diff();
+    }
     ctl_scn = (int32_t)(s % NSCENES);
     ctl_scn_beats = beats > 128u ? 128u : beats;
     if (!ctl_stats.pending && !ctl_steps_pending)
