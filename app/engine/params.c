@@ -102,6 +102,7 @@ static const pdesc_t GLOBALS[P_NGLOBAL] = {
     [P_ROOTS] = {"roots", 0, 1, 0},
     [P_HPF_RES] = {"hpf.res", 0, HPF_RES_N - 1, HPF_RES_10},
     [P_CLOCK] = {"clock", 0, CLOCK_N - 1, CLOCK_OFF},
+    [P_AUTOSAVE] = {"autosave", 0, 1, 1},
 };
 static const pdesc_t CHORD_SLOT = {"chord", 0, 95, 9 * 8 + CHORD_MIN};   /* per slot: param_def */
 static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {

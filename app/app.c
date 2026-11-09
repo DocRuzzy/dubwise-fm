@@ -279,11 +279,15 @@ static void settings_defaults(void)
     }
 }
 
-static void settings_save(void)
+static int save_project(int quiet);
+static void settings_save(void) { save_project(0); }
+
+static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
     if (save_hold) {                       /* (a backup streaming: what it reads must not move) */
-        app_say("SAVE", "BACKUP RUNNING");
-        return;
+        if (!quiet)
+            app_say("SAVE", "BACKUP RUNNING");
+        return 0;
     }
     set.tempo = (int16_t)ctl_get(P_TEMPO);
     set.quant = (uint8_t)ctl_get(P_QUANT);
@@ -323,10 +327,13 @@ static void settings_save(void)
         && plat_store_save(OBJ_PATTERN, &pst, sizeof pst) == 0 && scenes_save() && song_save()
         && ((eng_playing() && ctl_get(P_SONG_REC)) || mot_save())) {   /* (motion: not while it is captured) */
         set_dirty = 0;
-        app_say("SAVED", "");
-    } else {
-        app_say("SAVE", "FAILED");
+        if (!quiet)
+            app_say("SAVED", "");
+        return 1;
     }
+    if (!quiet)
+        app_say("SAVE", "FAILED");
+    return 0;
 }
 
 static void load_saved(void);
@@ -467,6 +474,23 @@ void app_ui_init(void)
 
 void app_input_only(void) { dub_input(); }
 
+/* AUTOSAVE (SETUP, on by default; the 2026-11 QoL review): what SAVE keeps, saved by itself once nothing has been
+ * touched for 4 s, stopped, the sound died away (a flash write stops the sound for a moment) and nothing being
+ * loaded. Quiet: SAVE's light going out says it. A failed one waits 30 s before the next try */
+static uint32_t as_fail_t;
+static void autosave_tick(void)
+{
+    uint32_t now = plat_ms();
+    if (!ctl_get(P_AUTOSAVE) || save_hold || eng_playing() || eng_spinning() || demo_moves_due || slot_moves)
+        return;
+    if (!(set_dirty || scenes_dirty || mot_dirty) || dub.btn || dub.keys || now - sv.last < 4000u
+        || eng_out_peak() > 0.001f)
+        return;
+    if (as_fail_t && now - as_fail_t < 30000u)
+        return;
+    as_fail_t = save_project(1) ? 0u : (now ? now : 1u);
+}
+
 void app_frame(void)
 {
     dub_input();
@@ -475,6 +499,7 @@ void app_frame(void)
     dub_speak();
     ann_tick(plat_ms());
     dub_draw();
+    autosave_tick();
 }
 
 #ifdef PLAT_HOST

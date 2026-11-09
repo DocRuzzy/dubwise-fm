@@ -5,13 +5,13 @@
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
 enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_SAVER, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_HPF_RES, SU_THROW_VEL, SU_CLOCK,
-       SU_TIER, SU_PERF, SU_TONES, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_DEMO, SU_STEPPERS, SU_N };
+       SU_TIER, SU_PERF, SU_AUTOSAVE, SU_TONES, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_DEMO, SU_STEPPERS, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
                                           "REDUCED MOTION", "SCREEN SAVER", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "BIG KNOB STEPS",
                                           "THROW VELOCITY", "MIDI CLOCK", "GUARD TIER",
-                                          "PERFORMANCE", "TEST TONES", "SAVE TO SLOT", "LOAD SLOT", "DEMO SONG", "UK STEPPERS"};
+                                          "PERFORMANCE", "AUTOSAVE", "TEST TONES", "SAVE TO SLOT", "LOAD SLOT", "DEMO SONG", "UK STEPPERS"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_SAVER, P_LEAD,
-                                     P_LOCK_MIDI, P_HPF_ON, P_HPF_RES, P_THROW_VEL, P_CLOCK, P_TIER_LOCK, 0, P_DEV_TONES, 0, 0, 0, 0};
+                                     P_LOCK_MIDI, P_HPF_ON, P_HPF_RES, P_THROW_VEL, P_CLOCK, P_TIER_LOCK, 0, P_AUTOSAVE, P_DEV_TONES, 0, 0, 0, 0};
 static int32_t su_cur;
 static uint32_t su_sig;
 

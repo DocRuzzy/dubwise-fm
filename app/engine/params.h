@@ -72,6 +72,7 @@ enum {
     P_ROOTS,                  /* 1: ROOTS NAMES, the spoken homages (hidden: SETUP, black 11 three times) */
     P_HPF_RES,                /* the Big Knob's steps a turn: HPF_RES_10 (the Altec's), HPF_RES_20, HPF_RES_40 */
     P_CLOCK,                  /* MIDI clock: CLOCK_OFF, CLOCK_IN (follow a computer or a drum machine), CLOCK_OUT (lead) */
+    P_AUTOSAVE,               /* 1: saved by itself, a few seconds after the last change while stopped and untouched */
     P_NGLOBAL,
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */
