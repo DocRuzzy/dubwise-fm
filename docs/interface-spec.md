@@ -1,4 +1,6 @@
-# Dubwise FM — Interface and workflow spec (v0.2, 2026-11-08)
+# Dubwise FM — Interface and workflow spec (v0.3, 2026-11-09)
+
+v0.3 adds the sound-design block and the B-3 organ model (roadmap 5.x, from `roundup-review-2026-11.md`): 4.1.3 stop twice, 4.3 step locks and seeded probability, 4.9 the SOUND view, 4.10 Dice, 4.11 one-gesture reach and the help index, 5.5 the legibility floor.
 
 Goal: make the "dubwise" method (mixer as instrument; mutes, throws, feedback, Big Knob) playable by feel, with building a riddim as the quick, secondary task. Roadmap refs are in brackets.
 
@@ -47,7 +49,7 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 | FX | Effects | Echo → Spring → Phaser/Width → Cross-sends |
 | LFO | MIXER | Levels/sends → Filters/drive → Throw destinations |
 | SEQ | STEPS | Steps; four patterns a channel (A–D); length, grid (1/8–1/32, triplets), swing; template; live recording (REC) |
-| EDIT | SOUND | Voice pages |
+| EDIT | SOUND (4.9) | MAIN (macros) → raw banks → DICE (4.10) → back |
 | ARP | KEY & CHORDS | Key → Chord lane |
 | GLO | SETUP | MIDI · tier lock · quantise · cycle/runway · accessibility · live input |
 | SEL | LIST | Any page as a text list |
@@ -86,6 +88,11 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 - Quantise gains **CYCLE** (after 32 bars): the next "one" of the cycle. Templates (STEPS) land on the bar line itself, not early.
 - GLO opens a first **SETUP** page (a list: KNOB 1 / SELECT moves, KNOB 2 / PRESET changes); test tones moved there.
 
+#### 4.1.3 Stop twice: tails off (roadmap 5.2)
+- A stop (PLAY tapped while playing) stays as built: notes and motion let go; the echo and spring ring out.
+- **A second PLAY tap within 400 ms of the stop** doesn't start the transport. It fades the returns over 20 ms, then clears the echo tape, spring and phaser. Said and shown: "TAILS OFF".
+- After 400 ms, PLAY starts as before.
+
 ### 4.2 ARRANGE page
 - **White 1–16:** recall scene, quantised. **SAVE held + white key:** store.
 - **Scene scope** (KNOB 4 at store time):
@@ -97,9 +104,11 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 
 ### 4.3 STEPS page
 - **White 1–16:** steps; OCT± page through 17–64.
-- **Black 1–8:** channel. **Black 9–11:** accent / ghost / probability (hold + step).
+- **Black 1–8:** channel. **Black 9 / 10 held + white:** accent / ghost (built). **Black 11 held + white:** the step's chance, 100 → 75 → 50 → 25 % (roadmap 5.9).
 - **REC** on bass, skank or lead turns the keys into a keyboard.
 - **Templates** (one drop / rockers / steppers / flyers) are written as editable steps.
+- **Drum step locks (5.8).** A kick, rim or hat step held: KNOB 2 = its TUNE lock (hats: closed / open as now), KNOB 1 = its DECAY lock (with no step held, KNOB 1 is still the length). **ENV held + white** cycles the step's REPEAT: off · FLAM · ×2 · ×3 · ×4. A locked step shows a dot; a repeat shows its count.
+- **Probability is seeded, never free-running (5.9; principle 1).** Whether a step plays this loop is a hash of the pattern's seed, the step and the loops since launch. The same launches give the same notes, so a captured song replays exactly. Steps that will skip this loop are drawn hollow. **HOME + ENV** = RESEED (one undo step).
 
 ### 4.5 Key / scale / chord lock ("can't play a wrong note") [0.8]
 When the lock is on, keys outside the allowed set are **silent**. They are never remapped, so the keyboard keeps normal piano spacing and what you learn on it transfers to a real keyboard.
@@ -143,6 +152,51 @@ Modelled on Ableton Live's session view, the OP-Z's per-track patterns and the R
   held length. Drum channels: whites 1–4 are pads (kick, rim, closed hat, open hat); skank and organ: whites 1–3, the
   chord low / mid / high. Stopped: REC is step entry at a cursor, and PLAY then counts in a bar. A pass is one undo step.
 
+### 4.9 The SOUND view (roadmap 5.3–5.5, 5.7, 5.10)
+EDIT opens it for the focused channel (ALGORITHM changes the focus). EDIT again steps through the banks: **MAIN** (four macros) → the raw banks, four fields each → **DICE** (4.10) → back to the page.
+
+| Ch | MAIN macros (bank 1) | Raw fields (built → **new, appended**) | Models (5.7) |
+|---|---|---|---|
+| 1 Kick | PITCH · PUNCH · DECAY · DRIVE | TUNE, SWEEP, PTIME, DECAY, CLICK → **DRIVE, CLICK TONE** | SINE · FM THUMP · BOOM |
+| 2 Rim | TUNE · SNAP · DECAY · BODY | TUNE, DECAY, NOISE, INDEX → **PITCH DROP, HPF** | CROSS-STICK · SNARE · SYNDRUM |
+| 3 Hats | TONE · CLOSED · OPEN · HPF | TONE, CLOSED, OPEN, NOISE → **HPF** | METAL · NOISE |
+| 4 Bass | TONE · PLUCK · LENGTH · WEIGHT | INDEX, IDECAY, DECAY, CUTOFF, RATIO, SUB, SUSTAIN → **FEEDBACK, DRIVE, GLIDE** | ROUND · PLUCK · HOLLOW · STEPPERS |
+| 5 Skank | TONE · LENGTH · COLOUR · ATTACK | INDEX, DECAY, TONE, RATIO → **ATTACK** | — |
+| 6 Organ | BUBBLE: DRAWBAR · LENGTH · CLICK · DETUNE. B-3: REGISTRATION · PERC · ROTARY · DRIVE | DRAWBAR, DECAY, CLICK → **DETUNE**; B-3 (5.15): **nine drawbars, PERC (off / 2nd / 3rd), PERC FAST, CLICK, VIB/CHORUS (off, V1–3, C1–3), ROTARY (off / slow / fast / brake), DRIVE** | BUBBLE · B-3 |
+| 7 Lead | BRIGHT · ATTACK · RELEASE · VIBRATO | INST, BRIGHT, ATTACK, RELEASE, VIBRATO → **DETUNE** | (INST: melodica / brass) |
+| 8 Vox/FX | (MAIN = the siren's PITCH · RATE · DEPTH · WAVE) | as built; LIVE stays on its own | — |
+
+- **Macros** are stored voice fields. Turning one rewrites its raw targets along fixed curves (e.g. kick PUNCH: SWEEP up, PTIME down, CLICK up). The engine reads only raw values. Turning a raw field afterwards leaves the macro where it was; MAIN marks a macro whose targets have since moved with a small dot.
+- **MODEL** is the first raw field on channels with models. Changing it keeps the fields both models share.
+- **Bounded on purpose:** the bass's index has a cap that keeps the fundamental sine-like; decays have caps (they set how long a voice lives); the kick ends 40–60 Hz.
+- **Patches (5.4).** PRESETS browses the focused channel's patches: factory first, then the 16 user slots; the name shows in the header. **SAVE + PRESETS** stores into the next free user slot (a second SAVE + PRESETS within 3 s overwrites the one shown, asked as in 4.9's confirm). A load is one undo step.
+- **Kits (5.5).** SETUP → LOAD KIT: TUBBY'S, CHANNEL ONE, BLACK ARK, STUDIO ONE, SHAKA STEPPERS, SLENG TENG, ROCKERS UPTOWN. KNOB 3 picks VOICES or VOICES + BUS. Asks twice over unsaved sounds.
+- **Envelope view (5.10).** The centre draws the focused voice's amp envelope and its pitch or index envelope from the current values, with a playhead from each note-on at ~20 Hz. Reduced motion: no playhead.
+- **B-3 (5.15).** Drawbars are two raw banks (16′ 5⅓′ 8′ 4′ | 2⅔′ 2′ 1⅗′ 1⅓′), with 1′ in a third bank beside PERC, PERC FAST and CLICK; values 0–8 like the real bars, and the centre draws them as bars. REGISTRATION (MAIN) steps through a list of common drawbar settings chosen by ear. ROTARY's speed is a parameter: MIDI-learnable (4.11's MIDI learn, e.g. a mod wheel), captured as motion, stored in scenes. Stereo horn only if open question 5 allows it (Studio tier).
+- **Screen reader:** "SOUND, KICK, MAIN", then each value as it turns; patch and kit names on load.
+
+### 4.10 Dice: the sound randomiser (roadmap 5.6, 5.12)
+A sound-design tool, fired only by the user (principle 1, clarified). It acts on the focused channel's voice and nothing else: never levels, sends, the dub bus, patterns, LIVE, or another channel.
+
+| Control | Function |
+|---|---|
+| **ENV** (on the DICE bank) | Fire: ROLL or MUTATE, as KNOB 2 says |
+| **HOME + EDIT** (any page) | Fire on the focused channel without opening the view |
+| KNOB 1 | AMOUNT, 5–100 % (MUTATE's reach) |
+| KNOB 2 | MODE: ROLL (a new patch inside the bounds) / MUTATE (a step away from the current) |
+| KNOB 3 | MORPH A↔B (5.12; blank until built): A = the current, B = the history entry shown |
+| KNOB 4 | HISTORY: the last 8 results of this channel; turning it plays each one in. Leaving it there keeps it |
+| **ENV held + KNOB n** (MAIN or a raw bank) | HOLD that field (Dice leaves it alone). A held field shows a lock |
+| SAVE + PRESETS | Keep a result as a user patch (4.9) |
+
+- **Undo and capture:** each fire is one undo step, and is captured as motion like a knob turn, so a recorded pass replays the same sound changes.
+- **When it lands:** at once by default. SETUP → DICE ON LINE makes a fire wait for the next quantise line (a performance move; the key blinks like any cue).
+- **Said:** "ROLL, KICK" / "MUTATE 20, BASS"; the history position as "3 OF 8".
+
+### 4.11 One-gesture reach and the help index (roadmap 5.11)
+- **DUB → a channel's pattern settings:** hold its mute key + SEQ. STEPS opens on that channel with KNOB 1 length, HOME + KNOB 1 grid and KNOB 3 swing to hand, and the mute is left as it was. HOME returns to DUB.
+- **SETUP → HELP:** every help card (4.7) in one list, readable anywhere (SELECT scrolls, KNOB 2 opens one).
+
 ## 5. Screen
 ### 5.1 DUB page layout (240×240)
 ```
@@ -168,6 +222,13 @@ Modelled on Ableton Live's session view, the OP-Z's per-track patterns and the R
 
 ### 5.3 Rendering budget
 Dirty regions only. Meters at 20–30 Hz, echo panel at ~20 Hz, runway border on beat edges. No full redraws during performance.
+
+### 5.5 Legibility floor (roadmap 5.11)
+The roundup review docked firmwares for unreadable pages and waits between menus (`roundup-review-2026-11.md`). Every page meets these, checked against the host screenshots:
+- Any value you perform with (knob readouts, the Big Knob, quantise, the bar count, the patch name) uses the page font or larger, never the smallest one. The smallest font is only for labels beside a value.
+- No page transition is animated. A page or bank change draws its first frame within one main-loop frame of the press, and input is never ignored while drawing.
+- At most eight fields of text a bank; nothing scrolls during performance.
+- Contrast and shapes as §6 (not colour-only).
 
 ### 5.4 Cycle countdown ("runway")
 - **Cycle length:** 8 / 16 / 32 / 64 bars (default 16), separate from launch quantise. In song mode it follows the next section boundary.

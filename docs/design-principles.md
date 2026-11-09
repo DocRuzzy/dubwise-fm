@@ -3,6 +3,7 @@
 Set by Kirk on 2026-11-08. These govern every architecture and roadmap decision.
 
 1. **Driven by user input, not generative.** Nothing changes unless the user changes it. Riddim templates are editable starting points, not generators.
+   - *Clarified 2026-11-09 (Kirk, roadmap 5.6, 5.9):* chance is allowed only as a tool the user fires: Dice rolls a sound, and a step's probability follows the pattern's stored seed. Each is an explicit action, stored, undoable and repeatable (a captured pass replays identically). Neither ever changes the pattern, the desk or the song on its own.
 2. **The mixer is the instrument.** Mutes, sends, throws, return self-sends and the stepped HPF are first-class state: quantisable, recordable into the song, and recallable as scenes or versions.
 3. **Structure quantisation.** Launch quantise at beat (fired slightly early), 1, 2, 4, 8, 16 or 32 bars. A phrase counter is always visible. The song is a per-bar list that can capture a live dub pass.
 4. **Own the instrument, reuse the platform.** Write our own engine, sequencer and UI on fm1-base / felucca-bsp. Learn from DUB-1 and X0X; don't inherit their priorities.
