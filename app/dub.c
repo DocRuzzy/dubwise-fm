@@ -283,6 +283,7 @@ static int32_t sound_id(uint32_t i)      /* the SOUND view's knob i: its paramet
 
 enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX, PAGE_ARRANGE, PAGE_PERF };
 #include "keys.c"                        /* the KEY & CHORDS page (GPL-3.0-only) */
+#include "envview.c"                     /* the live envelope view (GPL-3.0-only; roadmap 5.10) */
 /* "press again": an action that can't be undone asks once more (the 2026-11 QoL review 5). The same action again
  * within 3 s does it; anything else meanwhile is its own action, and the ask lapses */
 static struct {
@@ -698,6 +699,7 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
                 macro_apply(mch, mk);
         }
         set_dirty = 1;
+        dub.dirty_centre = 1;            /* (the envelopes drawn again: 5.10) */
         label_of((uint32_t)sid, l, sizeof l);
         int_text(ctl_get((uint32_t)sid), t);
         app_say(l, model_name((uint32_t)sid, ctl_get((uint32_t)sid)) ? model_name((uint32_t)sid, ctl_get((uint32_t)sid)) : t);
@@ -1213,6 +1215,12 @@ static void draw_centre(void)
     char t[24], n[12];
     uint32_t m = cued_mask(), ch;
     cv_begin(240, CENTRE_H, C_BLACK);
+    if (env_view()) {                    /* the SOUND view: the focused voice's envelopes (5.10) */
+        env_draw();
+        cv_rect(0, 0, 240, 1, C_LINE);
+        cv_blit(0, CENTRE_Y);
+        return;
+    }
     draw_echo();
     cv_rect(120, 4, 1, CENTRE_H - 8, C_LINE);
     if (dub.one_until && plat_ms() < dub.one_until) {   /* the downbeat: ONE */
@@ -1413,6 +1421,7 @@ void dub_draw(void)
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     slot_tick();                         /* (a loaded slot's, the same way) */
     slot_sx_tick();                      /* (a slot going to a computer) */
+    env_tick(now);                       /* (the envelope view's playhead, 5.10) */
     pl_sx_tick();                        /* (a channel's patches going to a computer) */
     song_sync();
     if (saver_draw(now)) {               /* the screen saver: the whole screen its own */
@@ -1642,7 +1651,7 @@ static int dub_expect(const char *what, int *got)
         *got = (int)dub.key_flashes;
     else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got)
              || undo_expect(what, got) || help_expect(what, got) || ml_expect(what, got) || sound_expect(what, got)
-             || pl_expect(what, got) || dice_expect(what, got))
+             || pl_expect(what, got) || dice_expect(what, got) || env_expect(what, got))
         return 1;
     else if (!strcmp(what, "roots"))     /* 1: the cycle bar red, gold and green (72.0 BPM's first bar) */
         *got = roots_now();

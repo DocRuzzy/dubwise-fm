@@ -76,9 +76,12 @@ static uint32_t sg_hold, sg_hold_n;              /* samples left open; HOLD in s
 static float sg_rel = 0.999f;                    /* the closing's factor a sample */
 static void sgate_key(void) { sg_hold = sg_hold_n; }
 static void evlog_ev(uint32_t kind, uint32_t id, int32_t v);   /* (tests: the event log, host only) */
+static volatile uint32_t trig_n[NCH];            /* each channel's hits so far (the envelope view's playhead, 5.10) */
 static void trig(uint32_t ch, int32_t note, uint32_t vel)   /* a voice struck: and a snare keys the gate */
 {
     evlog_ev(1, ch, note | (int32_t)vel << 8);
+    if (ch < NCH)
+        trig_n[ch]++;
     voice_trig(ch, note, vel);
     if (ch == CH_SNARE)
         sgate_key();
@@ -269,8 +272,10 @@ static void set_param(uint32_t id, int32_t v)
     if (id == P_SIREN) {                         /* the siren (5.1: a parameter, so motion captures it) */
         if (ev[id])
             fxv_off((ev[id] & 15) - 1);
-        if (v)
+        if (v) {
             fxv_on((v & 15) - 1, (uint32_t)(v >> 4) & 127u);
+            trig_n[CH_VOX]++;
+        }
     }
     ev[id] = (int16_t)v;
 }
@@ -310,6 +315,8 @@ static void vrel(uint32_t ch, int32_t note) { evlog_ev(2, ch, note); voice_relea
 static void ctrig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
 {
     evlog_ev(3, ch, chord | voicing << 8 | (int32_t)vel << 16);
+    if (ch < NCH)
+        trig_n[ch]++;
     chordv_trig(ch, chord, voicing, vel);
 }
 
@@ -1589,6 +1596,7 @@ void eng_panic(void) { voices_panic(); }
 
 int32_t eng_param(uint32_t id) { return id < P_NIDS ? ev[id] : 0; }
 float eng_ch_peak(uint32_t ch) { return ch < NCH ? strip[ch].peak : 0.0f; }
+uint32_t eng_trig_count(uint32_t ch) { return ch < NCH ? trig_n[ch] : 0u; }
 float eng_echo_peak(void) { return echo_peak; }
 float eng_spring_peak(void) { return spring_peak; }
 uint32_t eng_cmds(void) { return cmds; }
