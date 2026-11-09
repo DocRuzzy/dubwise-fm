@@ -14,21 +14,25 @@ wait 30
 expect sound_bank 1
 expect pl_used4 0
 expect pl_pos -1
-# the factory patches: INIT, then STEPPERS; at the end it stays
+# the factory patches: INIT, STEPPERS, then the seven kits' (5.5); at an end it stays
 turn PRESET 1
 wait 30
 said BASS INIT
 expect pl_pos 0
-turn PRESET 1
+turn PRESET -1
+wait 30
+expect pl_pos 0
+turn PRESET 20 10
+wait 30
+said BASS ROCKERS
+expect pl_pos 8
+turn PRESET -7 10
 wait 30
 said BASS STEPPERS
 expect pl_pos 1
 expect ui.v4.sub 100
 expect ui.v4.cutoff 20
 expect pl_edited 0
-turn PRESET 1
-wait 30
-expect pl_pos 1
 # a sound of our own (TONE +10 over STEPPERS), saved: BASS 01
 turn K1 10 60
 wait 900
@@ -42,15 +46,15 @@ release SAVE
 wait 30
 said SAVED BASS 01
 expect pl_used4 1
-expect pl_pos 2
+expect pl_pos 9
 expect pl_edited 0
 # away and back: the saved sound comes back field by field
-turn PRESET -1
+turn PRESET -8 10
 wait 30
 said BASS STEPPERS
 expect ui.v4.cutoff 20
 expect ui.v4.m.tone 0
-turn PRESET 1
+turn PRESET 8 10
 wait 30
 said BASS 01
 expect ui.v4.cutoff 45
@@ -59,7 +63,7 @@ expect ui.v4.sub 100
 expect ui.v4.m.tone 10
 # a run of PRESET turns is one undo step
 wait 900
-turn PRESET -2 60
+turn PRESET -9 30
 wait 900
 expect pl_pos 0
 expect ui.v4.sub 0
@@ -71,7 +75,7 @@ release HOME
 expect ui.v4.cutoff 45
 expect ui.v4.sub 100
 # overwrite: the user patch shown, edited, saved over (asked twice)
-turn PRESET 2
+turn PRESET 9 30
 wait 30
 said BASS 01
 turn K4 5 60

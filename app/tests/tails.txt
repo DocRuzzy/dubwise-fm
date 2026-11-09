@@ -216,7 +216,7 @@ wait 30
 # ---- a slot load: the lead's release at its longest, a slot loaded as it rings
 tap GLO
 wait 30
-turn K1 -5
+turn K1 -6
 wait 30
 said SAVE TO SLOT
 turn K2 3

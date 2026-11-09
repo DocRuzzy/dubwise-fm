@@ -34,7 +34,7 @@ turn K2 1
 wait 30
 turn K2 1
 wait 300
-turn K1 -2
+turn K1 -3
 wait 30
 turn K2 1
 wait 30
@@ -65,7 +65,7 @@ B = "\n".join(lines) + """
 wait 100
 tap GLO
 wait 30
-turn K1 -4
+turn K1 -5
 wait 30
 turn K2 2
 wait 30
