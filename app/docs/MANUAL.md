@@ -129,6 +129,8 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | REC OFFSET | 0–60 ms (12 by default) taken off each played note's time, for the sound's way to your ears. |
 | CLICK | COUNT-IN (the default: a click on every beat while a pass waits for its line), RECORDING (and while recording), or OFF. |
 | USB STEMS | What a computer recording the FM-1 over USB gets on channels 3–10, beside the mix on 1–2: CHANNELS (the default: each of the eight channels on its own, dry, after its fader and mute), BUSES (drums, bass, chords, lead and vox, then the echo's return left and right and the spring's left and right), or OFF. |
+| MIDI LEARN | Turn KNOB 2 up, then move a DUBWISE control (any knob, the Big Knob, a mute or throw key, a black key's move), then your controller's knob, fader or pad: it now moves that control, over its whole range (a switch: on from the middle up). Up to 32; SAVE keeps them. Turn KNOB 2 down twice to forget them all. A controller's moves are recorded into the song like your hands', but undo doesn't keep them. |
+| USB PORT | COMPUTER (the default) or KEYBOARD: a USB-MIDI keyboard or controller plugged into the FM-1 itself, through a powered hub or adapter (the FM-1 gives the port no power). It plays as MIDI does (below), and its knobs work as learned. While it's a keyboard, there's no computer: no USB audio, mirror or backup. |
 | AUTOSAVE | ON (the default): what SAVE keeps is saved by itself once you've stopped and left the FM-1 alone for a few seconds (and the echo has died away), so switching off never loses a session; SAVE's light going out says it's done. OFF: only SAVE saves. |
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
@@ -291,7 +293,8 @@ them off the FM-1, see Backing up, below.
 seconds. That's clearing the motion (SAVE + REC), loading the demo, UK STEPPERS or a slot over unsaved changes,
 saving over a slot that has a song in it, and NEW PROJECT. Everything else, HOME + REC can take back.
 
-MIDI comes in over USB and the TRS jack. Each message is timed where it lands on the FM-1 (to 0.05 ms), so MIDI
+MIDI comes in over USB (from a computer, or a keyboard plugged straight in: SETUP, USB PORT) and the TRS jack.
+Control changes move what you've taught them to (SETUP, MIDI LEARN). Each message is timed where it lands on the FM-1 (to 0.05 ms), so MIDI
 CLOCK IN follows a computer or drum machine tightly. On channel 10, General MIDI's drum notes play the drums: 35 or 36 the kick,
 37 to 40 the rim, 42 or 44 the closed hat, 46 the open hat (a closed hat cuts an open one short). On channel 2, notes
 play the lead; on any other channel, the bass, one at a time. DUBWISE has no Bluetooth.

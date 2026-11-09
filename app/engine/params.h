@@ -81,6 +81,7 @@ enum {
     P_USB_STEMS,              /* the USB recording's own channels 3-10 (QoL 4): STEMS_CHANNELS (the eight strips, dry,
                                * post-fader), STEMS_BUSES (drums, bass, chords, lead + vox, the echo's and the spring's
                                * returns L R), STEMS_OFF */
+    P_USB_PORT,               /* USBPORT_COMPUTER, USBPORT_KEYBOARD (the USB MIDI host: a keyboard into the FM-1; QoL 6) */
     P_NGLOBAL,
     P_CHORD0 = 0x020,         /* the chord lane: 16 bars, each root x 8 + CHORD_* (P_CHORD0 + bar) */
     P_CHORD_END = 0x030,      /* (the globals above must stay under P_CHORD0: params.c checks) */
@@ -100,6 +101,7 @@ enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };
 enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };
 enum { REC_FEEL, REC_HALF, REC_GRID, REC_QUANT_N };
 enum { STEMS_CHANNELS, STEMS_BUSES, STEMS_OFF, STEMS_N };
+enum { USBPORT_COMPUTER, USBPORT_KEYBOARD, USBPORT_N };
 enum { REC_OVERDUB, REC_REPLACE, REC_MODE_N };
 enum { CLICK_COUNT_IN, CLICK_RECORDING, CLICK_OFF, CLICK_N };
 enum { CLOCK_OFF, CLOCK_IN, CLOCK_OUT, CLOCK_N };   /* a detent: 4, 2 or 1 fine steps */   /* the guard tiers (design principles 5) */

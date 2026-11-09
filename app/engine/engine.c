@@ -1171,6 +1171,7 @@ static int live_add(float *o, uint32_t n, int any)   /* the live input into chan
 void eng_trig(uint32_t ch, int32_t note, uint32_t vel) { trig(ch, note, vel); }
 void eng_release(uint32_t ch, int32_t note) { voice_release(ch, note); }
 int32_t eng_note(void) { return voice_note(CH_BASS); }
+int32_t eng_voice_note(uint32_t ch) { return voice_note(ch); }
 
 static int source(uint32_t ch, float *o, uint32_t n)   /* the channel's sound, mono; 0: silent */
 {

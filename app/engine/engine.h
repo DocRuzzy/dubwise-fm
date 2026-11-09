@@ -36,6 +36,7 @@ void eng_panic(void);                        /* silence now */
 void eng_trig(uint32_t ch, int32_t note, uint32_t vel);
 void eng_release(uint32_t ch, int32_t note);
 int32_t eng_note(void);                      /* the bass's note held, -1 none */
+int32_t eng_voice_note(uint32_t ch);         /* the bass's or the lead's note held, -1 none */
 
 /* read back (main loop): what the engine has applied, and its meters */
 int32_t eng_param(uint32_t id);

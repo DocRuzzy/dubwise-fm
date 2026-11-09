@@ -19,6 +19,7 @@
 #define APP_SYSEX                          /* app_sysex: the song slots to and from a computer (tools/dubwise_slots.py) */
 #define APP_REDRAW                         /* app_redraw: the whole screen again (the screen mirror lost a part) */
 void app_redraw(void);
+#define APP_USB_HOST_NAME                  /* plat_usb_host_name: the keyboard's name, said when it connects */
 int app_sysex(const uint8_t *p, uint32_t n);
 int app_backup_playing(void);
 void app_backup_flush(void);

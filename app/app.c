@@ -59,6 +59,7 @@ static int32_t gm_drum(uint32_t note)    /* GM drum note -> our channel, -1 none
     default: return -1;
     }
 }
+static void ml_cc_in(uint32_t ch, uint32_t cc, uint32_t v);
 static void midi_in(void)                /* audio interrupt: the packets that came in */
 {
     uint32_t pkt;
@@ -74,6 +75,10 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
 #else
             eng_clock_in(st, plat_midi_in_t24());
 #endif
+            continue;
+        }
+        if ((st & 0xF0u) == 0xB0u && d1 < 120u) {   /* a control change: learned (midilearn.c), on the main loop */
+            ml_cc_in(mch, d1, d2 & 0x7Fu);
             continue;
         }
         if (mch == 9u) {                 /* drums ring out: note offs ignored */
@@ -189,6 +194,8 @@ static void settings_defaults(void)
 
 static int save_project(int quiet);
 static void settings_save(void) { save_project(0); }
+static int ml_save(void);
+static void ml_load(void);
 
 static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
@@ -223,7 +230,7 @@ static int save_project(int quiet)       /* SAVE (quiet: the autosave, which say
             snd.v[i] = (int16_t)ctl_get(P_VOICE_BASE + i);
     }
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
-        && proj_save()
+        && proj_save() && ml_save()
         && ((eng_playing() && ctl_get(P_SONG_REC)) || mot_save())) {   /* (motion: not while it is captured) */
         set_dirty = 0;
         if (!quiet)
@@ -278,6 +285,7 @@ static void load_saved(void)             /* the store's objects into both sides 
                 ctl_set(P_VOICE_BASE + i, snd.v[i]);   /* (clamped) */
     }
     proj_load();
+    ml_load();
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
     ctl_set(P_ECHO_TIME, set.echo_time);  /* (clamped to their ranges) */
@@ -392,6 +400,8 @@ static void autosave_tick(void)
 void app_frame(void)
 {
     dub_input();
+    ml_tick();                           /* a controller's CCs, learned or applied (midilearn.c) */
+    usbh_tick();                         /* the USB port: a computer or a keyboard */
     ctl_flush();                         /* parameters the full queue refused: their latest values */
     ctl_follow();                        /* (and the song's motion played back) */
     dub_speak();

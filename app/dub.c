@@ -107,6 +107,9 @@ static void tap_tempo(uint32_t now);
 static void slot_sx_tick(void);
 static void steppers_load(void);
 static void new_project(void);
+static uint32_t ml_count(void);                    /* (midilearn.c: MIDI learn) */
+static void ml_learn_start(void);
+static void ml_forget_all(void);
 void dub_init(void);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
 
@@ -281,7 +284,7 @@ static int confirm(uint32_t what, const char *name)   /* 1: confirmed (the secon
     app_say(name, "AGAIN TO CONFIRM");
     return 0;
 }
-enum { CF_MOTION = 1, CF_DEMO, CF_STEPPERS, CF_NEW, CF_SLOT_SAVE = 0x10, CF_SLOT_LOAD = 0x20 };
+enum { CF_MOTION = 1, CF_DEMO, CF_STEPPERS, CF_NEW, CF_FORGET, CF_SLOT_SAVE = 0x10, CF_SLOT_LOAD = 0x20 };
 
 static uint32_t blink_on(void);
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
@@ -593,6 +596,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "slots.c"                       /* song slots (GPL-3.0-only) */
 #include "undo.c"                        /* undo and redo (GPL-3.0-only) */
 #include "help.c"                        /* help cards and tap tempo (GPL-3.0-only) */
+#include "midilearn.c"                   /* MIDI learn and the USB MIDI host (GPL-3.0-only) */
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
@@ -1511,7 +1515,7 @@ static int dub_expect(const char *what, int *got)
     else if (!strcmp(what, "key_flashes"))
         *got = (int)dub.key_flashes;
     else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got)
-             || undo_expect(what, got) || help_expect(what, got))
+             || undo_expect(what, got) || help_expect(what, got) || ml_expect(what, got))
         return 1;
     else if (!strcmp(what, "roots"))     /* 1: the cycle bar red, gold and green (72.0 BPM's first bar) */
         *got = roots_now();
