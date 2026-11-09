@@ -63,7 +63,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | White keys 1–8 | Mute or unmute channels 1–8. A tap toggles. Hold a key to flip the channel only while you hold it. Tap twice quickly to solo it. Solos add up: solo two channels and you hear both. A muted channel stays muted when you solo it. |
 | HOME + white key 1–8 | Solo, without the double tap. |
 | OCT− · OCT+ | The quantise setting: BEAT, 1, 2, 4, 8, 16 or 32 bars, or CYCLE (the next "one"). While playing, a mute or solo waits for the next line of that setting and lands on it, a hair (10 ms) early so it catches the downbeat. Its key blinks until then. |
-| PLAY | Start and stop (when you let go). Starting counts from bar 1. Stopping makes anything waiting happen at once. Hold PLAY while you press a white key to make that change now instead of on the line. |
+| PLAY | Start and stop (when you let go). Starting counts from bar 1. Stopping makes anything waiting happen at once; the echo and spring ring on. **Tap PLAY again within 0.4 s of a stop for TAILS OFF:** the echo and spring fade out in 20 ms and are emptied, without starting (a tap after that starts as usual). Hold PLAY while you press a white key to make that change now instead of on the line. |
 | SELECT · BIG KNOB | The Big Knob: a steep high-pass filter in steps, like King Tubby's: OFF, 70, 100, 150, 250, 500 Hz, 1, 2, 3, 5, 7.5 kHz. Each click jumps straight to the next step, which is part of its sound. Sweep it up to make the mix "evaporate", snap it back on the one. On the whole mix, or only the echo's return (SETUP). For finer steps between those, SETUP's BIG KNOB STEPS: 20 or 40. |
 | HOME + SELECT | Tempo, 1 BPM a click. |
 | HOME + SEQ, tapped | Tap tempo: from the second tap, the average of the last four gaps (a pause over 2 s starts again). Refused while MIDI clock in has the tempo. |
@@ -245,8 +245,10 @@ it.
 | Black keys 1–11 | Put a section marker on the bar playing (stopped: the cursor's bar): INTRO, VERSE, CHORUS, DUB, DROP, BREAK, BRIDGE, BUILD, VOCAL, OUTRO, END. The same key again takes it off. In song mode the runway counts down to the next marker, not the cycle. Hold HOME for the dub-plate words on black 1–4: VERSION, DUBPLATE, SPECIAL, RUB-A-DUB. |
 
 **Motion.** While REC is on, everything your hands do inside a bar is captured too, at the moment you did it: throws,
-mutes, freeze, push, tape dive, the crash, and every knob (echo, spring, FX, sounds). When the song plays, they play
-back. Bars that hold motion have a white mark on the ARRANGE page.
+mutes, freeze, push, tape dive, the crash, the sirens and one-shots, and every knob (echo, spring, FX, sounds). When
+the song plays, they play back exactly: the same moves on the same samples, so the song sounds as the pass did, bit
+for bit. (While playing, a move lands on the song's next motion tick, at most 1.7 ms later at 75 BPM, so the pass
+you hear and its replay are the same.) Bars that hold motion have a white mark on the ARRANGE page.
 
 - **Fix one move, keep the rest.** Record another pass and touch only what you want to redo. A control you touch
   replaces its own motion from that moment to the end of the bar; everything else keeps playing. A throw still held

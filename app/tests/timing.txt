@@ -18,6 +18,7 @@ step 1 A 2 2
 param ch1.grid 3
 wait 30
 expect eng.ch1.grid 3
+wait 260
 tap PLAY
 wait 400
 expect hit1 5880
@@ -26,6 +27,7 @@ wait 50
 # swing 75 %: the second sixteenth half a step late, 90 ticks = 13,230 samples
 param ch1.grid 2
 param ch1.swing 75
+wait 290
 tap PLAY
 wait 500
 expect hit1 13230
@@ -36,6 +38,7 @@ param ch1.swing 50
 param ch1.len 4
 clearpat 1 A
 step 1 A 1 2 36 -10
+wait 290
 tap PLAY
 wait 50
 expect hit1 0
@@ -50,6 +53,7 @@ clearpat 1 B
 step 1 B 3 2
 param ch1.pat 0
 wait 30
+wait 260
 tap PLAY
 wait 1000
 cue ch1.pat 1 1
@@ -67,6 +71,7 @@ cue ch1.pat 0 1
 wait 30
 step 1 B 3 0
 step 1 B 1 2 36 -10
+wait 260
 tap PLAY
 wait 1000
 cue ch1.pat 1 4
@@ -78,6 +83,7 @@ wait 50
 # the bass's gate: 30 x 4 = 120 ticks (17,640 samples, 0.4 s) held, then let go
 clearpat 4 A
 step 4 A 1 2 33 0 30
+wait 290
 tap PLAY
 wait 300
 expect note 33

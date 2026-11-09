@@ -490,8 +490,17 @@ static void button_release(uint32_t k)
     if (help_ate_release(k))             /* its help card shown: nothing more */
         return;
     if (k == B_PLAY && !dub.play_used) {
+        static uint32_t stop_t;          /* when PLAY last stopped the transport, 0: not just now */
+        uint32_t now = plat_ms();
         int on = !ctl_get(P_PLAY);
+        if (on && stop_t && now - stop_t < 400u) {   /* stop twice (roadmap 5.2, spec 4.1.3): tails off, no start */
+            stop_t = 0;
+            ctl_set(P_TAILS, 1);
+            app_say("TAILS OFF", "");
+            return;
+        }
         ctl_set(P_PLAY, on);
+        stop_t = on ? 0u : (now ? now : 1u);
         app_say(on ? "PLAY" : "STOP", "");
     } else if (k == B_HOME && !dub.home_used) {   /* HOME: the DUB page; again: ARRANGE (spec 4) */
         dub.page = dub.page == PAGE_DUB ? PAGE_ARRANGE : PAGE_DUB;
@@ -792,12 +801,18 @@ static void dub_input_hands(void)
                 int rev = (dub.btn >> B_HOME & 1u) != 0;
                 if (rev)
                     dub.home_used = 1;
-                ctl_note(CH_VOX, (rev ? 24 : 16) + (int32_t)(k - 7u), touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
+                {                        /* a parameter (5.1): the song's motion captures it; the toggle makes two
+                                          * presses of the same shot two changes */
+                    uint32_t vel = touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u;
+                    int32_t t = (ctl_get(P_SHOT) >> 11 & 1) ^ 1;
+                    ctl_set(P_SHOT, (int32_t)(k - 7u) + (rev ? 8 : 0) + (int32_t)((vel & 127u) << 4) + (t << 11));
+                }
                 app_say(rev ? "REVERSE" : "ONE SHOT", fxv_shot_name(k - 7u));
                 continue;
             }
-            if (k == 5u || k == 6u)      /* the sirens A, B, while held (P2.1) */
-                ctl_note(CH_VOX, k == 5u ? SIREN_A : SIREN_B, touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
+            if (k == 5u || k == 6u)      /* the sirens A, B, while held (P2.1): a parameter, captured (5.1) */
+                ctl_set(P_SIREN, (k == 5u ? SIREN_A : SIREN_B) + 1
+                                     + (int32_t)(((touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u) & 127u) << 4));
             if (k == 4u || k == 10u) {   /* drop to wet, drum and bass: while held (spec 4.1) */
                 ctl_set(k == 4u ? P_WET : P_DNB, 1);
                 dub.dirty_centre = 1;
@@ -823,7 +838,8 @@ static void dub_input_hands(void)
             }
             app_say(roots_name(BLACK_NAME[k]), "");
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 5u || k == 6u)) {
-            ctl_note(CH_VOX, k == 5u ? SIREN_A : SIREN_B, 0);
+            if ((ctl_get(P_SIREN) & 15) == (k == 5u ? SIREN_A : SIREN_B) + 1)
+                ctl_set(P_SIREN, 0);             /* (the other siren, if it took over, plays on) */
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 4u || k == 10u)) {
             ctl_set(k == 4u ? P_WET : P_DNB, 0);
             dub.dirty_centre = 1;

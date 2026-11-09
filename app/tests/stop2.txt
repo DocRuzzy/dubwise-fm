@@ -1,0 +1,75 @@
+# Stop twice: tails off (roadmap 5.2, spec 4.1.3). A stop lets the echo and the spring ring out, as built; a second
+# PLAY tap within 400 ms of it doesn't start the transport: the returns fade over 20 ms (no click), then the echo's
+# tape and the spring are emptied ("TAILS OFF"). A start 400 ms or more after a stop works as before.
+# Every channel muted, the snare's test tone thrown (a throw is pre-mute; a steady tone keeps the returns ringing
+# steadily): the recordings hold only the returns, so a click from the cut would be the largest step in them.
+wait 600
+listen
+param dev.tones 1
+param echo.fb 80
+param ch2.dest 2
+param ch1.mute 1
+param ch2.mute 1
+param ch3.mute 1
+param ch4.mute 1
+param ch5.mute 1
+param ch6.mute 1
+param ch7.mute 1
+param ch8.mute 1
+tap PLAY
+wait 1500
+key w9 down 120
+wait 1700
+key w9 up
+wait 200
+expect echo_ret_db >-30
+expect spring_ret_db >-40
+# a plain stop: the returns ring on (the reference recording: their own steps, no cut)
+wav stop2-ring.wav
+tap PLAY
+wait 600
+said STOP
+expect eng.play 0
+expect echo_ret_db >-40
+wavstop
+#wav stop2-ring.wav peak<-1 click<-30
+# a start 400 ms or more after the stop: normal (and the returns still there)
+tap PLAY
+wait 100
+said PLAY
+expect eng.play 1
+wait 1000
+key w9 down 120
+wait 1700
+key w9 up
+wait 200
+# stop twice: the second tap 150 ms after the stop
+wav stop2.wav
+tap PLAY
+wait 70
+expect echo_ret_db >-40
+tap PLAY
+wait 40
+said TAILS OFF
+expect eng.play 0
+expect echo_ret_db -120
+expect spring_ret_db -120
+wait 300
+wavstop
+#wav stop2.wav peak<-1 click<-55 tail<-90
+expect echo_ret_db -120
+expect spring_ret_db -120
+# a later start is normal: the transport runs and the echo works again
+wait 600
+tap PLAY
+wait 100
+said PLAY
+expect eng.play 1
+key w9 down 120
+wait 600
+key w9 up
+wait 200
+expect echo_ret_db >-60
+tap PLAY
+wait 50
+param dev.tones 0

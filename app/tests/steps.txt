@@ -14,6 +14,7 @@ expect hit1 211680
 tap PLAY
 param tempo 760
 wait 30
+wait 310
 tap PLAY
 wait 1700
 expect hit1 69632

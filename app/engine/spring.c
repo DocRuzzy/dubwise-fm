@@ -81,6 +81,8 @@ void spring_init(void)
 
 void spring_config(const spring_cfg_t *c) { cfg = *c; }
 
+void spring_start(void) { rng = 0x9E3779B9u; }   /* the transport's start: the crash's noise from its seed (5.1) */
+
 void spring_crash(float amount)
 {
     crash_amp = amount;

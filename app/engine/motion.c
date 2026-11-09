@@ -84,7 +84,7 @@ int mot_recordable(uint32_t id)                  /* (not the spin-back: a song t
                                                   * channel's pattern: the song's bars keep those, on their lines) */
 {
     return id >= P_CH_BASE && id < P_NIDS && id != P_SPIN && param_desc(id) != 0
-           && !(id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE == CHF_PAT);
+           && !(id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE == CHF_PAT) && id != P_TAILS;
 }
 
 int mot_momentary(uint32_t id)
@@ -94,13 +94,14 @@ int mot_momentary(uint32_t id)
         if (id == P_CH(ch, CHF_THROW))
             return (int)ch;
     return id == P_ECHO_FREEZE ? (int)NCH : id == P_ECHO_PUSH ? (int)NCH + 1 : id == P_ECHO_DIVE ? (int)NCH + 2
-           : id == P_SPRING_KICK ? (int)NCH + 3 : id == P_WET ? (int)NCH + 4 : id == P_DNB ? (int)NCH + 5 : -1;
+           : id == P_SPRING_KICK ? (int)NCH + 3 : id == P_WET ? (int)NCH + 4 : id == P_DNB ? (int)NCH + 5
+           : id == P_SIREN ? (int)NCH + 6 : -1;
 }
 
 uint32_t mot_mom_id(uint32_t k)
 {
-    static const uint16_t X[6] = {P_ECHO_FREEZE, P_ECHO_PUSH, P_ECHO_DIVE, P_SPRING_KICK, P_WET, P_DNB};
-    return k < NCH ? P_CH(k, CHF_THROW) : X[(k - NCH) % 6u];
+    static const uint16_t X[7] = {P_ECHO_FREEZE, P_ECHO_PUSH, P_ECHO_DIVE, P_SPRING_KICK, P_WET, P_DNB, P_SIREN};
+    return k < NCH ? P_CH(k, CHF_THROW) : X[(k - NCH) % 7u];
 }
 
 static int keeps_all(uint32_t id)                /* every press and release kept (no thinning) */
@@ -226,11 +227,13 @@ void mot_user(uint32_t id, int32_t v, uint32_t tick, int rec_now)
     if (!rec)
         return;
     n = mot_n[bar];
-    if (!keeps_all(id))                          /* a knob: one value a sixteenth (the latest) */
+    if (!keeps_all(id))                          /* a knob: one value a tick (the latest: the pass too only heard
+                                                  * the last, the engine applying a hand's move on its tick; 5.1).
+                                                  * (Before 5.1: one a sixteenth, a sweep thinned on replay) */
         for (i = n; i-- > 0;) {
             mot_ev_t *m = at((uint32_t)bar, i);
             if (m->id == id) {
-                if (m->tick / (MOT_TPB / 4u) == tick / (MOT_TPB / 4u)) {
+                if (m->tick == tick) {
                     m->v = (int16_t)v;
                     mot_dirty = 1;
                     return;
