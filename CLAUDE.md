@@ -4,7 +4,8 @@ Dubwise FM is an open-source (GPL-3.0-only) firmware that turns the M-VAVE FM-1 
 
 ## Read first
 - `docs/design-principles.md`: governing rules and fidelity policy. Every change must comply.
-- `docs/roadmap.md`: P0–P3 features (item numbers like 0.3, 1.1), hardware budget, memory plan, engine architecture.
+- `docs/roadmap.md`: features by item number (P0–P3, 4.x built, 5.x sound design: next, in its order of work), hardware budget, memory plan, engine architecture.
+- `docs/review-2026-11.md`: the resources as built and the headroom rules (CPU, pool, RAM) every new feature is checked against. `docs/roundup-review-2026-11.md`: why the 5.x block exists.
 - `docs/interface-spec.md`: controls, pages, screen layout, runway countdown, accessibility.
 - `docs/prior-art.md`: measured hardware facts and lessons from X0X and DUB-1.
 - `docs/mastery-guide.md`: dub technique references (C1–C13, D1–D3, B5) and drills.
@@ -39,3 +40,5 @@ Dubwise FM is an open-source (GPL-3.0-only) firmware that turns the M-VAVE FM-1 
 - Reference roadmap item numbers in commits and PRs (e.g. "P0.3 tape echo: in-loop all-passes").
 - Code that adapts GPL code from fm1-x0x or fm1-dub must credit it in the file header and in `CREDITS.md`.
 - Update `docs/` when a decision changes.
+- **Any change to a stored format** (a store object, a slot, the pattern, song or motion layout, a SysEx dump) needs a plan before code, and an OK on it: what changes, the version bump, the converter for old saves and slots, and the test that loads an old save. A wrong guess here costs a second converter.
+- Work through the roadmap in its stated order of work (`docs/roadmap.md`, at the top of each block), one item or small group per branch and PR. Mark items Done in the roadmap with what was measured and the cost.

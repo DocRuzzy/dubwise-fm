@@ -169,6 +169,17 @@ From `roundup-review-2026-11.md`: a reviewer scored ~30 FM-1 firmwares on workfl
 
 Grouped by priority: **A** first (5.1–5.6), then **B** (5.7–5.11, 5.15), then **C** (5.12–5.14).
 
+**Order of work** (each step its own branch and PR):
+1. **5.1 + 5.2.** Small and test-first: they shake out tail and replay bugs before the bigger changes. If 5.1 finds a bug, report it before fixing it.
+2. **5.3 → 5.4 → 5.5**, in that order. The patch format (5.4) has to hold 5.3's new fields, and the kits (5.5) are factory patches. 5.4 changes a stored format, so plan it first (CLAUDE.md).
+3. **5.6 Dice.** It needs 5.3's bounded ranges and 5.4's patches.
+4. **Group B: 5.7–5.11.** 5.8 changes the pattern format: plan first.
+5. **review-2026-11 §5.4** (the spin ring as µ-law, −17.6 KB of pool), on its own. It's the room 5.15 needs.
+6. **5.15 organ**, once open question 5 (the stereo horn) is decided. Its patch fields change a stored format: plan first.
+7. **Group C: 5.12–5.14**, as wanted.
+
+**Device check-ins:** every device build ends with a PERF page reading (`release-checklist.md`, step 7), logged in the project's Practice log. When a reading differs from a ×80 estimate here, correct the estimate and note the measurement.
+
 | # | Pri | Feature | Ref | Notes |
 |---|---|---|---|---|
 | 5.1 | A | **Tail and capture tests** | roundup; principles (timing) | (a) Every voice ends under −60 dB within its longest decay after release, steal, mute, pattern change, stop, scene recall and a slot load, at every parameter extreme (Ghoulbox's endless decay). (b) A scripted live pass (keys, throws, mutes, knob sweeps) captured by REC and replayed renders the same events at the same samples as the pass, and a bit-identical WAV over the same span (FM1 Open's recording mismatch). Scenario files `tails.txt`, `replay.txt`. Cost: tests only |
