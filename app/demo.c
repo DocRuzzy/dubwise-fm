@@ -228,3 +228,32 @@ static void steppers_load(void)
     undo_reset();
     app_say("UK STEPPERS", "LOADED: PRESS PLAY");
 }
+
+/* NEW PROJECT (SETUP; the 2026-11 QoL review 5): the project as at the first switch-on. The parameters a slot keeps
+ * (slots.c project_param: the desk, effects, sounds, key, chords, tempo, song settings) to their defaults, every
+ * pattern empty but ONE DROP in A, the scenes, the song and its motion cleared. The device's own preferences (SETUP)
+ * stay; the song slots too. Asked for twice (confirm). Undo starts again */
+static int project_param(uint32_t id);
+static void new_project(void)
+{
+    uint32_t id, ch, b, s;
+    for (id = 0; id < P_NIDS; id++)
+        if (project_param(id))
+            ctl_set(id, param_def(id));
+    pats_clear_all();
+    for (ch = 0; ch < NCH; ch++)
+        ctl_meta_set(ch, 0, pmeta_def());
+    ctl_template(TPL_ONE_DROP, 0xFFu, 0);
+    for (s = 0; s < NSCENES; s++)
+        scenes[s].used = 0;
+    scenes_dirty = 0xFFFFu;
+    for (b = 0; b < SONG_BARS; b++)
+        song[b].flags = 0;
+    song_dirty = 1;
+    ctl_set(P_SONG_REC, 0);
+    ctl_motion_clear();
+    set_dirty = 1;
+    arr.sig = 0;
+    undo_reset();
+    app_say("NEW PROJECT", "ONE DROP, 75 BPM");
+}

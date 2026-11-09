@@ -48,7 +48,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 
 | Part | What it shows |
 | --- | --- |
-| Header | The tempo, playing (triangle) or stopped (square), the cycle bar (a segment a bar, in fours, this bar filling beat by beat), the bar you're in out of the cycle (5/16), and the quantise setting (Q). It turns amber on the runway. After a change, a message shows here for a moment. |
+| Header | The tempo, playing (triangle) or stopped (square), the cycle bar (a segment a bar, in fours, this bar filling beat by beat), the bar you're in out of the cycle (5/16), and the quantise setting (Q), with the battery beside it (three bars; red when it's nearly empty, and the FM-1 says BATTERY LOW once; none while USB powers it). It turns amber on the runway. After a change, a message shows here for a moment. While playing, the PLAY button flashes on every beat, in both colours on a bar's first: a metronome for your eyes. |
 | Channel strips | The eight channels: 1 KICK, 2 SNR (snare), 3 HAT, 4 BASS, 5 SKNK (skank), 6 ORGN (organ), 7 LEAD, 8 VOX. A filled box is playing, with its level brighter over it. An outlined box is muted. A hatched box is muted by someone else's solo. S marks a solo. A strip that blinks white has a change waiting. A line under a strip marks the focus. Under each box, where a throw sends the channel: E (echo), S (spring) or ES (both). A thrown channel's number lights up. |
 | Centre, left | The echo: its time, and its repeats as they fall. They turn amber near endless feedback and red past it. A red line underneath shows the echo's limiter at work. |
 | Centre, right | The Big Knob: its steps as an arc (10, 20 or 40: SETUP), and where it is. While something waits, what's waiting (CUED) and when it lands: NEXT BEAT, 1 BAR, 2 BARS and so on. On the runway, the countdown. |
@@ -132,6 +132,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
+| NEW PROJECT | Turn KNOB 2 twice: a clean start. The desk, sounds, key and chords back to how they were at the first switch-on, ONE DROP in pattern A of each channel, the other patterns, the scenes, the song and its motion empty. Your SETUP preferences and the song slots stay. Until you SAVE (or autosave does), switching off brings your last save back. |
 | SAVE TO SLOT | Keep the whole project in one of four slots: the desk, the sounds, the key and chords, the patterns, the scenes, the song and its recorded moves. KNOB 2 picks the slot (it says whether it's empty), then press SAVE. Stopped only. Your SETUP preferences aren't part of it. |
 | LOAD SLOT | Bring a slot's project back (KNOB 2 picks it, SAVE loads it), in place of the current one. Press SAVE again afterwards to make it the one that's there at power-on. Stopped only. |
 | DEMO SONG | Turn KNOB 2 to load RIGHTEOUS DUB, the demo: an original riddim and its dub in the 1970s Kingston manner, 72 BPM in A minor, 32 bars (INTRO of drum and bass, VERSE with the melodica, VERSION, a DUB section where the hats drop and the Big Knob climbs, a DROP without the bass, the VERSE again, OUTRO, and an END where everything drops to the echo). The engineer's moves are in it, as the song's motion: throws, spring crashes, a freeze, an echo swell, a dub push, a tape dive. It replaces the patterns, scenes, song and motion (until you SAVE, nothing is lost: switch off to get yours back). Press PLAY: the song plays once. Play on top of it: sirens, one-shots, more throws. |
@@ -285,7 +286,12 @@ them off the FM-1, see Backing up, below.
 
 ## 5. MIDI and audio
 
-MIDI comes in over USB and the TRS jack. On channel 10, General MIDI's drum notes play the drums: 35 or 36 the kick,
+**Asking twice.** What can't be undone asks first, and says so (AGAIN TO CONFIRM): do the same thing again within 3
+seconds. That's clearing the motion (SAVE + REC), loading the demo, UK STEPPERS or a slot over unsaved changes,
+saving over a slot that has a song in it, and NEW PROJECT. Everything else, HOME + REC can take back.
+
+MIDI comes in over USB and the TRS jack. Each message is timed where it lands on the FM-1 (to 0.05 ms), so MIDI
+CLOCK IN follows a computer or drum machine tightly. On channel 10, General MIDI's drum notes play the drums: 35 or 36 the kick,
 37 to 40 the rim, 42 or 44 the closed hat, 46 the open hat (a closed hat cuts an open one short). On channel 2, notes
 play the lead; on any other channel, the bass, one at a time. DUBWISE has no Bluetooth.
 
@@ -316,6 +322,10 @@ been proposed upstream. Until that change lands, the computer's audio is mixed i
 nothing.
 
 ---
+
+**Screen mirror.** Over USB, a computer can show the FM-1's screen and panel, and you can play the panel from it:
+fm1-base's mirror page (base/web/mirror/) or `tools/fm1_mirror.py`. Handy for teaching, streaming or a screen
+reader on the computer.
 
 ## 6. The screen reader
 

@@ -7,9 +7,11 @@ listen
 master 3400
 tap GLO
 wait 30
-turn K1 -1
+turn K1 -2
 wait 30
 said UK STEPPERS
+turn K2 1
+wait 30
 turn K2 1
 wait 50
 said UK STEPPERS LOADED: PRESS PLAY

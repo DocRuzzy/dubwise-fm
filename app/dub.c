@@ -106,6 +106,7 @@ static int help_ate_release(uint32_t k);
 static void tap_tempo(uint32_t now);
 static void slot_sx_tick(void);
 static void steppers_load(void);
+static void new_project(void);
 void dub_init(void);
 static const uint8_t WK[16] = PLAT_WHITE_KEYS, BK[11] = PLAT_BLACK_KEYS;
 
@@ -263,6 +264,25 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
 
 enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX, PAGE_ARRANGE, PAGE_PERF };
 #include "keys.c"                        /* the KEY & CHORDS page (GPL-3.0-only) */
+/* "press again": an action that can't be undone asks once more (the 2026-11 QoL review 5). The same action again
+ * within 3 s does it; anything else meanwhile is its own action, and the ask lapses */
+static struct {
+    uint32_t what, until;
+} cf;
+static int confirm(uint32_t what, const char *name)   /* 1: confirmed (the second ask) */
+{
+    uint32_t now = plat_ms();
+    if (cf.what == what && now < cf.until) {
+        cf.what = 0;
+        return 1;
+    }
+    cf.what = what;
+    cf.until = now + 3000u;
+    app_say(name, "AGAIN TO CONFIRM");
+    return 0;
+}
+enum { CF_MOTION = 1, CF_DEMO, CF_STEPPERS, CF_NEW, CF_SLOT_SAVE = 0x10, CF_SLOT_LOAD = 0x20 };
+
 static uint32_t blink_on(void);
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 #include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
@@ -412,6 +432,8 @@ static void button_press(uint32_t k)
     } else if (k == B_REC && (dub.btn >> B_SAVE & 1u)
                && (dub.page == PAGE_DUB || dub.page == PAGE_ARRANGE)) {   /* SAVE + REC: the motion cleared (P2.7) */
         dub.save_used = 1;
+        if (!confirm(CF_MOTION, "CLEAR MOTION"))
+            return;
         ctl_motion_clear();
         set_dirty = 1;
         arr_mark();
@@ -831,6 +853,7 @@ encoders:
 /* one LED language (spec 2.7): bright = on / playing, dim = available / muted, slow blink = cued */
 static uint32_t blink_on(void) { return (plat_ms() / BLINK_MS) & 1u; }
 
+static int led_play;                     /* (tests) the PLAY lights: 1 green, 2 the other, 3 both */
 static void lights(void)
 {
     uint32_t ch, bright = 0, dim = 0, bb = dub.btn, k;
@@ -866,10 +889,18 @@ buttons:
     if (plat_ms() < dub.keys_until)      /* the runway's last bar on the keys: every white key, each beat */
         for (k = 0; k < 16u; k++)
             bright |= 1u << WK[k];
-    if (eng_playing())
-        bb |= LED_PLAY_GREEN;
+    if (eng_playing()) {                 /* PLAY flashes on the beat (a visual metronome; QoL review 5): green for a
+                                          * fifth of each beat, both colours on a bar's first */
+        int32_t f = eng_fine();
+        if (f >= 0 && f % (int32_t)PPQ < (int32_t)PPQ / 5) {
+            bb |= LED_PLAY_GREEN;
+            if (f % (4 * (int32_t)PPQ) < (int32_t)PPQ / 5)
+                bb |= 1u << B_PLAY;
+        }
+    }
     if (set_dirty)
         bb |= 1u << B_SAVE;
+    led_play = ((bb & LED_PLAY_GREEN) ? 1 : 0) | ((bb >> B_PLAY & 1u) ? 2 : 0);
     plat_lights(bb, bright | dub.keys, 0, dim, 1);
 }
 
@@ -912,6 +943,8 @@ static int roots_now(void)
     return (int32_t)(eng_beat() / 4u) == roots_bar;
 }
 
+static int bat_now = -1;                 /* plat_battery, read once a second (dub_draw) */
+static void outline(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c);
 static void draw_header(void)            /* tempo, transport, the cycle bar, bar n / cycle, quantise (spec 5.1) */
 {
     char t[24], n[12];
@@ -968,6 +1001,17 @@ static void draw_header(void)            /* tempo, transport, the cycle bar, bar
         text_cat(t, "Q ");
         text_cat(t, quant_name(ctl_get(P_QUANT)));
         cv_text(236 - text_w(&FONT_T, t), 8, &FONT_T, t, C_AMB);
+        if (bat_now >= 0 && bat_now <= 3) {   /* the battery (QoL review 5): three bars; red when empty. On USB's power
+                                               * (4) or not read (-1): none */
+            int32_t bx2 = 236 - text_w(&FONT_T, t) - 19, k;
+            uint16_t c = bat_now == 0 ? C_RED : C_GRAY;
+            outline(bx2, 9, 13, 8, c);
+            cv_rect(bx2 + 13, 11, 2, 4, c);
+            for (k = 0; k < bat_now; k++)
+                cv_rect(bx2 + 2 + k * 3, 11, 2, 4, C_GRAY);
+            if (bat_now == 0)
+                cv_rect(bx2 + 2, 11, 1, 4, C_RED);
+        }
     }
     cv_rect(0, HDR_H - 2, 240, 2, r.on ? C_AMB : C_BLACK);   /* the header amber on the runway */
     cv_rect(0, HDR_H - 1, 240, 1, r.on ? C_AMB : C_LINE);
@@ -1245,6 +1289,24 @@ void dub_draw(void)
         lights();
         return;
     }
+    {                                    /* the battery, once a second: the header when it changes; empty: said once */
+        static uint32_t bat_t;
+        static uint8_t warned;
+        if (now - bat_t >= 1000u) {
+            int b = plat_battery();
+            bat_t = now;
+            if (b != bat_now) {
+                bat_now = b;
+                dub.dirty_hdr = 1;
+                if (b == 0 && !warned) {
+                    warned = 1;
+                    app_say("BATTERY LOW", "CHARGE IT SOON");
+                }
+                if (b > 0)
+                    warned = 0;
+            }
+        }
+    }
     if (eng_tier() != dub.tier_seen) {   /* the guard changed the tier: a badge and a word (design principles 5) */
         dub.tier_seen = eng_tier();
         dub.dirty_hdr = 1;
@@ -1429,6 +1491,10 @@ static int dub_expect(const char *what, int *got)
         *got = dub.turns[atoi(what + 5) % NE];
     else if (!strcmp(what, "page"))
         *got = dub.page;
+    else if (!strcmp(what, "led_play"))
+        *got = led_play;
+    else if (!strcmp(what, "battery"))   /* the battery as the header shows it (-1: none) */
+        *got = bat_now;
     else if (!strcmp(what, "runway")) {  /* bars to the one while on the runway, else 0 */
         runway_t r = runway_now();
         *got = r.on ? (int)r.left : 0;

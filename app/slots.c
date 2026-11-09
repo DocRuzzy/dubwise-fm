@@ -260,6 +260,11 @@ static void slot_action(int load)
         app_say(t, "STOP FIRST");
         return;
     }
+    if (!load && slot_head((uint32_t)su_slot) && !confirm(CF_SLOT_SAVE + (uint32_t)su_slot, "OVERWRITE"))
+        return;                          /* (a saved slot: asked again) */
+    if (load && (set_dirty || scenes_dirty || mot_dirty) && slot_head((uint32_t)su_slot)
+        && !confirm(CF_SLOT_LOAD + (uint32_t)su_slot, "NOT SAVED: LOAD"))
+        return;                          /* (what isn't saved would go: asked again) */
     r = load ? slot_load((uint32_t)su_slot) : slot_save((uint32_t)su_slot);
     app_say(t, r == 1 ? (load ? "LOADED" : "SAVED") : r == -1 ? "EMPTY" : r == -2 ? "TOO MANY MOVES" : "FAILED");
 }

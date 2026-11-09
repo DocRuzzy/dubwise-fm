@@ -341,6 +341,13 @@ void app_ui_init(void)
 
 void app_input_only(void) { dub_input(); }
 
+void app_redraw(void)                    /* (APP_REDRAW: the screen mirror lost a part) the whole screen again */
+{
+    dub_init();
+    dub.page_drawn = 0xFFu;
+    help.drawn = 0;
+}
+
 /* AUTOSAVE (SETUP, on by default; the 2026-11 QoL review): what SAVE keeps, saved by itself once nothing has been
  * touched for 4 s, stopped, the sound died away (a flash write stops the sound for a moment) and nothing being
  * loaded. Quiet: SAVE's light going out says it. A failed one waits 30 s before the next try */

@@ -17,6 +17,8 @@
 #define APP_BACKUP_VERSION 1u
 #define APP_BACKUP_WHAT "replaces the saved project"
 #define APP_SYSEX                          /* app_sysex: the song slots to and from a computer (tools/dubwise_slots.py) */
+#define APP_REDRAW                         /* app_redraw: the whole screen again (the screen mirror lost a part) */
+void app_redraw(void);
 int app_sysex(const uint8_t *p, uint32_t n);
 int app_backup_playing(void);
 void app_backup_flush(void);
