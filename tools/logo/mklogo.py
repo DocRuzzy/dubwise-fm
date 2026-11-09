@@ -20,7 +20,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "spillt-mark-drawing.jpeg")
 OUT = os.path.join(HERE, "..", "..", "app", "logo_data.h")
-SIZES = {"SPLASH": 0.70, "SAVER": 0.40}      # of the drawing's 238 x 205
+SIZES = {"SPLASH": 0.70}                    # of the drawing's 238 x 205 (the saver draws it in smoke: tools/art/)
 # erasures, in the drawing's pixels: x0, y0, x1, y1 (inclusive). None: the owner's three (2026-11-08) were stubs of
 # the old traced version (a top bar past the centre line, the S's lower gap closed, a bottom-bar stub), which the
 # drawing itself doesn't have
