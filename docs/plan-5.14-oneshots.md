@@ -1,7 +1,11 @@
 # Plan: roadmap 5.14, your own one-shots on channel 8
 
-Status: **approved 2026-11-09.** The owner chose µ-law at 22,050 Hz (1.5 s, clean). The technical choices, as
-recommended: 36 KiB of XDATA1, and the tool saves the shots beside the store backup.
+Status: **approved and built 2026-11-09** (roadmap 5.14 has what was measured). The owner chose µ-law at 22,050 Hz
+(1.5 s, clean). The technical choices, as recommended: 36 KiB of XDATA1, and the tool saves the shots beside the store
+backup. **As built, two details differ from the tables below:** the header is 48 bytes, not 36 (an entry is offset 2,
+length 2 and name 8: twelve bytes, three of them), and the answers have codes of their own, so the tool never mistakes
+them for a slot's: 61 a piece, 62 the end, 63 none (factory), 65 refused, 66 kept. Nothing was stored in the
+36-byte form, so no converter.
 
 ## What the player gets
 

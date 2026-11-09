@@ -11,6 +11,12 @@
   python3 tools/dubwise_slots.py patch list CH                   a channel's 16 user slots, by name
   python3 tools/dubwise_slots.py patch current CH FILE           the channel's sound as it is now, into FILE
   python3 tools/dubwise_slots.py patch name FILE NAME            rename a .dwpatch file (8 characters)
+  python3 tools/dubwise_slots.py shots put A.wav [B.wav C.wav]   your own one-shots for black keys 8-10 (stopped;
+                                                                 or an image from make_oneshots.py user: FILE.dwshots)
+  python3 tools/dubwise_slots.py shots get FILE                  the FM-1's one-shots into FILE (.dwshots): keep it
+                                                                 beside a backup (fm1_backup.py doesn't carry them)
+  python3 tools/dubwise_slots.py shots factory                   the built-in BIM, HORN and LASER back
+  python3 tools/dubwise_slots.py shots info FILE                 what a .dwshots file holds
 
 A .dwpatch file is one sound patch (48 bytes, roadmap 5.4; app/patches.c has the layout): one channel's voice.
 A .dws file is the slot exactly as the FM-1's flash holds it: a whole project (the desk, sounds, key, patterns, scenes,
@@ -21,6 +27,9 @@ import argparse
 import struct
 import sys
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # (make_oneshots.py, beside it)
 
 HDR = bytes([0x7D, 0x44, 0x57])                   # non-commercial, "DW"
 PIECE = 256
@@ -169,6 +178,85 @@ def patch_replies(raw, ch):
     return got
 
 
+def shots_frames(image):                          # (app/shots.c: 52 IDX DATA .., then 53 LEN)
+    frames = []
+    for idx, off in enumerate(range(0, len(image), PIECE)):
+        frames.append(bytes([0xF0, *HDR, 0x52, idx & 0x7F, idx >> 7 & 0x7F]) + pack7(image[off:off + PIECE]) + b"\xF7")
+    n = len(image)
+    frames.append(bytes([0xF0, *HDR, 0x53, n & 0x7F, n >> 7 & 0x7F, n >> 14 & 0x7F, 0xF7]))
+    return frames
+
+
+class ShotsDump:
+    """Collects a one-shots dump (61 pieces, then 62 LEN or 63 none); done is the image or an error string."""
+
+    def __init__(self):
+        self.parts, self.done = {}, None
+
+    def take(self, f):
+        if len(f) < 6 or f[1:4] != HDR:
+            return
+        if f[4] == 0x61:
+            self.parts[f[5] | f[6] << 7] = unpack7(f[7:-1])
+        elif f[4] == 0x62:
+            n = f[5] | f[6] << 7 | f[7] << 14
+            image = b"".join(self.parts[i] for i in sorted(self.parts))
+            self.done = image if len(image) == n and sorted(self.parts) == list(range(len(self.parts))) else "incomplete"
+        elif f[4] == 0x63:
+            self.done = "the FM-1 plays its factory one-shots (none of yours)"
+
+
+def shots_main(o):
+    import make_oneshots as M
+    sub, files = o.a, [f for f in (o.b, o.c, o.d) if f]
+    if sub == "info":
+        print(M.image_info(open(files[0], "rb").read()))
+        return 0
+    if sub == "put":
+        if not files:
+            sys.exit("shots put A.wav [B.wav C.wav], or FILE.dwshots")
+        if files[0].lower().endswith(".wav"):
+            image = M.user_image((Path(f).stem, M.user_shot(f)) for f in files)
+        else:
+            image = open(files[0], "rb").read()
+        print(M.image_info(image))
+        if not M.image_info(image).startswith("one-shots"):
+            sys.exit(1)
+    inp, out = open_ports(o.port)
+    if sub == "get":
+        if not files:
+            sys.exit("shots get FILE")
+        d = ShotsDump()
+        send(out, bytes([0xF0, *HDR, 0x51, 0xF7]))
+        end = time.time() + 20
+        while d.done is None and time.time() < end:
+            for m in inp.iter_pending():
+                if m.type == "sysex":
+                    d.take(bytes([0xF0, *m.data, 0xF7]))
+            time.sleep(0.005)
+        if not isinstance(d.done, bytes):
+            sys.exit(d.done or "no answer")
+        open(files[0], "wb").write(d.done)
+        print(f"-> {files[0]}: {M.image_info(d.done)}")
+        return 0
+    frames = shots_frames(image) if sub == "put" else [bytes([0xF0, *HDR, 0x54, 0xF7])] if sub == "factory" else None
+    if frames is None:
+        sys.exit("shots put | get | factory | info")
+    for f in frames:
+        send(out, f)
+        time.sleep(0.02)                          # (a flash write a piece: let it keep up)
+    end, ok = time.time() + 5, None
+    while ok is None and time.time() < end:
+        for m in inp.iter_pending():
+            if m.type == "sysex" and bytes(m.data[:3]) == HDR and m.data[3] in (0x65, 0x66):
+                ok = m.data[3] == 0x66
+        time.sleep(0.01)
+    if not ok:
+        sys.exit("refused (stop the FM-1 first, or the file is damaged)" if ok is False else "no answer")
+    print("kept: black keys 8-10 play them now" if sub == "put" else "the factory one-shots are back")
+    return 0
+
+
 def open_ports(name):
     import mido
     ins, outs = mido.get_input_names(), mido.get_output_names()
@@ -186,7 +274,7 @@ def send(out, frame):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["get", "put", "info", "patch"])
+    ap.add_argument("cmd", choices=["get", "put", "info", "patch", "shots"])
     ap.add_argument("a")
     ap.add_argument("b", nargs="?")
     ap.add_argument("c", nargs="?")
@@ -195,6 +283,8 @@ def main(argv=None):
     o = ap.parse_args(argv)
     if o.cmd == "patch":
         return patch_main(o)
+    if o.cmd == "shots":
+        return shots_main(o)
     if o.cmd == "info":
         print(info(open(o.a, "rb").read()))
         return 0

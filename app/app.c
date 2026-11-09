@@ -244,6 +244,7 @@ static void settings_save(void) { save_project(0); }
 static int ml_save(void);
 static void ml_load(void);
 static void pl_load(void);                 /* (patches.c: the patch library, 5.4) */
+static void sh_load(void);                 /* (shots.c: your own one-shots, 5.14) */
 
 static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
@@ -336,6 +337,7 @@ static void load_saved(void)             /* the store's objects into both sides 
     proj_load();
     ml_load();
     pl_load();
+    sh_load();
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
     ctl_set(P_DICE_LINE, set.dice_line);

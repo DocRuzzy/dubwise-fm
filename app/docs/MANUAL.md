@@ -135,6 +135,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | DICE ON LINE | OFF (the default): a Dice roll lands at once. ON: while playing, it waits for the next quantise line, like a cued mute. |
 | HELP | Every help card, to read anywhere: turn KNOB 2 and each card comes up in turn (the same cards as holding a button for a second). Any press puts the page back. |
 | TEST TONES | A test tone on every channel (not saved). |
+| ONE SHOTS | FACTORY, or YOURS when you've put your own on the FM-1 (below, "Your own one-shots"). Turn KNOB 2 twice to have BIM, HORN and LASER back (stopped). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
 | NEW PROJECT | Turn KNOB 2 twice: a clean start. The desk, sounds, key and chords back to how they were at the first switch-on, ONE DROP in pattern A of each channel, the other patterns, the scenes, the song and its motion empty. Your SETUP preferences and the song slots stay. Until you SAVE (or autosave does), switching off brings your last save back. |
@@ -405,6 +406,23 @@ python3 tools/dubwise_slots.py patch name mybass.dwpatch "SUB ROLL"   # rename a
 ```
 
 A `.dwpatch` file is one channel's sound (48 bytes); it goes back onto the same channel.
+
+**Your own one-shots.** Black keys 8, 9 and 10 play BIM, HORN and LASER. Put your own sounds there instead: a vocal
+tag, an air horn, a "selecta!". Make WAV files on a computer (any rate, mono or stereo; set their levels as you want
+them: nothing is changed but a 10 ms fade at the end), 1.5 seconds in all, split any way between the three. Then, with
+the FM-1 connected and stopped:
+
+```
+python3 tools/dubwise_slots.py shots put tag.wav horn.wav zap.wav   # black keys 8, 9, 10 (named by the files)
+python3 tools/dubwise_slots.py shots get myshots.dwshots            # what's on the FM-1, to a file
+python3 tools/dubwise_slots.py shots put myshots.dwshots            # .. and back
+python3 tools/dubwise_slots.py shots factory                        # BIM, HORN and LASER back
+```
+
+They play at once, and they stay through a reboot, a firmware update and NEW PROJECT; the screen shows their names
+(the files', 8 characters). `python3 tools/make_oneshots.py user a.wav b.wav c.wav -o mine.dwshots --names TAG,AIR,ZAP`
+makes a `.dwshots` file without the FM-1. A backup (`fm1_backup.py`) doesn't carry them: keep `shots get`'s file beside
+it. SETUP → ONE SHOTS also brings the factory ones back.
 
 **The sound editor in your browser.** On the project's site, the Sound editor page shows every setting of all eight
 voices as sliders. Connect the FM-1 over USB, press Connect (Chrome or Edge: they let a page talk MIDI; allow SysEx when

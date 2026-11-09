@@ -301,7 +301,7 @@ static int confirm(uint32_t what, const char *name)   /* 1: confirmed (the secon
     app_say(name, "AGAIN TO CONFIRM");
     return 0;
 }
-enum { CF_MOTION = 1, CF_DEMO, CF_STEPPERS, CF_NEW, CF_FORGET, CF_SLOT_SAVE = 0x10, CF_SLOT_LOAD = 0x20,
+enum { CF_MOTION = 1, CF_DEMO, CF_STEPPERS, CF_NEW, CF_FORGET, CF_SHOTS, CF_SLOT_SAVE = 0x10, CF_SLOT_LOAD = 0x20,
        CF_PATCH_FOREIGN = 0x30, CF_PATCH_OVER = 0x40, CF_KIT = 0x80 };
 
 static uint32_t blink_on(void);
@@ -677,6 +677,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "saver.c"                       /* the boot splash and the screen saver (GPL-3.0-only) */
 #include "slots.c"                       /* song slots (GPL-3.0-only) */
 #include "patches.c"                     /* sound patches (GPL-3.0-only; roadmap 5.4) */
+#include "shots.c"                       /* your own one-shots (GPL-3.0-only; roadmap 5.14) */
 
 static void sound_title(char *t2)        /* the SOUND view's title: the patch shown (* edited since) and the bank */
 {
@@ -1442,6 +1443,7 @@ void dub_draw(void)
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     slot_tick();                         /* (a loaded slot's, the same way) */
     slot_sx_tick();                      /* (a slot going to a computer) */
+    sh_sx_tick();                        /* (the one-shots going to one: 5.14) */
     env_tick(now);                       /* (the envelope view's playhead, 5.10) */
     organ_tick();                        /* (the B-3's tables, when its drawbars moved: 5.15) */
     pl_sx_tick();                        /* (a channel's patches going to a computer) */
@@ -1677,7 +1679,7 @@ static int dub_expect(const char *what, int *got)
         *got = (int)dub.key_flashes;
     else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got)
              || undo_expect(what, got) || help_expect(what, got) || ml_expect(what, got) || sound_expect(what, got)
-             || pl_expect(what, got) || dice_expect(what, got) || env_expect(what, got))
+             || pl_expect(what, got) || dice_expect(what, got) || env_expect(what, got) || sh_expect(what, got))
         return 1;
     else if (!strcmp(what, "roots"))     /* 1: the cycle bar red, gold and green (72.0 BPM's first bar) */
         *got = roots_now();

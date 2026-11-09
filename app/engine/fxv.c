@@ -9,8 +9,12 @@
 #include "oneshots_data.h"
 
 #define SHOT_TOTAL (sizeof SHOT_BIM + sizeof SHOT_HORN + sizeof SHOT_LASER)
-static PLAT_POOL uint8_t shot_ram[SHOT_TOTAL];   /* the one-shots, in RAM: the render never reads the flash */
+typedef char shots_fit[SHOT_TOTAL <= FXV_SHOT_MAX ? 1 : -1];
+static PLAT_POOL uint8_t shot_ram[FXV_SHOT_MAX];   /* the one-shots, in RAM: the render never reads the flash */
 static const uint8_t *shot_at[NSHOTS];
+static uint32_t shot_len[NSHOTS];                /* (the factory's, or the owner's: 5.14) */
+static char shot_name[NSHOTS][9];
+static volatile int shots_held;                  /* 1: being replaced (main loop): none starts or plays */
 static float ulaw[256];                          /* mu-law -> -1..1 */
 static struct {
     uint32_t pos, end;                           /* in half samples (22,050 Hz data at 44.1 kHz) */
@@ -40,30 +44,78 @@ void fxv_init(void)                             /* (at boot: copies the one-shot
         for (i = 0; i < SHOT_LEN[k]; i++)
             shot_ram[off + i] = SHOT_DATA[k][i];
         shot_at[k] = shot_ram + off;
+        shot_len[k] = SHOT_LEN[k];
+        for (i = 0; i < 8u && SHOT_NAME[k][i]; i++)
+            shot_name[k][i] = SHOT_NAME[k][i];
+        shot_name[k][i] = 0;
         off += SHOT_LEN[k];
         shot[k].on = 0;
     }
+    shots_held = 0;
+}
+
+/* The owner's one-shots (5.14; app/shots.c): fxv_shots_hold stops them and keeps them from starting, the app copies
+ * the new data into fxv_shots_ram, then fxv_shots_use gives each its place, length and name, and lets them play
+ * (main loop) */
+uint8_t *fxv_shots_ram(void) { return shot_ram; }
+void fxv_shots_hold(void)
+{
+    uint32_t k;
+    shots_held = 1;
+    __asm__ volatile("" ::: "memory");
+    for (k = 0; k < NSHOTS; k++)
+        shot[k].on = 0;
+}
+void fxv_shots_use(const uint32_t off[NSHOTS], const uint32_t len[NSHOTS], const char *const name[NSHOTS])
+{
+    uint32_t k, i;
+    for (k = 0; k < NSHOTS; k++) {
+        int ok = off[k] <= FXV_SHOT_MAX && len[k] <= FXV_SHOT_MAX - off[k];
+        shot_at[k] = shot_ram + (ok ? off[k] : 0u);
+        shot_len[k] = ok ? len[k] : 0u;
+        for (i = 0; i < 8u && name[k][i]; i++)
+            shot_name[k][i] = name[k][i];
+        shot_name[k][i] = 0;
+    }
+    __asm__ volatile("" ::: "memory");
+    shots_held = 0;
+}
+void fxv_shots_factory(void)                     /* (main loop) the built-in ones back */
+{
+    uint32_t k, i, off = 0, o[NSHOTS], l[NSHOTS];
+    const char *nm[NSHOTS];
+    fxv_shots_hold();
+    for (k = 0; k < NSHOTS; k++) {
+        for (i = 0; i < SHOT_LEN[k]; i++)
+            shot_ram[off + i] = SHOT_DATA[k][i];
+        o[k] = off, l[k] = SHOT_LEN[k], nm[k] = SHOT_NAME[k];
+        off += SHOT_LEN[k];
+    }
+    fxv_shots_use(o, l, nm);
 }
 
 void fxv_shot(uint32_t k, uint32_t vel) { fxv_shot_dir(k, vel, 0); }
 
 void fxv_shot_dir(uint32_t k, uint32_t vel, int rev)
 {
-    if (k >= NSHOTS)
+    if (k >= NSHOTS || shots_held || shot_len[k] < 2u)   /* (an empty one of the owner's: nothing) */
         return;
     shot[k].rev = rev;
     shot[k].pos = 0;
-    shot[k].end = (SHOT_LEN[k] - 1u) * 2u;
+    shot[k].end = (shot_len[k] - 1u) * 2u;
     shot[k].vel = (float)(vel > 127u ? 127u : vel) * (1.0f / 127.0f);
     shot[k].on = 1;
 }
 
-const char *fxv_shot_name(uint32_t k) { return k < NSHOTS ? SHOT_NAME[k] : ""; }
+const char *fxv_shot_name(uint32_t k) { return k < NSHOTS ? shot_name[k] : ""; }
+uint32_t fxv_shot_len(uint32_t k) { return k < NSHOTS ? shot_len[k] : 0u; }
 
 static int shots_render(float *o, uint32_t n, int add)   /* the one-shots into o (added, or written) */
 {
     uint32_t k, i;
     int any = 0;
+    if (shots_held)
+        return 0;
     for (k = 0; k < NSHOTS; k++) {
         const uint8_t *d = shot_at[k];
         if (!shot[k].on)
@@ -73,7 +125,7 @@ static int shots_render(float *o, uint32_t n, int add)   /* the one-shots into o
             float v;
             if (p & 1u) {                        /* x2: the half-sample point, 4-point (-1 9 9 -1)/16 */
                 float a = j ? ulaw[d[j - 1u]] : 0.0f, b = ulaw[d[j]], c = ulaw[d[j + 1u]];
-                float e = j + 2u < SHOT_LEN[k] ? ulaw[d[j + 2u]] : 0.0f;
+                float e = j + 2u < shot_len[k] ? ulaw[d[j + 2u]] : 0.0f;
                 v = (9.0f * (b + c) - a - e) * (1.0f / 16.0f);
             } else
                 v = ulaw[d[j]];

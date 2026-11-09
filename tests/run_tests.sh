@@ -19,6 +19,8 @@ echo "== tools/site/editor/fields.js (the web editor's table, from the firmware)
 python3 -I tools/site/editor/mkfields.py --check || exit 1
 echo "== tests/patch_transfer_test.py"
 python3 tests/patch_transfer_test.py >/dev/null || { echo "FAIL patch transfer (run tests/patch_transfer_test.py)"; exit 1; }
+echo "== tests/shots_transfer_test.py"
+python3 tests/shots_transfer_test.py >/dev/null || { echo "FAIL one-shots transfer (run tests/shots_transfer_test.py)"; exit 1; }
 echo "  ok slot transfer"
 echo "== tests/spring_alias_test.c"
 cc -O2 -w -DPLAT_HOST -Iapp/engine -Ibase/include -Iapp tests/spring_alias_test.c -o $OUT/spring_alias_test -lm
