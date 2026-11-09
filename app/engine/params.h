@@ -22,11 +22,11 @@ enum { DEST_ECHO, DEST_SPRING, DEST_BOTH, DEST_N };   /* a throw's destination (
 /* voice fields, each channel its own (append only, at most VOICE_STRIDE; voices.h) */
 /* (roadmap 5.3 appended fields after each voice's own: 0 is the voice as before, so a save from before loads as it
  * sounded; the bipolar ones (-64..63) move either way from it) */
-enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_DRIVE, VK_CTONE, VK_N };     /* kick */
-enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_DROP, VR_HPF, VR_N };                  /* rim / snare */
-enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_HPF, VH_N };                           /* hats */
+enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_DRIVE, VK_CTONE, VK_MODEL, VK_N };     /* kick */
+enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_DROP, VR_HPF, VR_MODEL, VR_N };                  /* rim / snare */
+enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_HPF, VH_MODEL, VH_N };                           /* hats */
 enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_FEEDBACK, VB_DRIVE, VB_GLIDE,
-       VB_N };                                                                          /* bass */
+       VB_MODEL, VB_N };                                                                          /* bass */
 enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_N };                        /* skank (P1.6) */
 enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_N };                               /* organ bubble */
 enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */
@@ -37,6 +37,11 @@ enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };
 /* A field appended to a voice must sound neutral at 0: an older save (OBJ_SOUND) or patch (5.4) holds 0 there, and
  * loads as it was made. One that can't be needs a version and a converter, planned first (CLAUDE.md). Every voice
  * field's range fits int8 (a patch keeps them so: patches.txt checks, voice_int8). */
+/* the voice models (5.7; the MODEL field, 0 the one built first: neutral at 0) */
+enum { KICK_SINE, KICK_THUMP, KICK_BOOM, KICK_MODELS };
+enum { RIM_CROSS, RIM_SNARE, RIM_SYNDRUM, RIM_MODELS };
+enum { HAT_METAL, HAT_NOISE, HAT_MODELS };
+enum { BASS_ROUND, BASS_PLUCK, BASS_HOLLOW, BASS_STEPPERS, BASS_MODELS };
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
 enum { INST_MELODICA, INST_BRASS, INST_N };

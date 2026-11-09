@@ -30,15 +30,16 @@ static inline float noise(void)
 
 /* ------------------------------------------------------------------- kick --- */
 static struct {
-    float ph, penv, amp, cenv, vel, pm;          /* state (pm: the beater's own phase, CLICK TONE off 0) */
+    float ph, penv, amp, cenv, vel, pm, tenv;    /* state (pm: the beater's own phase, CLICK TONE off 0) */
     float f1, f0, pk, ak, ck, click, drive, cr; /* the block's coefficients (drive 0: clean; cr 1: 1:1) */
+    float thump, tk;                             /* 5.7 FM THUMP: the body's own 1:1 burst (0: none) */
     int on;
 } kick;
 
 /* ------------------------------------------------------------------- rim --- */
 static struct {
     float pc, pm, p2, ienv, amp, nenv, hp_x, hp_y, vel, denv;
-    float f, index, ak, ik, nk, noise_l, hp_a, drop, dk;
+    float f, index, ak, ik, nk, noise_l, hp_a, drop, dk, p2l;   /* (p2l: the 1:3.5 partial's level; 5.7) */
     int on;
 } rim;
 
@@ -46,6 +47,7 @@ static struct {
 static struct {
     float p[4], amp, h1x, h1y, h2x, h2y, vel;
     float f, kc, ko, k, noise_l, hp_a, gain;
+    int model;                                   /* 5.7: HAT_METAL, HAT_NOISE (noise alone: the squares not run) */
     int on;
 } hat;
 static const float HAT_R[4] = {1.0f, 1.48f, 2.27f, 3.6f};
@@ -98,6 +100,17 @@ void voices_config(const int16_t *ev, int tier)
     kick.click = lin(ev[P_VOICE(CH_KICK, VK_CLICK)], 0.0f, 3.0f);
     kick.drive = lin(ev[P_VOICE(CH_KICK, VK_DRIVE)], 0.0f, 6.0f);   /* 5.3: 0 clean */
     kick.cr = ev[P_VOICE(CH_KICK, VK_CTONE)] ? fm_exp2f((float)ev[P_VOICE(CH_KICK, VK_CTONE)] * (1.0f / 32.0f)) : 1.0f;
+    kick.thump = 0.0f;
+    if (ev[P_VOICE(CH_KICK, VK_MODEL)] == KICK_THUMP) {   /* 5.7 FM THUMP: a 1:1 burst in the body, ~30 ms */
+        kick.thump = 2.2f;
+        kick.tk = t60k(30.0f);
+    } else if (ev[P_VOICE(CH_KICK, VK_MODEL)] == KICK_BOOM) {   /* BOOM: lower, a gentler sweep, long, driven */
+        kick.f1 = lin(ev[P_VOICE(CH_KICK, VK_TUNE)], 34.0f, 52.0f);
+        kick.f0 = kick.f1 * 1.8f + 20.0f;
+        kick.ak = t60k(lin(ev[P_VOICE(CH_KICK, VK_DECAY)], 300.0f, 1600.0f));   /* (capped: 1.6 s) */
+        if (kick.drive < 1.5f)
+            kick.drive = 1.5f;
+    }
     /* rim: TUNE 300..1200 Hz, DECAY 20..200 ms, NOISE 0..1, INDEX 0..6 */
     rim.f = lin(ev[P_VOICE(CH_SNARE, VR_TUNE)], 300.0f, 1200.0f);
     rim.ak = t60k(lin(ev[P_VOICE(CH_SNARE, VR_DECAY)], 20.0f, 200.0f));
@@ -108,11 +121,30 @@ void voices_config(const int16_t *ev, int tier)
     rim.hp_a = fm_expf(-6.2831853f * 300.0f * fm_exp2f((float)ev[P_VOICE(CH_SNARE, VR_HPF)] * (3.0f / 64.0f)) * INV_SR);
     rim.drop = lin(ev[P_VOICE(CH_SNARE, VR_DROP)], 0.0f, 1.0f);   /* 5.3: up to an octave above, falling */
     rim.dk = t60k(40.0f);
+    rim.p2l = 0.35f;
+    if (ev[P_VOICE(CH_SNARE, VR_MODEL)] == RIM_SNARE) {   /* 5.7 SNARE: a lower FM body, a longer noise */
+        rim.f = lin(ev[P_VOICE(CH_SNARE, VR_TUNE)], 150.0f, 450.0f);
+        rim.index *= 0.5f;
+        rim.p2l = 0.0f;
+        rim.nk = t60k(lin(ev[P_VOICE(CH_SNARE, VR_DECAY)], 60.0f, 250.0f));
+        if (rim.noise_l < 0.6f)
+            rim.noise_l = 0.6f;
+    } else if (ev[P_VOICE(CH_SNARE, VR_MODEL)] == RIM_SYNDRUM) {   /* SYNDRUM: a sine, a big slow drop, no noise */
+        rim.f = lin(ev[P_VOICE(CH_SNARE, VR_TUNE)], 120.0f, 500.0f);
+        rim.index = 0.0f;
+        rim.p2l = 0.0f;
+        rim.noise_l = 0.0f;
+        rim.ak = t60k(lin(ev[P_VOICE(CH_SNARE, VR_DECAY)], 80.0f, 600.0f));
+        if (rim.drop < 0.9f)
+            rim.drop = 0.9f;
+        rim.dk = t60k(150.0f);
+    }
     /* hats: TONE 300..800 Hz, CLOSED 20..150 ms, OPEN 150..800 ms, NOISE 0..1 */
     hat.f = lin(ev[P_VOICE(CH_HATS, VH_TONE)], 300.0f, 800.0f);
     hat.kc = t60k(lin(ev[P_VOICE(CH_HATS, VH_CLOSED)], 20.0f, 150.0f));
     hat.ko = t60k(lin(ev[P_VOICE(CH_HATS, VH_OPEN)], 150.0f, 800.0f));
     hat.noise_l = lin(ev[P_VOICE(CH_HATS, VH_NOISE)], 0.0f, 1.0f);
+    hat.model = ev[P_VOICE(CH_HATS, VH_MODEL)];
     if (ev[P_VOICE(CH_HATS, VH_HPF)]) {         /* 5.3: the high-passes moved (at 0 exactly as built: 0.37, ~7 kHz) */
         float fc = 7000.0f * fm_exp2f((float)ev[P_VOICE(CH_HATS, VH_HPF)] * (1.0f / 64.0f));
         hat.hp_a = fm_expf(-6.2831853f * fc * INV_SR);
@@ -133,6 +165,26 @@ void voices_config(const int16_t *ev, int tier)
     bass.sus = lin(ev[P_VOICE(CH_BASS, VB_SUSTAIN)], 0.0f, 1.0f);
     bass.fb = lin(ev[P_VOICE(CH_BASS, VB_FEEDBACK)], 0.0f, 0.6f);   /* 5.3: capped (sound.txt: the sine stays) */
     bass.drive = lin(ev[P_VOICE(CH_BASS, VB_DRIVE)], 0.0f, 5.0f);
+    switch (ev[P_VOICE(CH_BASS, VB_MODEL)]) {    /* 5.7: the models are settings of the one voice (no cost) */
+    case BASS_PLUCK:                             /* a brighter pluck: its index doubled (capped), the filter open */
+        bass.index = bass.index * 2.5f > 3.5f ? 3.5f : bass.index * 2.5f;
+        {
+            float fc = lin(ev[P_VOICE(CH_BASS, VB_CUTOFF)], 300.0f, 2500.0f) * 2.5f;
+            bass.lp_a = onepole(fc > 5000.0f ? 5000.0f : fc);
+        }
+        break;
+    case BASS_HOLLOW:                            /* 2:1, whatever RATIO says */
+        bass.ratio = 2.0f;
+        break;
+    case BASS_STEPPERS:                          /* the modulator fed back, the sub under it */
+        if (bass.fb < 0.35f)
+            bass.fb = 0.35f;
+        if (tier < TIER_SEVEN && bass.sub < 0.5f)
+            bass.sub = 0.5f;
+        break;
+    default:
+        break;
+    }
     bass.gk = ev[P_VOICE(CH_BASS, VB_GLIDE)] ? 1.0f - fm_expf(-1.0f / (lin(ev[P_VOICE(CH_BASS, VB_GLIDE)], 1.0f, 300.0f)
                                                                          * 0.001f * SR * 0.5f * 0.25f))
                                              : 1.0f;            /* (a one-pole a half-rate sample, ~T/4: there in T) */
@@ -152,7 +204,7 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
     switch (ch) {
     case CH_KICK:                                /* phase 0: the sine starts from zero, no click */
         kick.ph = kick.pm = 0.0f;
-        kick.penv = kick.cenv = 1.0f;
+        kick.penv = kick.cenv = kick.tenv = 1.0f;
         kick.amp = 1.0f;
         kick.vel = v;
         kick.on = 1;
@@ -236,6 +288,10 @@ static int render_kick(float *o, uint32_t n)
             m = kick.click * kick.cenv * fm_sin_turns(kick.pm);
         } else
             m = kick.click * kick.cenv * fm_sin_turns(kick.ph);   /* the beater: a short 1:1 index burst */
+        if (kick.thump > 0.0f) {                 /* FM THUMP (5.7): the body's own longer burst */
+            m += kick.thump * kick.tenv * fm_sin_turns(kick.ph);
+            kick.tenv *= kick.tk;
+        }
         y = fm_sin_turns(kick.ph + m * 0.15915494f);
         if (kick.drive > 0.0f)                   /* DRIVE (5.3): the sine soft-clipped towards a square, before the
                                                   * envelope (after it, it lifted the tail: tails.txt) */
@@ -246,6 +302,7 @@ static int render_kick(float *o, uint32_t n)
         kick.amp *= kick.ak;
     }
     kick.penv = undenorm(kick.penv);
+    kick.tenv = undenorm(kick.tenv);
     if (kick.amp < SILENT)
         kick.on = 0;
     return 1;
@@ -263,11 +320,17 @@ static int render_rim(float *o, uint32_t n)
             rim.denv *= rim.dk;
         }
         rim.pc = wrap(rim.pc + f * INV_SR);
-        rim.pm = wrap(rim.pm + f * 1.41f * INV_SR);
-        rim.p2 = wrap(rim.p2 + f * 3.5f * INV_SR);
-        s = fm_sin_turns(rim.pc + rim.index * rim.ienv * 0.15915494f * fm_sin_turns(rim.pm));
-        s += 0.35f * rim.ienv * fm_sin_turns(rim.p2);
-        s += rim.noise_l * rim.nenv * noise();
+        if (rim.index > 0.0f) {                  /* (SYNDRUM, 5.7: none: a plain sine) */
+            rim.pm = wrap(rim.pm + f * 1.41f * INV_SR);
+            s = fm_sin_turns(rim.pc + rim.index * rim.ienv * 0.15915494f * fm_sin_turns(rim.pm));
+        } else
+            s = fm_sin_turns(rim.pc);
+        if (rim.p2l > 0.0f) {                    /* (SNARE, SYNDRUM: none) */
+            rim.p2 = wrap(rim.p2 + f * 3.5f * INV_SR);
+            s += rim.p2l * rim.ienv * fm_sin_turns(rim.p2);
+        }
+        if (rim.noise_l > 0.0f)
+            s += rim.noise_l * rim.nenv * noise();
         rim.hp_y = undenorm(rim.hp_a * (rim.hp_y + s - rim.hp_x));   /* high-pass ~300 Hz */
         rim.hp_x = s;
         o[i] = rim.hp_y * rim.amp * rim.vel * 0.45f;
@@ -291,11 +354,15 @@ static int render_hats(float *o, uint32_t n)
         return 0;
     for (i = 0; i < n; i++) {
         float s = 0.0f, y;
-        for (k = 0; k < 4u; k++) {
-            hat.p[k] = wrap(hat.p[k] + hat.f * HAT_R[k] * INV_SR);
-            s += hat.p[k] < 0.5f ? 0.25f : -0.25f;
+        if (hat.model == HAT_NOISE)              /* NOISE (5.7): noise alone, the squares not run (at METAL's level) */
+            s = 0.4f * noise();
+        else {
+            for (k = 0; k < 4u; k++) {
+                hat.p[k] = wrap(hat.p[k] + hat.f * HAT_R[k] * INV_SR);
+                s += hat.p[k] < 0.5f ? 0.25f : -0.25f;
+            }
+            s = s * (1.0f - hat.noise_l) + hat.noise_l * noise();
         }
-        s = s * (1.0f - hat.noise_l) + hat.noise_l * noise();
         y = a * (hat.h1y + s - hat.h1x);
         hat.h1x = s;
         hat.h1y = undenorm(y);

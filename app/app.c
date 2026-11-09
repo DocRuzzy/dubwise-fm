@@ -773,6 +773,8 @@ int app_expect(const char *what, int *got)
         *got = (int)eng_chord_last((uint32_t)(atoi(what + 8) - 1) % NCH);
     else if (!strcmp(what, "seq_hits"))
         *got = (int)eng_seq_hits();
+    else if (!strncmp(what, "perf_ch", 7))  /* perf_chN: channel N's average cost, tenths of a % of the device's block */
+        *got = (int)(eng_prof((uint32_t)atoi(what + 7)).avg / 16.0 * 80.0 * 1000.0 / ENG_BLOCK_TICKS + 0.5);
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */
         uint32_t i, tot = 0;
         for (i = 0; i < NPARTS; i++)

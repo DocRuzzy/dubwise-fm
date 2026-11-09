@@ -31,6 +31,7 @@ static const pdesc_t KICK_F[VK_N] = {
     [VK_CLICK] = {"click", 0, 127, 40},
     [VK_DRIVE] = {"drive", 0, 127, 0},              /* 5.3: 0 clean .. a soft clip 7x into it */
     [VK_CTONE] = {"ctone", -64, 63, 0},             /* 5.3: the beater's ratio, 1:1 at 0, 0.25 .. 3.9 */
+    [VK_MODEL] = {"model", 0, KICK_MODELS - 1, KICK_SINE},   /* 5.7: SINE, FM THUMP, BOOM */
 };
 static const pdesc_t RIM_F[VR_N] = {
     [VR_TUNE] = {"tune", 0, 127, 37},               /* 300..1200 Hz */
@@ -39,6 +40,7 @@ static const pdesc_t RIM_F[VR_N] = {
     [VR_INDEX] = {"index", 0, 127, 70},
     [VR_DROP] = {"drop", 0, 127, 0},                /* 5.3: a pitch drop, 0 .. an octave down in ~15 ms */
     [VR_HPF] = {"hpf", -64, 63, 0},                 /* 5.3: the high-pass, 300 Hz at 0, 38 Hz .. 2.3 kHz */
+    [VR_MODEL] = {"model", 0, RIM_MODELS - 1, RIM_CROSS},    /* 5.7: CROSS-STICK, SNARE, SYNDRUM */
 };
 static const pdesc_t HAT_F[VH_N] = {
     [VH_TONE] = {"tone", 0, 127, 55},               /* 300..800 Hz, the squares' base */
@@ -46,6 +48,7 @@ static const pdesc_t HAT_F[VH_N] = {
     [VH_OPEN] = {"open", 0, 127, 50},               /* 150..800 ms */
     [VH_NOISE] = {"noise", 0, 127, 50},
     [VH_HPF] = {"hpf", -64, 63, 0},                 /* 5.3: the high-passes, 7 kHz at 0, 3.5 .. 13.8 kHz */
+    [VH_MODEL] = {"model", 0, HAT_MODELS - 1, HAT_METAL},    /* 5.7: METAL, NOISE */
 };
 static const pdesc_t BASS_F[VB_N] = {
     [VB_INDEX] = {"index", 0, 127, 50},             /* 0..2.5 */
@@ -58,6 +61,7 @@ static const pdesc_t BASS_F[VB_N] = {
     [VB_FEEDBACK] = {"feedback", 0, 127, 0},        /* 5.3: the modulator fed back (a growl), capped: the sine stays */
     [VB_DRIVE] = {"drive", 0, 127, 0},              /* 5.3: a soft clip before the filter */
     [VB_GLIDE] = {"glide", 0, 127, 0},              /* 5.3: 0 .. 300 ms from the last note to the next */
+    [VB_MODEL] = {"model", 0, BASS_MODELS - 1, BASS_ROUND},  /* 5.7: ROUND, PLUCK, HOLLOW, STEPPERS */
 };
 static const pdesc_t SKANK_F[VS_N] = {
     [VS_INDEX] = {"index", 0, 127, 70},             /* the attack's brightness */

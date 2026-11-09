@@ -15,7 +15,7 @@
  * History: 8 results a channel in the pool (1.8 KB). Part of the unity build: dub.c includes it after sound.c. */
 
 #define DICE_HIST 8u
-#define DB_NONE {1, 0}                           /* (lo > hi: not Dice's) */
+#define DB_NONE {1, 0}                           /* (lo >= hi: not Dice's; a field not listed is {0, 0}) */
 typedef struct {
     int8_t lo, hi;
 } dbound_t;
@@ -41,7 +41,8 @@ static PLAT_POOL int8_t dice_hist[NCH][DICE_HIST][VM_BASE];
 
 static int dice_field(uint32_t ch, uint32_t f)   /* 1: Dice may set field f of channel ch */
 {
-    return f < voice_fields((int32_t)ch) && f < VM_BASE && DICE_B[ch][f].lo <= DICE_B[ch][f].hi;
+    return f < voice_fields((int32_t)ch) && f < VM_BASE && DICE_B[ch][f].lo < DICE_B[ch][f].hi;   /* (a field with no
+                                                                   * bounds, as a voice's MODEL (5.7): left alone) */
 }
 
 static uint32_t dice_rand(void)                  /* xorshift32 */

@@ -625,7 +625,9 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
     }
     if (dub.sound && tc < 0 && ch < 0) { /* the SOUND view */
         int32_t id = sound_id(i);
-        if (id >= 0)
+        if (id >= 0 && model_name((uint32_t)id, ctl_get((uint32_t)id)))
+            text_cat(t, model_name((uint32_t)id, ctl_get((uint32_t)id)));   /* (a model by its name: 5.7) */
+        else if (id >= 0)
             int_text(ctl_get((uint32_t)id), t);
         return;
     }
@@ -698,7 +700,7 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
         set_dirty = 1;
         label_of((uint32_t)sid, l, sizeof l);
         int_text(ctl_get((uint32_t)sid), t);
-        app_say(l, t);
+        app_say(l, model_name((uint32_t)sid, ctl_get((uint32_t)sid)) ? model_name((uint32_t)sid, ctl_get((uint32_t)sid)) : t);
         dub.dirty_foot = 1;
         return;
     }

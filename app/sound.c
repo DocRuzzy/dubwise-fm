@@ -111,6 +111,25 @@ static int macro_moved(int32_t ch, uint32_t k)   /* 1: a target turned since (MA
     return 0;
 }
 
+static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value as its name (5.7), 0: not one */
+{
+    static const char *const K[KICK_MODELS] = {"SINE", "THUMP", "BOOM"}, *const R[RIM_MODELS] = {"CROSS", "SNARE",
+                                                                                                    "SYNDRUM"};
+    static const char *const H[HAT_MODELS] = {"METAL", "NOISE"}, *const B[BASS_MODELS] = {"ROUND", "PLUCK", "HOLLOW",
+                                                                                          "STEPPERS"};
+    if (v < 0)
+        return 0;
+    if (id == P_VOICE(CH_KICK, VK_MODEL) && v < KICK_MODELS)
+        return K[v];
+    if (id == P_VOICE(CH_SNARE, VR_MODEL) && v < RIM_MODELS)
+        return R[v];
+    if (id == P_VOICE(CH_HATS, VH_MODEL) && v < HAT_MODELS)
+        return H[v];
+    if (id == P_VOICE(CH_BASS, VB_MODEL) && v < BASS_MODELS)
+        return B[v];
+    return 0;
+}
+
 static void label_of(uint32_t id, char *l, uint32_t n)   /* a voice field's name as the screen shows it ("m." off) */
 {
     const char *s = param_desc(id)->name;
