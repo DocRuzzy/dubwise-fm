@@ -127,3 +127,22 @@ tap PLAY
 wait 50
 expect rec 0
 expect eng.click 0
+# with the keyboard on, HOME and SAVE combos are still the session's: SAVE + white 3 copies, HOME + white 3 launches
+tap SEQ
+wait 30
+tapkey b3
+wait 30
+tap REC
+wait 30
+expect kb 1
+press SAVE
+tapkey w2
+release SAVE
+wait 30
+said COPIED
+press HOME
+tapkey w2
+release HOME
+wait 30
+expect ui.ch4.pat 2
+expect kb 1

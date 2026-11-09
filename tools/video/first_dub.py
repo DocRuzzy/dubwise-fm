@@ -63,6 +63,13 @@ CAPTIONS = [                                     # (from ms, text)
 ]
 END_MS = 158000
 TITLE_UNTIL, OUTRO_FROM = 3000, 151500
+NAME = "first-dub"                               # the files' name (another storyboard sets its own: patterns_dub.py)
+PRELUDE = ["wait 600", "listen", "master 3400"]  # the host's first lines
+TITLE_CARD = ("Your first dub", ["Dubwise FM on the M-VAVE FM-1", "A SpIllt Beats release", "",
+                                 "(the real firmware, in its simulator)"])
+OUTRO_CARD = ("That's a dub.", ["Next: load RIGHTEOUS DUB (SETUP, DEMO SONG)", "and play along with it.", "",
+                                "Cheat sheet: docruzzy.github.io/dubwise-fm/cheat", "Play it in your browser:",
+                                "docruzzy.github.io/dubwise-fm"])
 
 EVENTS = []                                      # (ms, host command, cost ms, the control it lights or lets go)
 
@@ -132,7 +139,7 @@ press(131000, "PLAY")                            # the song plays itself, 6 bars
 
 
 def build_script():
-    lines = ["wait 600", "listen", "master 3400", f"wav {OUT.name}/first-dub.wav"]
+    lines = PRELUDE + [f"wav {OUT.name}/{NAME}.wav"]
     ev = sorted(EVENTS, key=lambda e: e[0])
     j, t = 0, 0
     for f in range(END_MS // STEP):
@@ -224,11 +231,8 @@ def compose():
     splash = Image.open(OUT / "splash.png").convert("RGB")
     f_cap = ImageFont.truetype(str(FONT), 34)
     f_small = ImageFont.truetype(str(FONT_M), 22)
-    title = card("Your first dub", ["Dubwise FM on the M-VAVE FM-1", "A SpIllt Beats release", "",
-                                     "(the real firmware, in its simulator)"], splash)
-    outro = card("That's a dub.", ["Next: load RIGHTEOUS DUB (SETUP, DEMO SONG)", "and play along with it.", "",
-                                   "Cheat sheet: docruzzy.github.io/dubwise-fm/cheat", "Play it in your browser:",
-                                   "docruzzy.github.io/dubwise-fm"], splash)
+    title = card(TITLE_CARD[0], TITLE_CARD[1], splash)
+    outro = card(OUTRO_CARD[0], OUTRO_CARD[1], splash)
     held, flash = set(), {}
     ev = sorted(EVENTS, key=lambda e: e[0])
     j = 0
@@ -287,20 +291,20 @@ def srt_time(ms):
 
 def write_texts():
     caps = [(t, c) for t, c in CAPTIONS if c]
-    srt, nar = [], ["Dubwise FM: your first dub. Narration script (the captions, with their times).", ""]
+    srt, nar = [], [f"Dubwise FM: {TITLE_CARD[0].lower()}. Narration script (the captions, with their times).", ""]
     for i, (t, c) in enumerate(caps):
         end = caps[i + 1][0] if i + 1 < len(caps) else OUTRO_FROM
         srt += [str(i + 1), f"{srt_time(t)} --> {srt_time(end)}", c, ""]
         nar.append(f"[{t // 60000}:{t // 1000 % 60:02d}] {c}")
-    (OUT / "first-dub.srt").write_text("\n".join(srt))
-    (OUT / "first-dub-narration.txt").write_text("\n".join(nar) + "\n")
+    (OUT / f"{NAME}.srt").write_text("\n".join(srt))
+    (OUT / f"{NAME}-narration.txt").write_text("\n".join(nar) + "\n")
 
 
 def main():
     if FRAMES.exists():
         shutil.rmtree(FRAMES)
     FRAMES.mkdir(parents=True)
-    script = OUT / "first-dub.txt"
+    script = OUT / f"{NAME}.txt"
     script.write_text(build_script())
     host_out = ROOT / "app/build"                # (the script's paths are under app/build/video/)
     subprocess.run([str(HOST), str(script), str(host_out)], check=True, stdout=subprocess.DEVNULL)
@@ -309,9 +313,9 @@ def main():
     panel_picture(OUT / "panel.png")
     compose()
     write_texts()
-    mp4 = OUT / "first-dub.mp4"
+    mp4 = OUT / f"{NAME}.mp4"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS), "-i", str(FRAMES / "f%05d.png"),
-                    "-i", str(OUT / "first-dub.wav"), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
+                    "-i", str(OUT / f"{NAME}.wav"), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
                     "-preset", "medium", "-c:a", "aac", "-b:a", "192k", "-shortest", str(mp4)], check=True)
     print(f"{mp4}: {mp4.stat().st_size // 1024} KB, {END_MS / 1000:.0f} s")
 

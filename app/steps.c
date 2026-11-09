@@ -525,7 +525,7 @@ static void rec_tick(void)               /* every frame: the pass's line, its en
 static void steps_keys(uint32_t keys, uint32_t prev)
 {
     uint32_t k;
-    if (st.kb) {
+    if (st.kb && !(dub.btn >> B_HOME & 1u) && !(dub.btn >> B_SAVE & 1u)) {   /* (HOME or SAVE held: the session's) */
         kb_keys(keys, prev);
         return;
     }
@@ -547,9 +547,11 @@ static void steps_keys(uint32_t keys, uint32_t prev)
             } else if ((dub.btn >> B_SAVE & 1u) && k < NPAT) {
                 dub.save_used = 1;
                 pat_copy(st.ch, k);
-            } else if (!(dub.btn >> B_HOME & 1u) && !(dub.btn >> B_SAVE & 1u))
+            } else if (!(dub.btn >> B_HOME & 1u) && !(dub.btn >> B_SAVE & 1u) && !st.kb)
                 steps_key(k);
         }
+    if (st.kb)
+        return;                          /* (the keyboard's: the channel stays) */
     for (k = 0; k < NCH; k++)
         if ((keys >> BK[k] & 1u) && !(prev >> BK[k] & 1u)) {
             st.ch = (int32_t)k;

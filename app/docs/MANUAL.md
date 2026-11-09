@@ -124,6 +124,10 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | BIG KNOB STEPS | 10 ALTEC (the default): the ten steps of King Tubby's filter, the stepped sound. 20 or 40: finer steps, the ten still among them (evenly between them in pitch, and down to 42 Hz under 70), for a smoother climb. A song or scene sounds the same whichever you choose. |
 | THROW VELOCITY | ON (the default): a throw is as big as the key was hit. OFF: every throw at full level. |
 | MIDI CLOCK | OFF (the default); IN: follow a computer or drum machine over USB: its Start starts Dubwise from bar 1, its Stop stops it, and its clock sets the tempo and keeps the bars in step; OUT: lead: Dubwise sends Start, 24 clocks a beat and Stop, so other gear follows it. |
+| REC QUANTISE | Live recording: FEEL (the default; as you played it), HALF (halfway to the grid) or GRID. |
+| REC MODE | Recording into a pattern with steps: OVERDUB (adds) or REPLACE (clears what the playhead passes, keeping what you play). |
+| REC OFFSET | 0–60 ms (12 by default) taken off each played note's time, for the sound's way to your ears. |
+| CLICK | COUNT-IN (the default: a click on every beat while a pass waits for its line), RECORDING (and while recording), or OFF. |
 | AUTOSAVE | ON (the default): what SAVE keeps is saved by itself once you've stopped and left the FM-1 alone for a few seconds (and the echo has died away), so switching off never loses a session; SAVE's light going out says it's done. OFF: only SAVE saves. |
 | TEST TONES | A test tone on every channel (not saved). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
@@ -146,10 +150,52 @@ channel you're editing, bigger, with its notes.
 | Black keys 1–8 | Pick the channel to edit. |
 | Hold black key 9 or 10 + a white key | Make that step an accent or a ghost note (again: back to normal). |
 | OCT− · OCT+ | The page of 16 steps: 1–16, 17–32, 33–48, 49–64. |
-| KNOB 1 · LEN | The pattern's length, 1 to 64 steps. |
+| KNOB 1 · LEN | The pattern's length, 1 to 64 steps. Hold HOME: its GRID instead, 1/8, 1/8T, 1/16, 1/16T (triplets) or 1/32. |
 | KNOB 2 · NOTE | The note of the step you hold, or the last one you touched: a semitone a click. On the hats, closed or open. |
-| KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS, FLYERS or UK STEPPERS. It lands on the next bar line, and then it's just steps you can change. |
-| REC (on the bass) | The keyboard: all 27 keys play the bass, from F in the octave set on the KEY page. While playing, each note you play is recorded at the nearest step. While stopped, notes go in one step after another. Press REC again for the steps. |
+| KNOB 3 · SWING | The pattern's swing, 50 % (straight) to 75 %: every other step later. Hold a step: NUDGE it off its line instead, a tick (about 3 ms) a click, up to half a step either way. A step off its line shows a small mark. |
+| KNOB 4 · RIDDIM | Load a riddim into the drums and bass: ONE DROP, ROCKERS, STEPPERS, FLYERS or UK STEPPERS. It lands on the next bar line, and then it's just steps you can change. Hold a step: its GATE instead, how long the bass or lead note holds (AUTO: a step for the bass, two for the lead). |
+| REC | The keyboard and live recording: see below. |
+
+### Four patterns a channel (the session)
+
+Every channel has four patterns, **A, B, C and D**, each with its own length, grid and swing. One plays; the others
+wait. It works like a session in Ableton Live, or an OP-Z: put a bass line in A, its version in B, a busier one in C,
+and launch them as the tune goes, while the drums keep their own. The letter by each channel shows which plays, amber
+while a launch waits for its line.
+
+| Control | What it does |
+| --- | --- |
+| HOME + white 1–4 | Launch this channel's A–D. Playing, it lands on the next line of the quantise setting (hold PLAY: now) and starts from its top. While HOME is held, whites 1–4 show the patterns: the one playing bright, others with steps dim. |
+| HOME + white 9–12 | Launch A–D on every channel at once. |
+| SAVE + white 1–4 | Copy the pattern you're editing into A–D (then change the copy). |
+| HOME + OCT+ | Double the pattern: its steps again after it, so 16 becomes 32 (64 at most). Then vary the second half. |
+| HOME + OCT− | Clear the pattern. |
+| A mute key held + PRESET (DUB page) | Launch that channel's next or previous pattern without leaving the desk. The mute stays as it was. |
+
+The STEPS page edits the pattern you launched, at once, while the one playing carries on to its line. Every one of
+these is a step of the undo history (HOME + REC).
+
+### Recording live
+
+Press **REC** while playing, and play: the keyboard (bass and lead: all 27 keys, from F in the octave set on the KEY
+page), or the pads.
+
+- **An empty pattern** waits for the next bar line, with the click counting you in, records one pass of the pattern
+  (set its length first: 16 steps is a bar), then loops it and lets you play along. Like an RC-505.
+- **A pattern with steps** records at once, until you press REC again. REC MODE (SETUP) is OVERDUB, which adds, or
+  REPLACE, which clears what the playhead passes, keeping what you play.
+- **Where it lands:** a note keeps where you played it, to about 3 ms (REC QUANTISE: FEEL). HALF moves it halfway to
+  the grid; GRID puts it on the grid. A note played just before the line of an armed pass starts the pass, so an
+  early downbeat counts.
+- **How hard and how long:** a soft note becomes a ghost, a hard one an accent. The bass and lead keep how long you
+  held each note.
+- **The pads:** on a drum channel, whites 1–4 are the kick, rim, closed hat and open hat, each into its own channel.
+  On the skank or organ, whites 1–3 play the chord lane's chord low, middle or high.
+- **Stopped,** REC turns the keyboard on, and notes go in one step after another at a cursor. Press PLAY with it on:
+  a bar of click, then the pass.
+- **SEQ** leaves the keyboard. A pass is one step of the undo history: HOME + REC takes the whole pass back.
+- **REC OFFSET** (SETUP) makes up for the time the sound takes to reach your ears: if your notes land late, raise it.
+  In a browser, try 40–80 ms.
 
 On the skank and organ, a step doesn't hold a note: it holds a voicing, LO, MD or HI (KNOB 2), and the notes are
 the chord lane's chord for that bar. Change the chords and the parts follow.
@@ -163,21 +209,23 @@ skank chopping every off-beat, no organ.
 ## 3e. ARRANGE (HOME, then HOME again): scenes
 
 A scene is a snapshot of the desk: every channel's level, mute, solo, echo and spring sends and throw destination,
-the Big Knob and both returns. A scene with patterns (P) keeps every channel's pattern too, so one scene can be the
-"dub" and another the "vocal" version of the same riddim.
+the Big Knob and both returns. A scene with patterns (P) also keeps which pattern (A–D) each channel plays, like a
+row of the session: one scene can be the "vocal" version (bass A, skank on) and another the "dub" (bass B, the
+skank out).
 
 | Control | What it does |
 | --- | --- |
 | White keys 1–16 | Recall that scene. Like a mute, it lands on the next line of the quantise setting (hold PLAY for now); the strips blink until then. |
 | SAVE held + a white key | Store the desk as it is now into that scene. |
-| KNOB 4 | What the next store keeps: DESK, or DESK+PAT (the patterns too, marked P). |
+| KNOB 4 | What the next store keeps: DESK, or DESK+PAT (which pattern each channel plays too, marked P). |
 | PRESET (on the DUB page) | Step to the next or previous stored scene, on the line. |
+| A mute key held + PRESET (DUB page) | That channel's next or previous pattern (A–D), on the line. |
 
 SAVE on its own (pressed and let go) saves everything to the FM-1, scenes included.
 
 ### The song
 
-The song is a list of bars (up to 512: about 28 minutes at 72 BPM, 15 at 140). Each bar can hold the mutes and solos, the Big Knob and a scene. To make
+The song is a list of bars (up to 512: about 28 minutes at 72 BPM, 15 at 140). Each bar can hold the mutes and solos, the Big Knob, a scene, and which pattern each channel plays (so launching B on the bass mid-take is in the song). To make
 one, play it: press REC (on the DUB or ARRANGE page) to arm capture, press PLAY, and dub. At every bar line, that
 bar takes what the desk is doing: your drops, mutes, solos, Big Knob moves and scene changes. Stop, and press REC to
 disarm. A pass that starts from bar 1 becomes the song, as long as you played. HOME + REC takes the last pass back.

@@ -8,7 +8,7 @@
  * stops the sound for a moment. A loaded project is the current one (SAVE keeps it as that).
  * Each slot is 32 KiB of the flash's data area (two free runs: 0x97000 and 0xBD000), a header written last (a save
  * cut short reads as empty), then the parameters, the patterns' settings and steps, the scenes, the song, and the
- * motion (its counts, then its moves, 2,900 at most). A slot saved before the session (DSL1: one pattern a channel,
+ * motion (its counts, then its moves, 2,920 at most). A slot saved before the session (DSL1: one pattern a channel,
  * scenes with copies) loads as patstore.c converts an old save. Part of the unity build: dub.c includes it. */
 
 #define NSLOTS 4u
