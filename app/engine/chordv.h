@@ -11,4 +11,13 @@
 void chordv_init(void);
 void chordv_config(const int16_t *ev, int tier);   /* tier: TIER_SEVEN thins them (2 skank voices, organ 1+2) */
 void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel);   /* ch: CH_SKANK or CH_ORGAN */
+float chordv_rotor(int drum);                      /* the B-3's rotor speed now, Hz (0 the horn, 1 the drum; tests) */
+uint32_t chordv_perc_n(void);                     /* .. its percussion strikes so far (tests) */
+void chordv_hold(uint32_t ch);                     /* the B-3 (5.15): the chord just struck held until released */
+void chordv_release(uint32_t ch);                  /* .. let go: it dies over DECAY */
 int chordv_render(uint32_t ch, float *o, uint32_t n);   /* 1: wrote n samples; 0: silent */
+/* 5.15, the B-3 (docs/plan-5.15-organ.md): the main loop sums a registration (nine drawbars 0..8) into the tables the
+ * render reads, into the pair's other half, then swaps them: never half-written */
+void chordv_b3_build(const int8_t bars[9]);
+/* the organ's rotary horn's side (L - R) / 2 for the block just rendered (the stereo horn, Studio tier), 0 none */
+const float *chordv_side(void);

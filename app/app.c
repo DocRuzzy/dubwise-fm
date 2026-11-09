@@ -12,6 +12,7 @@
 #include "engine/song.h"
 #include "engine/fxv.h"
 #include "engine/motion.h"
+#include "engine/chordv.h"                  /* (the B-3's tables, built in the main loop: 5.15) */
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
@@ -597,6 +598,14 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         ctl_meta_set(ch, (uint32_t)ctl_get(P_CH(ch, CHF_PAT)), m);
         return 1;
     }
+    {                                    /* a name with spaces ("v6.5 1/3'", "v6.perc fast"): "_" for each */
+        static char sp[32];
+        uint32_t k;
+        for (k = 0; a[k] && k + 1u < sizeof sp; k++)
+            sp[k] = a[k] == '_' ? ' ' : a[k];
+        sp[k] = 0;
+        a = sp;
+    }
     if ((id = param_find(a)) < 0) {
         printf("FAIL: no parameter %s\n", a);
         host_fails++;
@@ -719,6 +728,10 @@ int app_expect(const char *what, int *got)
         return 1;
     if (!strcmp(what, "note"))
         *got = eng_note();
+    else if (!strcmp(what, "rotor_horn") || !strcmp(what, "rotor_drum"))   /* the B-3's rotors, Hz x 100 (5.15) */
+        *got = (int)(chordv_rotor(what[6] == 'd') * 100.0f + 0.5f);
+    else if (!strcmp(what, "perc_n"))     /* the B-3's percussion strikes so far (5.15) */
+        *got = (int)chordv_perc_n();
     else if (!strcmp(what, "dirty"))
         *got = set_dirty;
     else if (!strcmp(what, "midi_in"))
@@ -729,7 +742,13 @@ int app_expect(const char *what, int *got)
         pmeta_t m = what[0] == 'e' ? eng_pmeta(ch, eng_pat(ch)) : ctl_meta_now(ch);
         *got = f == 0u ? m.len : f == 1u ? m.grid : m.swing;
     } else if (!strncmp(what, "eng.", 4) || !strncmp(what, "ui.", 3)) {   /* a parameter, as applied / as asked */
-        int id = param_find(what + (what[0] == 'e' ? 4 : 3));
+        char sp[32];                     /* (a name with spaces: "_" for each, as param's) */
+        uint32_t k;
+        int id;
+        for (k = 0; what[k] && k + 1u < sizeof sp; k++)
+            sp[k] = what[k] == '_' ? ' ' : what[k];
+        sp[k] = 0;
+        id = param_find(sp + (sp[0] == 'e' ? 4 : 3));
         if (id < 0)
             return 0;
         *got = what[0] == 'e' ? eng_param((uint32_t)id) : ctl_get((uint32_t)id);

@@ -147,9 +147,41 @@ static void env_tick(uint32_t now)               /* every frame: a hit starts th
     }
 }
 
+static void b3_draw(void)                        /* the B-3's centre (5.15): its nine drawbars, pulled down as on the
+                                                  * real one, coloured as its are (the two sub-harmonics brown, here
+                                                  * amber; the octaves white; the rest dim), and what the rotor does */
+{
+    static const char *const L[9] = {"16", "5", "8", "4", "2", "2", "1", "1", "1"};
+    static const uint8_t C[9] = {0, 0, 1, 1, 2, 1, 2, 2, 1};   /* brown (amber), white, black (dim) */
+    static const char *const R[ROT_N] = {"ROTARY OFF", "SLOW", "FAST", "BRAKE"};
+    int32_t k, x0 = 26, y0 = 18, h = 30, bw = 14, gap = 7;
+    char tt[28];
+    sound_title(tt);
+    cv_text(8, 4, &FONT_XS, tt, C_AMB);
+    {
+        const char *r = R[ctl_get(P_VOICE(CH_ORGAN, VO_ROTARY)) & 3];
+        cv_text(232 - text_w(&FONT_XS, r), 4, &FONT_XS, r, C_DIM);
+    }
+    for (k = 0; k < 9; k++) {
+        char t[4];
+        int32_t x = x0 + k * (bw + gap), v;
+        organ_bar(P_VOICE(CH_ORGAN, VO_DB0 + (uint32_t)k), ctl_get(P_VOICE(CH_ORGAN, VO_DB0 + (uint32_t)k)), t);
+        v = t[0] - '0';
+        cv_rect(x, y0, bw, 1, C_LINE);           /* the slot, and the bar out of it by its value */
+        if (v > 0)
+            cv_rect(x + 2, y0 + 1, bw - 4, v * h / 8, C[k] == 0 ? C_AMB : C[k] == 1 ? C_WHITE : C_DIM);
+        cv_text(x + (bw - text_w(&FONT_XS, t)) / 2, y0 + h + 2, &FONT_XS, t, C_WHITE);
+        cv_text(x + (bw - text_w(&FONT_XS, L[k])) / 2, y0 + h + 13, &FONT_XS, L[k], C_DIM);
+    }
+}
+
 static void env_draw(void)                       /* (draw_centre) the shapes, the playhead */
 {
     env_t e = env_of((uint32_t)dub.focus);
+    if (dub.focus == CH_ORGAN && ctl_get(P_VOICE(CH_ORGAN, VO_MODEL)) == ORG_B3) {
+        b3_draw();
+        return;
+    }
     int32_t x, x0 = 8, w = 224, y0 = 18, h = 50, lx, ly = -1;
     char t[16], n[8];   /* (t: the width's text) */
     uint32_t now = plat_ms();

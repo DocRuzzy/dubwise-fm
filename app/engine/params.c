@@ -8,7 +8,7 @@
 
 typedef char p_ch_fits[(CHF_N <= CH_STRIDE && P_CH_BASE + NCH * CH_STRIDE <= P_BUS_BASE) ? 1 : -1];
 typedef char p_globals_fit[(P_NGLOBAL <= P_CHORD0 && P_CHORD_END <= P_DEV_LOAD) ? 1 : -1];
-typedef char p_voice_fits[(VB_N <= VM_BASE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
+typedef char p_voice_fits[(VB_N <= VM_BASE && VO_N <= VM_BASE && P_VOICE_BASE + NCH * VOICE_STRIDE <= P_NIDS) ? 1 : -1];
 
 static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_LEVEL] = {"level", 0, 127, 100},           /* 100 = unity (gain (v/100)^2: +4 dB at 127) */
@@ -75,6 +75,21 @@ static const pdesc_t ORGAN_F[VO_N] = {
     [VO_DECAY] = {"decay", 0, 127, 30},             /* the gate: 40 .. 300 ms */
     [VO_CLICK] = {"click", 0, 127, 50},             /* the key click */
     [VO_DETUNE] = {"detune", 0, 127, 0},            /* 5.3: the three voices apart, 0 .. +-7 cents (a chorus) */
+    [VO_MODEL] = {"model", 0, ORG_MODELS - 1, ORG_BUBBLE},   /* 5.15: BUBBLE, B-3 */
+    [VO_DB0] = {"16'", -8, 0, 0},                   /* 5.15: the drawbars, as offsets from 88 8000 000 (params.h) */
+    [VO_DB1] = {"5 1/3'", -8, 0, 0},
+    [VO_DB2] = {"8'", -8, 0, 0},
+    [VO_DB3] = {"4'", 0, 8, 0},
+    [VO_DB4] = {"2 2/3'", 0, 8, 0},
+    [VO_DB5] = {"2'", 0, 8, 0},
+    [VO_DB6] = {"1 3/5'", 0, 8, 0},
+    [VO_DB7] = {"1 1/3'", 0, 8, 0},
+    [VO_DB8] = {"1'", 0, 8, 0},
+    [VO_PERC] = {"perc", 0, PERC_N - 1, PERC_OFF},  /* off, 2nd, 3rd */
+    [VO_PFAST] = {"perc fast", 0, 1, 0},
+    [VO_VIBCH] = {"vib/chorus", 0, VIB_N - 1, VIB_OFF},   /* off, V1-3, C1-3 */
+    [VO_ROTARY] = {"rotary", 0, ROT_N - 1, ROT_OFF},      /* off, slow, fast, brake */
+    [VO_ODRIVE] = {"drive", 0, 127, 0},
 };
 static const pdesc_t VOX_F[VX_N] = {
     [VX_PITCH] = {"pitch", 0, 127, 70},             /* the sirens: 200 Hz .. 1.2 kHz */

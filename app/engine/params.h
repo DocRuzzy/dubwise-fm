@@ -28,7 +28,8 @@ enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_HPF, VH_MODEL, VH_N };         
 enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_FEEDBACK, VB_DRIVE, VB_GLIDE,
        VB_MODEL, VB_N };                                                                          /* bass */
 enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_N };                        /* skank (P1.6) */
-enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_N };                               /* organ bubble */
+enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_MODEL, VO_DB0, VO_DB1, VO_DB2, VO_DB3, VO_DB4, VO_DB5, VO_DB6,
+       VO_DB7, VO_DB8, VO_PERC, VO_PFAST, VO_VIBCH, VO_ROTARY, VO_ODRIVE, VO_N };      /* organ: bubble, B-3 (5.15) */
 enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */
 enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };        /* lead: melodica / brass (P2.2) */
 /* the MAIN macros (roadmap 5.3, spec 4.9): four a channel (not the vox: its MAIN is the siren's own four), stored as
@@ -42,6 +43,13 @@ enum { KICK_SINE, KICK_THUMP, KICK_BOOM, KICK_MODELS };
 enum { RIM_CROSS, RIM_SNARE, RIM_SYNDRUM, RIM_MODELS };
 enum { HAT_METAL, HAT_NOISE, HAT_MODELS };
 enum { BASS_ROUND, BASS_PLUCK, BASS_HOLLOW, BASS_STEPPERS, BASS_MODELS };
+enum { ORG_BUBBLE, ORG_B3, ORG_MODELS };
+/* 5.15 (docs/plan-5.15-organ.md): the B-3's nine drawbars are stored as offsets from the default registration, full
+ * upper (88 8000 000), so 0 (an older save) is that sound: a drawbar's value is ORG_REG[k] + its field */
+#define ORG_REG {8, 8, 8, 0, 0, 0, 0, 0, 0}
+enum { PERC_OFF, PERC_2ND, PERC_3RD, PERC_N };
+enum { VIB_OFF, VIB_V1, VIB_V2, VIB_V3, VIB_C1, VIB_C2, VIB_C3, VIB_N };
+enum { ROT_OFF, ROT_SLOW, ROT_FAST, ROT_BRAKE, ROT_N };
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
 enum { INST_MELODICA, INST_BRASS, INST_N };

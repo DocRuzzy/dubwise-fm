@@ -1,6 +1,6 @@
 # Plan: roadmap 5.15, the tonewheel organ (B-3 style) and rotary speaker
 
-Status: **approved 2026-11-09.** The owner chose:
+Status: **approved and built 2026-11-09** (roadmap 5.15 has what was measured). The owner chose:
 - **option A,** the B-3 fields stored as offsets from the default registration;
 - **that registration: full upper,** 88 8000 000;
 - **open question 5: the stereo horn,** in the Studio tier, folding to mono in Four-track and Seven-inch. The pool room it needs is free: review-2026-11 §5.4 (the spin ring as

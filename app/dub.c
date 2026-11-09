@@ -646,6 +646,8 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
         int32_t id = sound_id(i);
         if (id >= 0 && model_name((uint32_t)id, ctl_get((uint32_t)id)))
             text_cat(t, model_name((uint32_t)id, ctl_get((uint32_t)id)));   /* (a model by its name: 5.7) */
+        else if (id >= 0 && organ_bar((uint32_t)id, ctl_get((uint32_t)id), t))
+            ;                                    /* (a drawbar as the bar, 0..8: 5.15) */
         else if (id >= 0)
             int_text(ctl_get((uint32_t)id), t);
         return;
@@ -742,6 +744,7 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
         dub.dirty_centre = 1;            /* (the envelopes drawn again: 5.10) */
         label_of((uint32_t)sid, l, sizeof l);
         int_text(ctl_get((uint32_t)sid), t);
+        organ_bar((uint32_t)sid, ctl_get((uint32_t)sid), t);
         app_say(l, model_name((uint32_t)sid, ctl_get((uint32_t)sid)) ? model_name((uint32_t)sid, ctl_get((uint32_t)sid)) : t);
         dub.dirty_foot = 1;
         return;
@@ -1440,6 +1443,7 @@ void dub_draw(void)
     slot_tick();                         /* (a loaded slot's, the same way) */
     slot_sx_tick();                      /* (a slot going to a computer) */
     env_tick(now);                       /* (the envelope view's playhead, 5.10) */
+    organ_tick();                        /* (the B-3's tables, when its drawbars moved: 5.15) */
     pl_sx_tick();                        /* (a channel's patches going to a computer) */
     song_sync();
     if (saver_draw(now)) {               /* the screen saver: the whole screen its own */

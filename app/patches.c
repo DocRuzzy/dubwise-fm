@@ -48,6 +48,8 @@ static const factory_t FACTORY[] = {             /* (INIT, every channel's defau
     {CH_BASS, "STEPPERS", 3, {{VB_SUB, 100}, {VB_CUTOFF, 20}, {VB_DECAY, 50}}},   /* (demo.c's UK STEPPERS) */
     {CH_SKANK, "STEPPERS", 2, {{VS_DECAY, 30}, {VS_TONE, 70}}},
     {CH_LEAD, "BRASS", 1, {{VL_INST, INST_BRASS}}},
+    {CH_ORGAN, "B3 SOFT", 3, {{VO_MODEL, ORG_B3}, {VO_DB1, -8}, {VO_ROTARY, ROT_SLOW}}},   /* 808 000 000 (5.15) */
+    {CH_ORGAN, "B3 PERC", 4, {{VO_MODEL, ORG_B3}, {VO_PERC, PERC_3RD}, {VO_PFAST, 1}, {VO_ROTARY, ROT_FAST}}},
 };
 #define NFACTORY (sizeof FACTORY / sizeof FACTORY[0])
 static int8_t pl_pos[NCH] = {-1, -1, -1, -1, -1, -1, -1, -1};   /* the patch shown: 0..nf-1 factory, nf+s user s */
