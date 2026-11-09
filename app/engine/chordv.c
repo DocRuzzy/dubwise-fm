@@ -21,14 +21,14 @@ typedef struct {
 
 static struct {                                  /* the skank */
     cv_t v[NV];
-    float vel, index, ik, ak, ratio, hp_a, lp_a, hx, hy, ly;
+    float vel, index, ik, ak, ratio, hp_a, lp_a, hx, hy, ly, aenv, arate;   /* aenv: ATTACK's swell (5.3) */
     int on;
 } sk;
 
 static struct {                                  /* the organ */
     cv_t v[NV];
     float p2[NV], p3[NV], p4[NV], pk[NV];        /* the partials' phases */
-    float vel, w2, w3, w4, ak, click, cenv, ck;
+    float vel, w2, w3, w4, ak, click, cenv, ck, det;   /* det: DETUNE's spread (5.3), 0 none */
     int on;
 } og;
 
@@ -48,6 +48,9 @@ void chordv_config(const int16_t *ev, int tier)
     sk.ik = t60k(30.0f);
     sk.ak = t60k(lin(ev[P_VOICE(CH_SKANK, VS_DECAY)], 60.0f, 200.0f));
     sk.ratio = ev[P_VOICE(CH_SKANK, VS_RATIO)] ? 3.0f : 1.0f;
+    sk.arate = ev[P_VOICE(CH_SKANK, VS_ATTACK)]   /* 5.3: 0 a chop (at once) .. 30 ms in, a half-rate sample's step */
+                   ? 2.0f / (lin(ev[P_VOICE(CH_SKANK, VS_ATTACK)], 0.5f, 30.0f) * 0.001f * SR)
+                   : 1.0f;
     sk.hp_a = fm_expf(-6.2831853f * (tone * 0.5f) * INV_SR);        /* the band: tone / 2 .. tone x 2 */
     sk.lp_a = 1.0f - fm_expf(-6.2831853f * (tone * 2.0f) * INV_SR);
     {
@@ -59,6 +62,7 @@ void chordv_config(const int16_t *ev, int tier)
     og.ak = t60k(lin(ev[P_VOICE(CH_ORGAN, VO_DECAY)], 40.0f, 300.0f));
     og.click = lin(ev[P_VOICE(CH_ORGAN, VO_CLICK)], 0.0f, 0.5f);
     og.ck = t60k(5.0f);
+    og.det = lin(ev[P_VOICE(CH_ORGAN, VO_DETUNE)], 0.0f, 0.004f);   /* 5.3: +-7 cents at most */
 }
 
 void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
@@ -77,6 +81,7 @@ void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
             sk.v[i].pc = sk.v[i].pm = 0.0f;
         }
         sk.vel = v;
+        sk.aenv = sk.arate >= 1.0f ? 1.0f : 0.0f;   /* (ATTACK 0: at once, as built) */
         sk.on = 1;
     } else if (ch == CH_ORGAN) {
         chord_notes(chord, voicing, 55, notes);  /* mid: from G3 */
@@ -131,6 +136,10 @@ static int render_skank(float *o, uint32_t n)
         sk.hy = undenorm(y);
         sk.ly = undenorm(sk.ly + lp2 * (y - sk.ly));
         y = sk.ly * sk.vel * 0.22f;
+        if (sk.aenv < 1.0f) {                    /* ATTACK (5.3): the chop swelled in */
+            y *= sk.aenv;
+            sk.aenv = fm_minf(1.0f, sk.aenv + sk.arate);
+        }
         o[i] = 0.5f * (sk_last + y);
         sk_last = y;
     }
@@ -159,7 +168,7 @@ static int render_organ(float *o, uint32_t n)
         }
         og_odd = 0;
         for (k = 0; k < NV; k++) {
-            float f = og.v[k].f * (2.0f * INV_SR);
+            float f = og.v[k].f * (2.0f * INV_SR) * (1.0f + og.det * (float)((int32_t)k - 1));   /* DETUNE (5.3) */
             og.v[k].pc = wrap(og.v[k].pc + f);
             og.p2[k] = wrap(og.p2[k] + 2.0f * f);
             og.p3[k] = wrap(og.p3[k] + 3.0f * f);

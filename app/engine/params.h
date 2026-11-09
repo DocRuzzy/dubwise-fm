@@ -20,14 +20,22 @@ enum { CHF_LEVEL, CHF_MUTE, CHF_SOLO, CHF_ECHO_SEND, CHF_SPRING_SEND, CHF_THROW,
        CHF_PAT, CHF_N };   /* (CHF_LEN: retired in the session, 4.8; a pattern's length is its own, riddim.h pmeta_t) */
 enum { DEST_ECHO, DEST_SPRING, DEST_BOTH, DEST_N };   /* a throw's destination (spec 3) */
 /* voice fields, each channel its own (append only, at most VOICE_STRIDE; voices.h) */
-enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_N };                         /* kick */
-enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_N };                                   /* rim / snare */
-enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_N };                                   /* hats */
-enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_N };   /* bass */
-enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_N };                                   /* skank (P1.6) */
-enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_N };                                          /* organ bubble */
+/* (roadmap 5.3 appended fields after each voice's own: 0 is the voice as before, so a save from before loads as it
+ * sounded; the bipolar ones (-64..63) move either way from it) */
+enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_DRIVE, VK_CTONE, VK_N };     /* kick */
+enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_DROP, VR_HPF, VR_N };                  /* rim / snare */
+enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_HPF, VH_N };                           /* hats */
+enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_FEEDBACK, VB_DRIVE, VB_GLIDE,
+       VB_N };                                                                          /* bass */
+enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_N };                        /* skank (P1.6) */
+enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_N };                               /* organ bubble */
 enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */
-enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_N };                   /* lead: melodica / brass (P2.2) */
+enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };        /* lead: melodica / brass (P2.2) */
+/* the MAIN macros (roadmap 5.3, spec 4.9): four a channel (not the vox: its MAIN is the siren's own four), stored as
+ * the voice's last four fields; -64..63, 0 every target at its default. The engine never reads them: turning one
+ * rewrites its raw targets (sound.c) */
+#define VM_BASE (VOICE_STRIDE - 4u)
+#define VM_N 4u
 enum { INST_MELODICA, INST_BRASS, INST_N };
 /* the chord channels' steps hold a voicing, not a note: the notes are the chord lane's (P_CHORD0..) */
 enum { VOICING_LO, VOICING_MID, VOICING_HI, VOICING_N };

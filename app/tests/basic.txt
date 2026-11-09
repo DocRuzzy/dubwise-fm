@@ -16,9 +16,12 @@ expect peak_db_min -30
 midi 80 3C 00
 wait 50
 expect note -1
-# EDIT: the SOUND view of the focused channel (the kick); OCT+: quantise; HOME + SELECT: tempo; SAVE keeps them
+# EDIT: the SOUND view of the focused channel (the kick): MAIN (the macros, 5.3), then the raw banks; OCT+:
+# quantise; HOME + SELECT: tempo; SAVE keeps them
+tap EDIT
 tap EDIT
 wait 30
+expect sound_bank 2
 turn K1 3
 wait 30
 expect ui.v1.tune 45
@@ -26,6 +29,7 @@ expect dirty 1
 tap EDIT
 tap EDIT
 wait 30
+expect sound_bank 0
 tap OCT+
 wait 30
 expect ui.quant 2

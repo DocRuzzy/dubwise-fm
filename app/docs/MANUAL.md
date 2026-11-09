@@ -69,7 +69,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | HOME + SEQ, tapped | Tap tempo: from the second tap, the average of the last four gaps (a pause over 2 s starts again). Refused while MIDI clock in has the tempo. |
 | Any button, held a second on its own | Its help card for this page. It stays when you let go, and the next press (which does nothing else) or 12 s puts the page back. A combo you hold while thinking still works: a knob or key pressed with the button held closes the card and does its job. |
 | ALGORITHM | Moves the focus between the channels. |
-| EDIT | The SOUND view: KNOB 1–4 edit the focused channel's voice, four settings at a time. Press EDIT again for the next four, then once more to go back to the echo's knobs. ALGORITHM picks the channel. |
+| EDIT | The SOUND view of the focused channel. First MAIN: four macros, each turning several settings at once along a shaped curve (the kick's PUNCH: the sweep up, the fall quicker, the click up); in the middle (0) everything is at its default. Press EDIT again for the raw settings, four at a time, then once more to go back to the echo's knobs. A raw setting turned after its macro leaves the macro where it is, and MAIN shows a small dot by it. ALGORITHM picks the channel. Channel 8 (VOX) has no MAIN: its first bank is the siren's. |
 | GLO | The SETUP page (below). |
 | MASTER | Sets the volume. |
 | SAVE | Saves your project: the tempo, sounds, patterns, scenes, the song and its moves, the FX and SETUP. SAVE lights while there's something to save. On SETUP's slot rows it saves to (or loads from) a song slot instead. |
@@ -303,16 +303,16 @@ play the lead; on any other channel, the bass, one at a time. DUBWISE has no Blu
 
 The voices:
 
-| Voice | Settings (SOUND view) |
-| --- | --- |
-| Kick | TUNE (where the pitch lands, 40–70 Hz), SWEEP (where it starts), PTIME (how fast it falls), DECAY, CLICK (the beater) |
-| Rim | TUNE, DECAY, NOISE, INDEX (how metallic) |
-| Hats | TONE, CLOSED and OPEN (their lengths), NOISE |
-| Bass | INDEX (the pluck's brightness), IDECAY (how fast the pluck fades to a pure tone), DECAY, CUTOFF, RATIO (1:1 or 2:1, hollow), SUB (an octave below), SUSTAIN |
-| Skank | INDEX (the chop's bite), DECAY, TONE (where its band sits), RATIO (1:1 or 1:3, nasal). It sends to the spring by default. |
-| Organ | DRAWBAR (how much of the upper partials), DECAY (the bubble's length), CLICK (the key click) |
-| Lead | INST (MELODICA: two reeds beating, vibrato after a moment; BRASS: brighter as it gets louder, a scoop up into each note, doubled like a section), BRIGHT, ATTACK, RELEASE, VIBRATO. It sends to the echo by default. Play it from the STEPS page (REC, two octaves above the bass) or MIDI channel 2. |
-| Vox (sirens) | PITCH, RATE (how fast it moves), DEPTH (how far, 1–24 semitones), WAVE (sine or triangle); second bank (EDIT again): LIVE, the live input's level (0 off, 100 as it comes) |
+| Voice | MAIN (macros) | Settings (SOUND view) |
+| --- | --- | --- |
+| Kick | PITCH · PUNCH · DECAY · DRIVE | TUNE (where the pitch lands, 40–70 Hz), SWEEP (where it starts), PTIME (how fast it falls), DECAY, CLICK (the beater), DRIVE (a soft clip on the body: rounder to harder), CTONE (the click's pitch: duller below 0, brighter above) |
+| Rim | TUNE · SNAP · DECAY · BODY | TUNE, DECAY, NOISE, INDEX (how metallic), DROP (a fast pitch drop on the hit), HPF (its high-pass: fuller below 0, thinner above) |
+| Hats | TONE · CLOSED · OPEN · HPF | TONE, CLOSED and OPEN (their lengths), NOISE, HPF (lower: more body; higher: sizzle only) |
+| Bass | TONE · PLUCK · LENGTH · WEIGHT | INDEX (the pluck's brightness), IDECAY (how fast the pluck fades to a pure tone), DECAY, CUTOFF, RATIO (1:1 or 2:1, hollow), SUB (an octave below), SUSTAIN, FEEDBACK (a growl: the modulator feeds itself, capped so the note stays on top), DRIVE (saturation before the filter), GLIDE (slides between notes held together; none from silence) |
+| Skank | TONE · LENGTH · COLOUR · ATTACK | INDEX (the chop's bite), DECAY, TONE (where its band sits), RATIO (1:1 or 1:3, nasal), ATTACK (0 the chop, up: a softer swell). It sends to the spring by default. |
+| Organ | DRAWBAR · LENGTH · CLICK · DETUNE | DRAWBAR (how much of the upper partials), DECAY (the bubble's length), CLICK (the key click), DETUNE (the voices drift apart: a chorus) |
+| Lead | BRIGHT · ATTACK · RELEASE · VIBRATO | INST (MELODICA: two reeds beating, vibrato after a moment; BRASS: brighter as it gets louder, a scoop up into each note, doubled like a section), BRIGHT, ATTACK, RELEASE, VIBRATO, DETUNE (the reeds or the section closer, below 0, or wider). It sends to the echo by default. Play it from the STEPS page (REC, two octaves above the bass) or MIDI channel 2. |
+| Vox (sirens) | — | PITCH, RATE (how fast it moves), DEPTH (how far, 1–24 semitones), WAVE (sine or triangle); second bank (EDIT again): LIVE, the live input's level (0 off, 100 as it comes) |
 
 The keys sense how hard you play them, with no change to the FM-1. The 20 lowest keys
 (F3 to C5) give velocity and pressure. The top seven give velocity only.

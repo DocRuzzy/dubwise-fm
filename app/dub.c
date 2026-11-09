@@ -251,18 +251,33 @@ static uint32_t voice_fields(int32_t ch)  /* how many parameters the channel's v
     return n;
 }
 
-static int32_t sound_id(uint32_t i)      /* the SOUND view's knob i: its parameter, -1 none */
-{
-    uint32_t f = (uint32_t)(dub.sound - 1u) * 4u + i;
-    return dub.sound && f < voice_fields(dub.focus) ? (int32_t)P_VOICE(dub.focus, f) : -1;
-}
-
 static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as the screen shows it */
 {
     uint32_t i;
     for (i = 0; a[i] && i + 1 < n; i++)
         t[i] = a[i] >= 'a' && a[i] <= 'z' ? (char)(a[i] - 32) : a[i];
     t[i] = 0;
+}
+
+#include "sound.c"                       /* the MAIN macros (GPL-3.0-only; roadmap 5.3) */
+
+/* the SOUND view's banks (spec 4.9): 1 MAIN (the macros; the vox has none: its first raw bank), then the raw
+ * fields four a bank */
+static uint32_t sound_banks(int32_t ch)
+{
+    uint32_t nf = voice_fields(ch);
+    return nf ? (uint32_t)has_main(ch) + (nf + 3u) / 4u : 0u;
+}
+
+static int32_t sound_id(uint32_t i)      /* the SOUND view's knob i: its parameter, -1 none */
+{
+    uint32_t f;
+    if (!dub.sound)
+        return -1;
+    if (has_main(dub.focus) && dub.sound == 1u)
+        return (int32_t)P_VOICE(dub.focus, VM_BASE + i);
+    f = ((uint32_t)dub.sound - 1u - (uint32_t)has_main(dub.focus)) * 4u + i;
+    return f < voice_fields(dub.focus) ? (int32_t)P_VOICE(dub.focus, f) : -1;
 }
 
 enum { PAGE_DUB, PAGE_STEPS, PAGE_SETUP, PAGE_KEY, PAGE_FX, PAGE_ARRANGE, PAGE_PERF };
@@ -469,11 +484,22 @@ static void button_press(uint32_t k)
     else if (k == B_EDIT) {              /* the SOUND view, a bank at a time, then back */
         uint32_t nf = voice_fields(dub.focus);
         dub.sound = (uint8_t)(dub.sound + 1u);
-        if ((uint32_t)(dub.sound - 1u) * 4u >= nf || nf == 0u)
+        if (dub.sound > sound_banks(dub.focus))
             dub.sound = 0;
         dub.dirty_foot = 1;
-        if (dub.sound)
-            app_say("SOUND", CH_NAME[dub.focus]);
+        if (dub.sound) {                 /* "SOUND" "KICK MAIN" / "KICK 2" (spec 4.9) */
+            char t[20], b[4];
+            t[0] = 0;
+            text_cat(t, CH_NAME[dub.focus]);
+            if (dub.sound == 1u && has_main(dub.focus))
+                text_cat(t, " MAIN");
+            else {
+                int_text((int32_t)dub.sound - has_main(dub.focus), b);
+                text_cat(t, " ");
+                text_cat(t, b);
+            }
+            app_say("SOUND", t);
+        }
         else
             app_say(nf ? "ECHO" : "NO VOICE YET", nf ? "KNOBS" : CH_NAME[dub.focus]);
     } else if (k == B_GLO) {
@@ -630,8 +656,14 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
         if (sid < 0)
             return;
         ctl_set((uint32_t)sid, ctl_get((uint32_t)sid) + e);
+        {
+            int32_t mch;
+            uint32_t mk;
+            if (macro_of((uint32_t)sid, &mch, &mk))   /* a macro: its raw targets along its curves */
+                macro_apply(mch, mk);
+        }
         set_dirty = 1;
-        upper(param_desc((uint32_t)sid)->name, l, sizeof l);
+        label_of((uint32_t)sid, l, sizeof l);
         int_text(ctl_get((uint32_t)sid), t);
         app_say(l, t);
         dub.dirty_foot = 1;
@@ -1190,11 +1222,16 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
             cv_text(x, 4, &FONT_XS, i == 0u ? "DEST" : "", C_AMB);
         else if (dub.sound && ch < 0) {
             char l[12];
-            int32_t sid = sound_id(i);
+            int32_t sid = sound_id(i), mch;
+            uint32_t mk;
             l[0] = 0;
             if (sid >= 0)
-                upper(param_desc((uint32_t)sid)->name, l, sizeof l);
-            cv_text(x, 4, &FONT_XS, l, C_AMB);
+                label_of((uint32_t)sid, l, sizeof l);
+            {
+                int32_t lx = cv_text(x, 4, &FONT_XS, l, C_AMB);
+                if (sid >= 0 && macro_of((uint32_t)sid, &mch, &mk) && macro_moved(mch, mk))
+                    cv_rect(lx + 2, 9, 3, 3, C_WHITE);   /* a dot: a target turned since (spec 4.9) */
+            }
         } else
             cv_text(x, 4, &FONT_XS, ch >= 0 ? FOCUS_LABEL[i] : KNOB_LABEL[i], ch >= 0 ? C_AMB : C_GRAY);
         knob_value(i, ch, t);
@@ -1206,7 +1243,14 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
         char t2[20];
         t2[0] = 0;
         text_cat(t2, CH_NAME[dub.focus]);
-        text_cat(t2, dub.sound == 1u ? " 1" : " 2");
+        if (dub.sound == 1u && has_main(dub.focus))
+            text_cat(t2, " MAIN");
+        else {
+            char b[4];
+            int_text((int32_t)dub.sound - has_main(dub.focus), b);
+            text_cat(t2, " ");
+            text_cat(t2, b);
+        }
         cv_text(234 - text_w(&FONT_T, t2), 4, &FONT_T, t2, C_AMB);
     }
     cv_blit(0, FOOT_Y);
@@ -1221,6 +1265,8 @@ static uint32_t foot_sig(void)           /* changes whenever what the footer sho
         knob_value(i, held_mute(), t);
         for (p = t; *p; p++)
             h = h * 31u + (uint8_t)*p;
+        if (dub.sound == 1u && has_main(dub.focus))
+            h = h * 3u + (uint32_t)macro_moved(dub.focus, i);
     }
     return h;
 }
@@ -1531,7 +1577,7 @@ static int dub_expect(const char *what, int *got)
     else if (!strcmp(what, "key_flashes"))
         *got = (int)dub.key_flashes;
     else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got)
-             || undo_expect(what, got) || help_expect(what, got) || ml_expect(what, got))
+             || undo_expect(what, got) || help_expect(what, got) || ml_expect(what, got) || sound_expect(what, got))
         return 1;
     else if (!strcmp(what, "roots"))     /* 1: the cycle bar red, gold and green (72.0 BPM's first bar) */
         *got = roots_now();

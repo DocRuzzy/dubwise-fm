@@ -30,30 +30,30 @@ static inline float noise(void)
 
 /* ------------------------------------------------------------------- kick --- */
 static struct {
-    float ph, penv, amp, cenv, vel;              /* state */
-    float f1, f0, pk, ak, ck, click;             /* the block's coefficients */
+    float ph, penv, amp, cenv, vel, pm;          /* state (pm: the beater's own phase, CLICK TONE off 0) */
+    float f1, f0, pk, ak, ck, click, drive, cr; /* the block's coefficients (drive 0: clean; cr 1: 1:1) */
     int on;
 } kick;
 
 /* ------------------------------------------------------------------- rim --- */
 static struct {
-    float pc, pm, p2, ienv, amp, nenv, hp_x, hp_y, vel;
-    float f, index, ak, ik, nk, noise_l, hp_a;
+    float pc, pm, p2, ienv, amp, nenv, hp_x, hp_y, vel, denv;
+    float f, index, ak, ik, nk, noise_l, hp_a, drop, dk;
     int on;
 } rim;
 
 /* ------------------------------------------------------------------- hats --- */
 static struct {
     float p[4], amp, h1x, h1y, h2x, h2y, vel;
-    float f, kc, ko, k, noise_l;
+    float f, kc, ko, k, noise_l, hp_a, gain;
     int on;
 } hat;
 static const float HAT_R[4] = {1.0f, 1.48f, 2.27f, 3.6f};
 
 /* ------------------------------------------------------------------- bass --- */
 static struct {
-    float pc, pm, ps, ienv, amp, lp1, lp2, vel, f, target;
-    float index, ik, ak, rk, att, ratio, sub, sus, lp_a;
+    float pc, pm, ps, ienv, amp, lp1, lp2, vel, f, target, mfb, ft;
+    float index, ik, ak, rk, att, ratio, sub, sus, lp_a, fb, drive, gk;
     int32_t note;                                /* held, -1 none (released: ringing out) */
     int on;
 } bass;
@@ -65,7 +65,7 @@ static struct {
 #define DOUBLE_N 530u                            /* 12 ms */
 static struct {
     float pc, pc2, pm, mprev, f, amp, vel, vib, scoop, t;
-    float inst, bright, att, rel, vdepth;
+    float inst, bright, att, rel, vdepth, spread;
     int32_t note;                                /* held, -1 none */
     int on;
 } lead;
@@ -96,6 +96,8 @@ void voices_config(const int16_t *ev, int tier)
     kick.ak = t60k(lin(ev[P_VOICE(CH_KICK, VK_DECAY)], 100.0f, 1000.0f));
     kick.ck = t60k(6.0f);
     kick.click = lin(ev[P_VOICE(CH_KICK, VK_CLICK)], 0.0f, 3.0f);
+    kick.drive = lin(ev[P_VOICE(CH_KICK, VK_DRIVE)], 0.0f, 6.0f);   /* 5.3: 0 clean */
+    kick.cr = ev[P_VOICE(CH_KICK, VK_CTONE)] ? fm_exp2f((float)ev[P_VOICE(CH_KICK, VK_CTONE)] * (1.0f / 32.0f)) : 1.0f;
     /* rim: TUNE 300..1200 Hz, DECAY 20..200 ms, NOISE 0..1, INDEX 0..6 */
     rim.f = lin(ev[P_VOICE(CH_SNARE, VR_TUNE)], 300.0f, 1200.0f);
     rim.ak = t60k(lin(ev[P_VOICE(CH_SNARE, VR_DECAY)], 20.0f, 200.0f));
@@ -103,12 +105,22 @@ void voices_config(const int16_t *ev, int tier)
     rim.index = lin(ev[P_VOICE(CH_SNARE, VR_INDEX)], 0.0f, 6.0f);
     rim.ik = t60k(12.0f);
     rim.nk = t60k(6.0f);
-    rim.hp_a = fm_expf(-6.2831853f * 300.0f * INV_SR);
+    rim.hp_a = fm_expf(-6.2831853f * 300.0f * fm_exp2f((float)ev[P_VOICE(CH_SNARE, VR_HPF)] * (3.0f / 64.0f)) * INV_SR);
+    rim.drop = lin(ev[P_VOICE(CH_SNARE, VR_DROP)], 0.0f, 1.0f);   /* 5.3: up to an octave above, falling */
+    rim.dk = t60k(40.0f);
     /* hats: TONE 300..800 Hz, CLOSED 20..150 ms, OPEN 150..800 ms, NOISE 0..1 */
     hat.f = lin(ev[P_VOICE(CH_HATS, VH_TONE)], 300.0f, 800.0f);
     hat.kc = t60k(lin(ev[P_VOICE(CH_HATS, VH_CLOSED)], 20.0f, 150.0f));
     hat.ko = t60k(lin(ev[P_VOICE(CH_HATS, VH_OPEN)], 150.0f, 800.0f));
     hat.noise_l = lin(ev[P_VOICE(CH_HATS, VH_NOISE)], 0.0f, 1.0f);
+    if (ev[P_VOICE(CH_HATS, VH_HPF)]) {         /* 5.3: the high-passes moved (at 0 exactly as built: 0.37, ~7 kHz) */
+        float fc = 7000.0f * fm_exp2f((float)ev[P_VOICE(CH_HATS, VH_HPF)] * (1.0f / 64.0f));
+        hat.hp_a = fm_expf(-6.2831853f * fc * INV_SR);
+        hat.gain = 2.4f * fm_sqrtf(fc * (1.0f / 7000.0f));   /* (lower: more of the squares through) */
+    } else {
+        hat.hp_a = 0.37f;
+        hat.gain = 2.4f;
+    }
     /* bass: INDEX 0..2.5, IDECAY 10..150 ms, DECAY 80..1500 ms, CUTOFF 300..2500 Hz, RATIO 1:1 / 2:1, SUB, SUSTAIN */
     bass.index = lin(ev[P_VOICE(CH_BASS, VB_INDEX)], 0.0f, 2.5f);
     bass.ik = t60k(lin(ev[P_VOICE(CH_BASS, VB_IDECAY)], 10.0f, 150.0f));
@@ -119,10 +131,17 @@ void voices_config(const int16_t *ev, int tier)
     bass.ratio = ev[P_VOICE(CH_BASS, VB_RATIO)] ? 2.0f : 1.0f;
     bass.sub = tier >= TIER_SEVEN ? 0.0f : lin(ev[P_VOICE(CH_BASS, VB_SUB)], 0.0f, 1.0f);
     bass.sus = lin(ev[P_VOICE(CH_BASS, VB_SUSTAIN)], 0.0f, 1.0f);
+    bass.fb = lin(ev[P_VOICE(CH_BASS, VB_FEEDBACK)], 0.0f, 0.6f);   /* 5.3: capped (sound.txt: the sine stays) */
+    bass.drive = lin(ev[P_VOICE(CH_BASS, VB_DRIVE)], 0.0f, 5.0f);
+    bass.gk = ev[P_VOICE(CH_BASS, VB_GLIDE)] ? 1.0f - fm_expf(-1.0f / (lin(ev[P_VOICE(CH_BASS, VB_GLIDE)], 1.0f, 300.0f)
+                                                                         * 0.001f * SR * 0.5f * 0.25f))
+                                             : 1.0f;            /* (a one-pole a half-rate sample, ~T/4: there in T) */
     lead.inst = ev[P_VOICE(CH_LEAD, VL_INST)] ? 1.0f : 0.0f;
     lead.bright = lin(ev[P_VOICE(CH_LEAD, VL_BRIGHT)], 0.3f, 3.0f);
     lead.att = 1.0f / (lin(ev[P_VOICE(CH_LEAD, VL_ATTACK)], 10.0f, 150.0f) * 0.001f * SR);
     lead.rel = t60k(lin(ev[P_VOICE(CH_LEAD, VL_RELEASE)], 30.0f, 600.0f));
+    lead.spread = ev[P_VOICE(CH_LEAD, VL_DETUNE)] ? 0.0035f * fm_exp2f((float)ev[P_VOICE(CH_LEAD, VL_DETUNE)] * (1.0f / 32.0f))
+                                                  : 0.0035f;   /* 5.3: 6 cents at 0 */
     lead.vdepth = lin(ev[P_VOICE(CH_LEAD, VL_VIBRATO)], 0.0f, 40.0f) * (1.0f / 1200.0f);   /* octaves */
     (void)tier;
 }
@@ -132,7 +151,7 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
     float v = (float)(vel > 127u ? 127u : vel) * (1.0f / 127.0f);
     switch (ch) {
     case CH_KICK:                                /* phase 0: the sine starts from zero, no click */
-        kick.ph = 0.0f;
+        kick.ph = kick.pm = 0.0f;
         kick.penv = kick.cenv = 1.0f;
         kick.amp = 1.0f;
         kick.vel = v;
@@ -142,6 +161,7 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
         if (!rim.on)                             /* (from silence: its high-pass from rest too, 5.1) */
             rim.hp_x = rim.hp_y = 0.0f;
         rim.pc = rim.pm = rim.p2 = 0.0f;
+        rim.denv = 1.0f;
         rim.ienv = rim.amp = rim.nenv = 1.0f;
         rim.vel = v;
         rim.on = 1;
@@ -170,11 +190,13 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
     case CH_BASS:                                /* mono, the last note wins; the phases run on (no click), but from
                                                   * silence they start at 0 (5.1: a pass and its replay the same) */
         if (!bass.on) {
-            bass.pc = bass.pm = bass.ps = 0.0f;
+            bass.pc = bass.pm = bass.ps = bass.mfb = 0.0f;
             bass.lp1 = bass.lp2 = bass.amp = 0.0f;
         }
         bass.note = note;
-        bass.f = midi_hz(note);
+        bass.ft = midi_hz(note);
+        if (!bass.on || bass.gk >= 1.0f)
+            bass.f = bass.ft;                    /* (GLIDE: from the last note's pitch; from silence, none) */
         bass.ienv = 1.0f;
         bass.vel = v;
         bass.target = 1.0f;                      /* the attack, then the decay to the sustain */
@@ -207,9 +229,18 @@ static int render_kick(float *o, uint32_t n)
         return 0;
     for (i = 0; i < n; i++) {
         float f = kick.f1 + (kick.f0 - kick.f1) * kick.penv, m;
+        float y;
         kick.ph = wrap(kick.ph + f * INV_SR);
-        m = kick.click * kick.cenv * fm_sin_turns(kick.ph);       /* the beater: a short 1:1 index burst */
-        o[i] = fm_sin_turns(kick.ph + m * 0.15915494f) * kick.amp * kick.vel * 0.7f;
+        if (kick.cr != 1.0f) {                   /* CLICK TONE: the beater's own ratio (5.3) */
+            kick.pm = wrap(kick.pm + f * kick.cr * INV_SR);
+            m = kick.click * kick.cenv * fm_sin_turns(kick.pm);
+        } else
+            m = kick.click * kick.cenv * fm_sin_turns(kick.ph);   /* the beater: a short 1:1 index burst */
+        y = fm_sin_turns(kick.ph + m * 0.15915494f);
+        if (kick.drive > 0.0f)                   /* DRIVE (5.3): the sine soft-clipped towards a square, before the
+                                                  * envelope (after it, it lifted the tail: tails.txt) */
+            y = y * (1.0f + kick.drive) / (1.0f + kick.drive * fm_fabsf(y));
+        o[i] = y * kick.amp * kick.vel * 0.7f;
         kick.penv *= kick.pk;
         kick.cenv = undenorm(kick.cenv * kick.ck);
         kick.amp *= kick.ak;
@@ -226,10 +257,14 @@ static int render_rim(float *o, uint32_t n)
     if (!rim.on)
         return 0;
     for (i = 0; i < n; i++) {
-        float s;
-        rim.pc = wrap(rim.pc + rim.f * INV_SR);
-        rim.pm = wrap(rim.pm + rim.f * 1.41f * INV_SR);
-        rim.p2 = wrap(rim.p2 + rim.f * 3.5f * INV_SR);
+        float s, f = rim.f;
+        if (rim.drop > 0.0f) {                   /* PITCH DROP (5.3): from up to an octave above, quickly down */
+            f *= 1.0f + rim.drop * rim.denv;
+            rim.denv *= rim.dk;
+        }
+        rim.pc = wrap(rim.pc + f * INV_SR);
+        rim.pm = wrap(rim.pm + f * 1.41f * INV_SR);
+        rim.p2 = wrap(rim.p2 + f * 3.5f * INV_SR);
         s = fm_sin_turns(rim.pc + rim.index * rim.ienv * 0.15915494f * fm_sin_turns(rim.pm));
         s += 0.35f * rim.ienv * fm_sin_turns(rim.p2);
         s += rim.noise_l * rim.nenv * noise();
@@ -242,6 +277,7 @@ static int render_rim(float *o, uint32_t n)
     }
     rim.ienv = undenorm(rim.ienv);
     rim.nenv = undenorm(rim.nenv);
+    rim.denv = undenorm(rim.denv);
     if (rim.amp < SILENT)
         rim.on = 0;
     return 1;
@@ -250,7 +286,7 @@ static int render_rim(float *o, uint32_t n)
 static int render_hats(float *o, uint32_t n)
 {
     uint32_t i, k;
-    const float a = 0.37f;                       /* two one-pole high-passes at ~7 kHz */
+    const float a = hat.hp_a;                    /* two one-pole high-passes at ~7 kHz (HPF moves them, 5.3) */
     if (!hat.on)
         return 0;
     for (i = 0; i < n; i++) {
@@ -266,7 +302,7 @@ static int render_hats(float *o, uint32_t n)
         s = a * (hat.h2y + y - hat.h2x);
         hat.h2x = y;
         hat.h2y = undenorm(s);
-        o[i] = s * hat.amp * hat.vel * 2.4f;     /* (the high-passes take most of the squares away) */
+        o[i] = s * hat.amp * hat.vel * hat.gain;   /* (the high-passes take most of the squares away) */
         hat.amp *= hat.k;
     }
     if (hat.amp < SILENT)
@@ -298,11 +334,20 @@ static int render_bass(float *o, uint32_t n)
             continue;
         }
         bass_odd = 0;
+        if (bass.gk < 1.0f)                      /* GLIDE (5.3) */
+            bass.f += (bass.ft - bass.f) * bass.gk;
         bass.pm = wrap(bass.pm + bass.f * bass.ratio * inv2);
         bass.pc = wrap(bass.pc + bass.f * inv2);
         bass.ps = wrap(bass.ps + bass.f * 0.5f * inv2);
-        m = (bass.index * bass.ienv + 0.04f) * fm_sin_turns(bass.pm);   /* a pluck, then nearly a pure sine */
+        if (bass.fb > 0.0f) {                    /* FEEDBACK (5.3): the modulator fed back, a growl (capped) */
+            float mm = fm_sin_turns(bass.pm + bass.fb * bass.mfb);
+            bass.mfb = mm;
+            m = (bass.index * bass.ienv + 0.04f) * mm;
+        } else
+            m = (bass.index * bass.ienv + 0.04f) * fm_sin_turns(bass.pm);   /* a pluck, then nearly a pure sine */
         s = fm_sin_turns(bass.pc + m * 0.15915494f) + bass.sub * fm_sin_turns(bass.ps);
+        if (bass.drive > 0.0f)                   /* DRIVE (5.3): a soft clip before the filter */
+            s = s * (1.0f + bass.drive) / (1.0f + bass.drive * 0.5f * fm_fabsf(s));
         /* the envelope: up in 2 ms, then down to the sustain while held, released in 60 ms */
         if (bass.target > 0.5f) {
             bass.amp += att2;
@@ -366,7 +411,7 @@ static int render_lead(float *o, uint32_t n)
             lead.mprev = m;
             idx = lead.bright * (0.5f + 0.5f * lead.vel);
             lead.pc = wrap(lead.pc + f * INV_SR);
-            lead.pc2 = wrap(lead.pc2 + f * 1.0035f * INV_SR);   /* +6 cents: the free reeds beating */
+            lead.pc2 = wrap(lead.pc2 + f * (1.0f + lead.spread) * INV_SR);   /* +6 cents (DETUNE, 5.3): the reeds beating */
             s = 0.5f * (fm_sin_turns(lead.pc + idx * 0.15915494f * m) + fm_sin_turns(lead.pc2 + idx * 0.15915494f * m));
         }
         o[i] = s * env * lead.vel * 0.3f;

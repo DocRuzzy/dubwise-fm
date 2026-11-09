@@ -78,11 +78,11 @@ static int ml_save(void)                         /* (save_project) the map, if i
 static void ml_touched(uint32_t id)              /* (undo.c's watch) a parameter the hands changed: learning's target */
 {
     char l[24];
-    if (!ml_until || plat_ms() >= ml_until || ml_target == (int32_t)id || id == P_SIREN || id == P_SHOT || id == P_TAILS)
+    if (macro_busy || !ml_until || plat_ms() >= ml_until || ml_target == (int32_t)id || id == P_SIREN || id == P_SHOT || id == P_TAILS)
         return;                                  /* (the siren and the shots: values a knob can't sweep) */
     ml_target = (int32_t)id;
     ml_until = plat_ms() + 20000u;
-    upper(param_desc(id)->name, l, sizeof l);
+    label_of(id, l, sizeof l);
     app_say(l, "NOW THE CONTROLLER");
 }
 
@@ -130,7 +130,7 @@ static void ml_bind(uint32_t ch, uint32_t cc)
     int_text((int32_t)cc, n);
     text_cat(t, n);
     text_cat(t, " TO ");
-    upper(param_desc((uint32_t)ml_target)->name, l, sizeof l);
+    label_of((uint32_t)ml_target, l, sizeof l);
     text_cat(t, l);
     app_say("LEARNED", t);
 }
@@ -164,7 +164,11 @@ static void ml_tick(void)                        /* every frame: the CCs that ca
                 hi = d->max;
                 x = hi - lo == 1 ? (v >= 64u ? hi : lo) : lo + ((int32_t)v * (hi - lo) + 63) / 127;
                 if (ctl_get(ml.m[i].id) != x) {
+                    int32_t mch;
+                    uint32_t mk;
                     ctl_set(ml.m[i].id, x);
+                    if (macro_of(ml.m[i].id, &mch, &mk))   /* a macro learned: its targets too (5.3) */
+                        macro_apply(mch, mk);
                     if (mot_momentary(ml.m[i].id) < 0)
                         set_dirty = 1;
                     dub.dirty_strips = dub.dirty_foot = dub.dirty_centre = 1;
