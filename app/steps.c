@@ -50,6 +50,8 @@ static struct {
     uint64_t done[NCH];                  /* REPLACE: the steps played this pass (kept) */
     int32_t swept[NCH];                  /* REPLACE: the last step position cleared */
 } st = {CH_KICK, 0, -1, TPL_ONE_DROP, -2, 0, 0, 0, {0}, 0, 0, 0, 0, 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}};
+static int32_t st_pend = -1;                     /* an on step pressed: off at its let-go, unless a knob edited it */
+static uint8_t st_knobbed;                       /* (a knob turned while it was held) */
 
 static int tonal(int32_t ch) { return ch == CH_BASS || ch == CH_LEAD; }   /* (the chord channels take voicings) */
 static int drum(int32_t ch) { return ch == CH_KICK || ch == CH_SNARE || ch == CH_HATS; }
@@ -102,11 +104,25 @@ static int32_t pat_at(int32_t ch)        /* the step of the channel's pattern pl
     return d < 0 ? -1 : (d / sl) % len;
 }
 
+static int steps_skips(uint32_t i, step_t s)     /* 1: this step won't play this loop (its CHANCE; 5.9) */
+{
+    int32_t f = eng_fine(), d, sl, len;
+    uint32_t ch = (uint32_t)st.ch, p = eng_pat(ch);
+    pmeta_t m;
+    if (!STEP_CHANCE(s) || f < 0 || p != pat_now(st.ch))
+        return 0;
+    m = ctl_meta_get(ch, p);
+    sl = grid_fine(m.grid);
+    len = m.len ? m.len : 16;
+    d = f - eng_pat_org(ch);
+    return d >= 0 && !chance_plays(ch, p, i, (uint32_t)(d / sl / len), STEP_CHANCE(s), m.rsv);
+}
+
 static int pat_empty(uint32_t ch, uint32_t p)
 {
     uint32_t i;
     for (i = 0; i < NSTEPS; i++)
-        if (ctl_get_step_at(ch, p, i).lvl)
+        if (LVL(ctl_get_step_at(ch, p, i)))
             return 0;
     return 1;
 }
@@ -240,10 +256,16 @@ static void steps_key(uint32_t w)        /* white key w (0..15) pressed: its ste
     char t[24], n[8];
     if (k9 || k10) {                     /* accent / ghost (or back to normal) */
         uint8_t want = k9 ? LVL_ACCENT : LVL_GHOST;
-        s.lvl = s.lvl == want ? LVL_NORMAL : want;
+        STEP_LVL_SET(s, LVL(s) == want ? LVL_NORMAL : want);
+    } else if (LVL(s)) {                 /* on: off when it's let go, unless a knob edits it meanwhile (hold to edit,
+                                          * 5.8: a held step's locks, nudge and gate without losing it) */
+        st_pend = (int32_t)i;
+        st_knobbed = 0;
+        st.last = (int32_t)i;
+        return;
     } else {
-        s.lvl = s.lvl ? LVL_OFF : LVL_NORMAL;
-        if (s.lvl && st.last >= 0 && st.ch != CH_HATS)   /* a new step takes the last note touched */
+        s.lvl = LVL_NORMAL;
+        if (st.last >= 0 && st.ch != CH_HATS)   /* a new step takes the last note touched */
             s.note = ctl_get_step((uint32_t)st.ch, (uint32_t)st.last).note;
     }
     ctl_step((uint32_t)st.ch, i, s);
@@ -253,8 +275,73 @@ static void steps_key(uint32_t w)        /* white key w (0..15) pressed: its ste
     t[0] = 0;
     text_cat(t, n);
     text_cat(t, " ");
-    text_cat(t, LVL_NAME[s.lvl]);
+    text_cat(t, LVL_NAME[LVL(s)]);
     app_say("STEP", t);
+}
+
+static void steps_letgo(uint32_t w)              /* white key w let go: an on step pressed and not edited: off */
+{
+    uint32_t i = st.page * 16u + w;
+    step_t s;
+    char t[24], n[8];
+    if (st_pend != (int32_t)i)
+        return;
+    st_pend = -1;
+    if (st_knobbed)
+        return;
+    s = ctl_get_step((uint32_t)st.ch, i);
+    s.lvl = LVL_OFF;                             /* off: its CHANCE, REPEAT and locks too */
+    if (is_drum((uint32_t)st.ch))
+        s.gate = 0;
+    ctl_step((uint32_t)st.ch, i, s);
+    set_dirty = 1;
+    int_text((int32_t)i + 1, n);
+    t[0] = 0;
+    text_cat(t, n);
+    text_cat(t, " OFF");
+    app_say("STEP", t);
+}
+
+static void steps_cycle(uint32_t w, int repeat)  /* black 11 held + a white key: its CHANCE (5.9); ENV held: its REPEAT
+                                                  * (5.8, the drums) */
+{
+    static const char *const CN[CHANCE_N] = {"100%", "75%", "50%", "25%"};
+    static const char *const RN[REP_N] = {"OFF", "FLAM", "X2", "X3", "X4"};
+    uint32_t i = st.page * 16u + w;
+    step_t s = ctl_get_step((uint32_t)st.ch, i);
+    char t[24], n[8];
+    if (!LVL(s)) {
+        app_say("STEP", "OFF: TURN IT ON FIRST");
+        return;
+    }
+    if (repeat && !is_drum((uint32_t)st.ch)) {
+        app_say("REPEAT", "THE DRUMS ONLY");
+        return;
+    }
+    if (repeat)
+        STEP_REPEAT_SET(s, (STEP_REPEAT(s) + 1u) % REP_N);
+    else
+        STEP_CHANCE_SET(s, (STEP_CHANCE(s) + 1u) % CHANCE_N);
+    ctl_step((uint32_t)st.ch, i, s);
+    st.last = (int32_t)i;
+    set_dirty = 1;
+    int_text((int32_t)i + 1, n);
+    t[0] = 0;
+    text_cat(t, n);
+    text_cat(t, " ");
+    text_cat(t, repeat ? RN[STEP_REPEAT(s)] : CN[STEP_CHANCE(s)]);
+    app_say(repeat ? "REPEAT" : "CHANCE", t);
+}
+
+static void steps_reseed(void)                   /* HOME + ENV: the pattern's SEED anew (5.9; one undo step) */
+{
+    pmeta_t m = ctl_meta_now((uint32_t)st.ch);
+    char t[8];
+    m.rsv = (uint8_t)(m.rsv + 1u + (plat_ms() * 2654435761u >> 24) % 254u);   /* (never the same one again) */
+    ctl_meta_set((uint32_t)st.ch, pat_now(st.ch), m);
+    set_dirty = 1;
+    int_text(m.rsv, t);
+    app_say("RESEED", t);
 }
 
 static int32_t rec_offset_fine(void)     /* REC OFFSET's ms in fine ticks: ms x 240 x BPM / 60,000 */
@@ -502,7 +589,7 @@ static void rec_tick(void)               /* every frame: the pass's line, its en
                 while (st.swept[ch] < pos) {
                     int32_t i = ((++st.swept[ch] % len) + len) % len;
                     step_t s = ctl_get_step_at((uint32_t)ch, p, (uint32_t)i);
-                    if (s.lvl && !(st.done[ch] >> i & 1u)) {
+                    if (LVL(s) && !(st.done[ch] >> i & 1u)) {
                         s.lvl = LVL_OFF;
                         if (st.joined)
                             undo_join();
@@ -530,6 +617,9 @@ static void steps_keys(uint32_t keys, uint32_t prev)
         return;
     }
     for (k = 0; k < 16u; k++)
+        if (!(keys >> WK[k] & 1u) && (prev >> WK[k] & 1u))
+            steps_letgo(k);
+    for (k = 0; k < 16u; k++)
         if ((keys >> WK[k] & 1u) && !(prev >> WK[k] & 1u)) {
             if ((dub.btn >> B_HOME & 1u) && (k < NPAT || (k >= 8u && k < 8u + NPAT))) {   /* the session's launches */
                 dub.home_used = 1;
@@ -547,7 +637,12 @@ static void steps_keys(uint32_t keys, uint32_t prev)
             } else if ((dub.btn >> B_SAVE & 1u) && k < NPAT) {
                 dub.save_used = 1;
                 pat_copy(st.ch, k);
-            } else if (!(dub.btn >> B_HOME & 1u) && !(dub.btn >> B_SAVE & 1u) && !st.kb)
+            } else if ((dub.btn >> B_ENV & 1u) && !st.kb) {   /* ENV held + a white key: its REPEAT (5.8) */
+                dc.env_used = 1;
+                steps_cycle(k, 1);
+            } else if ((keys >> BK[10] & 1u) && !st.kb)   /* black 11 held + a white key: its CHANCE (5.9) */
+                steps_cycle(k, 0);
+            else if (!(dub.btn >> B_HOME & 1u) && !(dub.btn >> B_SAVE & 1u) && !st.kb)
                 steps_key(k);
         }
     if (st.kb)
@@ -596,6 +691,30 @@ static void steps_oct(int32_t d)
 static void steps_knob(uint32_t i, int32_t e)
 {
     char t[16];
+    if (steps_held() >= 0)
+        st_knobbed = 1;                          /* (the held step was edited: it stays on) */
+    if (is_drum((uint32_t)st.ch) && steps_held() >= 0
+        && (i == 0u || (i == 1u && st.ch != CH_HATS) || i == 3u)) {   /* a drum step held: its locks (5.8) */
+        int32_t k = steps_held(), tu, de;
+        step_t s = ctl_get_step((uint32_t)st.ch, (uint32_t)k);
+        if (i == 3u) {
+            app_say("GATE", "NOT FOR A DRUM");
+            return;
+        }
+        tu = lock_tune(s);
+        de = lock_decay(s);
+        if (i == 1u)
+            tu = clamp(tu + e, -8, 7);
+        else
+            de = clamp(de + e, -8, 7);
+        s.gate = locks_pack(tu, de);
+        ctl_step((uint32_t)st.ch, (uint32_t)k, s);
+        st.last = k;
+        set_dirty = 1;
+        int_text(i == 1u ? tu : de, t);
+        app_say(i == 1u ? "TUNE LOCK" : "DECAY LOCK", t);
+        return;
+    }
     if (i == 0u && (dub.btn >> B_HOME & 1u)) {   /* HOME + KNOB 1: the grid */
         pmeta_t m = ctl_meta_now((uint32_t)st.ch);
         dub.home_used = 1;
@@ -693,7 +812,7 @@ static uint32_t steps_lights(uint32_t *dim)   /* the keys: steps on bright, off 
     int32_t len = steps_len(), at = pat_at(st.ch);
     for (k = 0; k < 16u; k++) {
         uint32_t i = st.page * 16u + k, bit = 1u << WK[k];
-        int on = ctl_get_step((uint32_t)st.ch, i).lvl != LVL_OFF;
+        int on = LVL(ctl_get_step((uint32_t)st.ch, i)) != LVL_OFF;
         if ((int32_t)i >= len)
             continue;                    /* past the end: dark */
         if ((int32_t)i == at)
@@ -740,7 +859,7 @@ static void steps_draw_grid(void)        /* in the strips' place: every channel'
         for (i = 0; i < 16u; i++) {
             int32_t idx = (int32_t)(st.page * 16u + i), x = 34 + (int32_t)i * 13;
             step_t s = ctl_get_step(ch, (uint32_t)idx);
-            uint16_t c = s.lvl == LVL_ACCENT ? C_HI : s.lvl == LVL_NORMAL ? C_AMB : s.lvl == LVL_GHOST ? C_GRAY : C_LINE;
+            uint16_t c = LVL(s) == LVL_ACCENT ? C_HI : LVL(s) == LVL_NORMAL ? C_AMB : LVL(s) == LVL_GHOST ? C_GRAY : C_LINE;
             if (idx >= len)
                 continue;
             cv_rect(x, y + 2, 11, 8, c);
@@ -775,17 +894,37 @@ static void steps_draw_centre(void)      /* the channel's page, bigger, with its
             cv_rect(x, 54, 12, 1, C_LINE);
             continue;
         }
-        h = s.lvl == LVL_ACCENT ? 28 : s.lvl == LVL_NORMAL ? 20 : s.lvl == LVL_GHOST ? 10 : 2;
-        cv_rect(x, 54 - h, 12, h, s.lvl ? (idx == st.last ? C_WHITE : C_HI) : C_LINE);
+        h = LVL(s) == LVL_ACCENT ? 28 : LVL(s) == LVL_NORMAL ? 20 : LVL(s) == LVL_GHOST ? 10 : 2;
+        if (LVL(s) && steps_skips((uint32_t)idx, s)) {   /* (5.9: it won't play this loop: hollow) */
+            cv_rect(x, 54 - h, 12, 1, C_GRAY);
+            cv_rect(x, 53, 12, 1, C_GRAY);
+            cv_rect(x, 54 - h, 1, h, C_GRAY);
+            cv_rect(x + 11, 54 - h, 1, h, C_GRAY);
+        } else
+            cv_rect(x, 54 - h, 12, h, LVL(s) ? (idx == st.last ? C_WHITE : C_HI) : C_LINE);
+        if (LVL(s) && STEP_CHANCE(s)) {          /* its CHANCE, above it */
+            static const char *const CP[CHANCE_N] = {"", "75", "50", "25"};
+            cv_text(x, 14, &FONT_T, CP[STEP_CHANCE(s)], C_AMB);
+        }
+        if (LVL(s) && STEP_REPEAT(s)) {          /* its REPEAT: F, or a dot a hit */
+            uint32_t r = STEP_REPEAT(s), q;
+            if (r == REP_FLAM)
+                cv_text(x + 3, 44 - h, &FONT_T, "F", C_WHITE);
+            else
+                for (q = 0; q < r; q++)
+                    cv_rect(x + 1 + (int32_t)q * 3, 50 - h, 2, 2, C_WHITE);
+        }
+        if (LVL(s) && is_drum((uint32_t)st.ch) && s.gate)   /* a lock: a white tick at its foot */
+            cv_rect(x + 4, 52, 4, 2, C_WHITE);
         if (idx == at)
             cv_rect(x, 57, 12, 2, C_WHITE);
-        if (s.lvl && (st.ch == CH_BASS || st.ch == CH_HATS || st.ch == CH_SKANK || st.ch == CH_ORGAN)) {
+        if (LVL(s) && (st.ch == CH_BASS || st.ch == CH_HATS || st.ch == CH_SKANK || st.ch == CH_ORGAN)) {
             note_text(st.ch, s.note, t);
             cv_text(x, 60, &FONT_T, t, C_GRAY);
         }
         if (idx % spb == 0)
             cv_rect(x - 1, 22, 1, 34, C_DIM);   /* the beats (a triplet grid: every 6) */
-        if (s.lvl && s.off)              /* played or nudged off its line: a tick that way */
+        if (LVL(s) && s.off)             /* played or nudged off its line: a tick that way */
             cv_rect(x + 6 + s.off * 6 / (grid_fine(ctl_meta_now((uint32_t)st.ch).grid) / 2), 20, 1, 2, C_WHITE);
     }
     cv_blit(0, CENTRE_Y);
@@ -859,7 +998,17 @@ static int steps_expect(const char *what, int *got)
         *got = st.ch + 1;
     else if (!strncmp(what, "step", 4) && what[4] >= '1' && what[4] <= '8' && what[5] == '_') {
         step_t s = ctl_get_step((uint32_t)(what[4] - '1'), (uint32_t)(atoi(what + 6) - 1));   /* stepC_N: level */
-        *got = s.lvl;
+        *got = (int)LVL(s);
+    } else if ((!strncmp(what, "chance", 6) || !strncmp(what, "repeat", 6)) && what[6] >= '1' && what[6] <= '8'
+               && what[7] == '_') {              /* chanceC_N (0 100 %, 1 75, 2 50, 3 25), repeatC_N (5.8, 5.9) */
+        step_t s = ctl_get_step((uint32_t)(what[6] - '1'), (uint32_t)(atoi(what + 8) - 1));
+        *got = what[0] == 'c' ? (int)STEP_CHANCE(s) : (int)STEP_REPEAT(s);
+    } else if ((!strncmp(what, "lockt", 5) || !strncmp(what, "lockd", 5)) && what[5] >= '1' && what[5] <= '8'
+               && what[6] == '_') {              /* locktC_N, lockdC_N: a drum step's TUNE, DECAY lock */
+        step_t s = ctl_get_step((uint32_t)(what[5] - '1'), (uint32_t)(atoi(what + 7) - 1));
+        *got = what[4] == 't' ? (int)lock_tune(s) : (int)lock_decay(s);
+    } else if (!strcmp(what, "seed")) {         /* the edited channel's pattern's SEED (5.9) */
+        *got = ctl_meta_now((uint32_t)st.ch).rsv;
     } else if (!strncmp(what, "note", 4) && what[4] >= '1' && what[4] <= '8' && what[5] == '_')
         *got = ctl_get_step((uint32_t)(what[4] - '1'), (uint32_t)(atoi(what + 6) - 1)).note;
     else if (!strcmp(what, "kb"))
@@ -877,7 +1026,7 @@ static int steps_expect(const char *what, int *got)
     else if (!strcmp(what, "recorded"))
         *got = (int)st.recorded;
     else if (!strncmp(what, "eng_step", 8) && what[8] >= '1' && what[8] <= '8' && what[9] == '_')
-        *got = eng_step((uint32_t)(what[8] - '1'), (uint32_t)(atoi(what + 10) - 1)).lvl;
+        *got = (int)LVL(eng_step((uint32_t)(what[8] - '1'), (uint32_t)(atoi(what + 10) - 1)));
     else
         return 0;
     return 1;

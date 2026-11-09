@@ -153,9 +153,13 @@ channel you're editing, bigger, with its notes.
 
 | Control | What it does |
 | --- | --- |
-| White keys 1–16 | Turn a step on or off. |
+| White keys 1–16 | Turn a step on or off. Hold an on step to edit it (nudge, gate, locks): it only turns off if you let go without turning a knob. |
 | Black keys 1–8 | Pick the channel to edit. |
 | Hold black key 9 or 10 + a white key | Make that step an accent or a ghost note (again: back to normal). |
+| Hold black key 11 + a white key | That step's CHANCE: 100, 75, 50, 25 % (again: the next). Any channel. Whether it plays is worked out from the pattern's seed, the step and which time round the pattern is, so a song plays the same every time; a step that won't play this time round is drawn hollow. |
+| HOME + ENV | RESEED the pattern: other steps play and skip (HOME + REC takes it back). |
+| Hold ENV + a white key | A drum step's REPEAT: OFF, FLAM (a ghost hit just before it), ×2, ×3, ×4 (hits evenly inside the step). Kick, rim and hats. |
+| Hold a drum step + KNOB 1 · KNOB 2 | Its DECAY lock and TUNE lock (−8 to +7; the hats keep KNOB 2 for closed / open): that hit only, shorter or longer, lower or higher. A white tick marks a step with locks. |
 | OCT− · OCT+ | The page of 16 steps: 1–16, 17–32, 33–48, 49–64. |
 | KNOB 1 · LEN | The pattern's length, 1 to 64 steps. Hold HOME: its GRID instead, 1/8, 1/8T, 1/16, 1/16T (triplets) or 1/32. |
 | KNOB 2 · NOTE | The note of the step you hold, or the last one you touched: a semitone a click. On the hats, closed or open. |

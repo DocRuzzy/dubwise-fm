@@ -139,6 +139,7 @@ static uint8_t pnext_on[NCH];
 typedef struct {
     int32_t t;                                   /* its fine tick */
     uint8_t ch, p, i;
+    uint8_t sub;                                 /* 0 the step; 1..3 a repeat (5.8); 0x80 a flam's ghost */
 } sev_t;
 static sev_t sev[NSEV];                          /* this sixteenth's steps, in time order */
 static uint32_t nsev;
@@ -917,7 +918,7 @@ static void pat_sync(void)                       /* CHF_PAT changed (a cue, a sc
     }
 }
 
-static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i)   /* into the list, in time order */
+static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i, uint32_t sb)   /* into the list, in time order */
 {
     uint32_t k;
     if (nsev == NSEV)
@@ -928,8 +929,10 @@ static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i)   /* into th
     sev[k].ch = (uint8_t)ch;
     sev[k].p = (uint8_t)p;
     sev[k].i = (uint8_t)i;
+    sev[k].sub = (uint8_t)sb;
     nsev++;
 }
+
 
 /* channel ch's steps that land in [w0, w1), for those whose grid line is in [lo, hi), played from s */
 static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t w0, int32_t w1)
@@ -944,13 +947,26 @@ static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t
         if (line < lo || line >= hi)
             continue;
         st = pat[ch][s->p][i];
-        if (!st.lvl)
+        if (!LVL(st) || !chance_plays(ch, s->p, (uint32_t)i, (uint32_t)(n / len), STEP_CHANCE(st), m.rsv))
             continue;
         t = line + swing_fine(m, n) + st.off;
         if (t < w0 && line >= w0 && w0 == 0)     /* (at the very start, nothing before: early is on the one) */
             t = 0;
         if (t >= w0 && t < w1)
-            sev_add(t, ch, s->p, (uint32_t)i);
+            sev_add(t, ch, s->p, (uint32_t)i, 0);
+        {                                        /* REPEAT (5.8): a flam's ghost 20 ms early, or 2-4 within the step */
+            uint32_t r = STEP_REPEAT(st), k;
+            if (r == REP_FLAM) {
+                int32_t tf = t - ev[P_TEMPO] / 125;   /* (20 ms: tempo x 10 / 1250 of a beat's 240 ticks) */
+                if (tf >= w0 && tf < w1 && tf >= 0)
+                    sev_add(tf, ch, s->p, (uint32_t)i, 0x80u);
+            } else if (r >= REP_2 && r <= REP_4)
+                for (k = 1; k < r; k++) {
+                    int32_t tk = t + (int32_t)k * sl / (int32_t)r;
+                    if (tk >= w0 && tk < w1)
+                        sev_add(tk, ch, s->p, (uint32_t)i, k);
+                }
+        }
     }
 }
 
@@ -981,19 +997,22 @@ static void seq_hit(const sev_t *e)              /* a step, now */
     uint32_t ch = e->ch;
     step_t st = pat[ch][e->p][e->i];
     pmeta_t m = pmeta[ch][e->p];
-    if (!st.lvl)
+    uint32_t vel = lvl_vel(e->sub == 0x80u ? LVL_GHOST : LVL(st));   /* (a flam's ghost: softer) */
+    if (!LVL(st))
         return;                                  /* (cleared since it was gathered) */
+    if (is_drum(ch))                             /* its TUNE and DECAY locks, for this hit (5.8) */
+        voice_locks(ch, lock_tune(st), lock_decay(st));
     if (ch == CH_SKANK || ch == CH_ORGAN) {      /* the chord lane's chord at this bar, in the step's voicing */
         int32_t lane = ev[P_CHORD_LEN] > 0 ? ev[P_CHORD_LEN] : 1;
         int32_t chord = ev[P_CHORD0 + (int32_t)(((uint32_t)(e->t > 0 ? e->t : 0) / (4u * PPQ)) % (uint32_t)lane)];
-        ctrig(ch, chord, st.note, lvl_vel(st.lvl));
+        ctrig(ch, chord, st.note, vel);
         chord_last[ch] = chord;
     } else {
         if ((ch == CH_BASS || ch == CH_LEAD) && held_note[ch] >= 0) {   /* one note at a time */
             vrel(ch, held_note[ch]);
             held_note[ch] = -1;
         }
-        trig(ch, st.note, lvl_vel(st.lvl));
+        trig(ch, st.note, vel);
         if (ch == CH_BASS || ch == CH_LEAD) {    /* held for its gate: the bass a step (staccato), the lead two */
             held_note[ch] = st.note;
             off_at[ch] = e->t + (st.gate ? 4 * (int32_t)st.gate : grid_fine(m.grid) * (ch == CH_LEAD ? 2 : 1));

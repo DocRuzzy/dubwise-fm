@@ -500,7 +500,11 @@ static void button_press(uint32_t k)
     else if (k == B_EDIT && (dub.btn >> B_HOME & 1u)) {   /* HOME + EDIT: Dice on the focused channel (5.6) */
         dub.home_used = 1;
         dice_fire((uint32_t)dub.focus);
-    } else if (k == B_ENV)               /* (released: Dice fires; held + a knob: a hold) */
+    } else if (k == B_ENV && dub.page == PAGE_STEPS && (dub.btn >> B_HOME & 1u)) {   /* HOME + ENV: RESEED (5.9) */
+        dub.home_used = 1;
+        dc.env_used = 1;
+        steps_reseed();
+    } else if (k == B_ENV)               /* (released: Dice fires; held + a knob: a hold; on STEPS + a white: REPEAT) */
         dc.env_used = 0;
     else if (k == B_EDIT) {              /* the SOUND view, a bank at a time, then back */
         uint32_t nf = voice_fields(dub.focus);
@@ -541,6 +545,8 @@ static void button_release(uint32_t k)
     if (k == B_ENV && !dc.env_used) {    /* ENV: Dice fires, on its bank (5.6) */
         if (dice_bank())
             dice_fire((uint32_t)dub.focus);
+        else if (dub.page == PAGE_STEPS)
+            app_say("ENV", "HOLD + A WHITE KEY: REPEAT");
         else
             app_say("ENV", "DICE: EDIT TO ITS BANK");
         return;

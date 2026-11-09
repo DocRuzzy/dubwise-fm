@@ -22,7 +22,9 @@ typedef struct {
     uint8_t cur[NCH];
     pmeta_t meta[NCH][NPAT];
 } pat2_store_t;
-#define PST_MAGIC 0x31545350u                    /* "PST1" */
+#define PST_MAGIC 0x32545350u                    /* "PST2" (5.8, 5.9: CHANCE and REPEAT in a step's level byte, a drum
+                                                  * step's TUNE and DECAY locks in its gate) */
+#define PST1_MAGIC 0x31545350u                   /* "PST1": a drum step's gate held a live-recorded length: cleared */
 typedef struct {
     uint32_t magic;
     uint8_t ch0, rsv[3];
@@ -280,16 +282,24 @@ static void proj_load(void)                      /* the store's patterns, scenes
         for (ch = 0; ch < NCH; ch++)
             ctl_set(P_CH(ch, CHF_PAT), cur[ch]);
         for (o = 0; o * PST_CH < NCH; o++) {     /* (more than the queue holds: the rest goes on later frames) */
-            if (plat_store_load(OBJ_PST0 + o, &pbuf.s, sizeof pbuf.s) != (int)sizeof pbuf.s || pbuf.s.magic != PST_MAGIC)
+            if (plat_store_load(OBJ_PST0 + o, &pbuf.s, sizeof pbuf.s) != (int)sizeof pbuf.s
+                || (pbuf.s.magic != PST_MAGIC && pbuf.s.magic != PST1_MAGIC))
                 continue;
             for (ch = 0; ch < PST_CH && o * PST_CH + ch < NCH; ch++)
                 for (p = 0; p < NPAT; p++)
                     for (i = 0; i < NSTEPS; i++) {
                         step_t st = pbuf.s.steps[ch][p][i];
-                        if (st.lvl >= LVL_N)
-                            st.lvl = LVL_OFF;
+                        if (pbuf.s.magic == PST1_MAGIC) {   /* the converter (plan 5.8/5.9): no locks, 100 %, no repeat */
+                            st.lvl &= 3u;
+                            if (is_drum(o * PST_CH + ch))
+                                st.gate = 0;
+                        }
+                        if (STEP_REPEAT(st) >= REP_N)
+                            STEP_REPEAT_SET(st, REP_OFF);
                         ctl_step_at(o * PST_CH + ch, p, i, st);
                     }
+            if (pbuf.s.magic == PST1_MAGIC)
+                set_dirty = 1;                   /* (saved as PST2 at the next SAVE) */
         }
         return;
     }
@@ -361,6 +371,23 @@ static void pst_oldsave(void)
     pbuf.g1.bars[0].scene = 1;
     pbuf.g1.bars[0].section = 3;
     plat_store_save(OBJ_SONG, &pbuf.g1, sizeof pbuf.g1);
+}
+
+static void pst_oldsteps(void)                   /* (tests) the steps saved as PST1, the kick's live-recorded gates in
+                                                  * them: a save from before 5.8 */
+{
+    uint32_t o, ch, p, i;
+    for (o = 0; o * PST_CH < NCH; o++) {
+        if (plat_store_load(OBJ_PST0 + o, &pbuf.s, sizeof pbuf.s) != (int)sizeof pbuf.s)
+            continue;
+        pbuf.s.magic = PST1_MAGIC;
+        for (ch = 0; ch < PST_CH; ch++)
+            for (p = 0; p < NPAT; p++)
+                for (i = 0; i < NSTEPS; i++)
+                    if (o * PST_CH + ch == CH_KICK && LVL(pbuf.s.steps[ch][p][i]))
+                        pbuf.s.steps[ch][p][i].gate = 37;   /* (as live recording left it) */
+        plat_store_save(OBJ_PST0 + o, &pbuf.s, sizeof pbuf.s);
+    }
 }
 
 static int pst_expect(const char *what, int *got)   /* scnpatS_C: scene S's pattern for channel C (both from 1) */

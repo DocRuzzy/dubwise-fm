@@ -1,0 +1,185 @@
+# Step probability, seeded (roadmap 5.9; plan docs/plan-5.8-5.9-steps.md). Black 11 held + a white key cycles a step's
+# CHANCE (100, 75, 50, 25 %), on any channel. Whether it plays is a hash of the pattern's SEED, the step and the loop
+# since the launch: the same launches play the same notes. HOME + ENV on STEPS reseeds (one undo step). And a save
+# from before 5.8 (PST1) loads with its drum gates cleared (they'd read as locks).
+wait 600
+listen
+# the converter first: a save, its kick steps given live-recorded gates as PST1, a reboot
+tap SAVE
+wait 300
+oldsteps
+reboot
+wait 600
+expect step1_9 3
+expect gate1_9 0
+expect lockt1_9 0
+expect chance1_9 0
+expect repeat1_9 0
+expect dirty 1
+clearpat 1 A
+clearpat 2 A
+clearpat 3 A
+clearpat 4 A
+clearpat 5 A
+clearpat 6 A
+clearpat 7 A
+clearpat 8 A
+tap SEQ
+wait 30
+# sixteen kick steps at 50 % (two presses each: 100 -> 75 -> 50)
+tapkey w0
+wait 20
+tapkey w1
+wait 20
+tapkey w2
+wait 20
+tapkey w3
+wait 20
+tapkey w4
+wait 20
+tapkey w5
+wait 20
+tapkey w6
+wait 20
+tapkey w7
+wait 20
+tapkey w8
+wait 20
+tapkey w9
+wait 20
+tapkey w10
+wait 20
+tapkey w11
+wait 20
+tapkey w12
+wait 20
+tapkey w13
+wait 20
+tapkey w14
+wait 20
+tapkey w15
+wait 20
+expect step1_16 2
+key b10 down
+wait 20
+tapkey w0
+wait 20
+tapkey w1
+wait 20
+tapkey w2
+wait 20
+tapkey w3
+wait 20
+tapkey w4
+wait 20
+tapkey w5
+wait 20
+tapkey w6
+wait 20
+tapkey w7
+wait 20
+tapkey w8
+wait 20
+tapkey w9
+wait 20
+tapkey w10
+wait 20
+tapkey w11
+wait 20
+tapkey w12
+wait 20
+tapkey w13
+wait 20
+tapkey w14
+wait 20
+tapkey w15
+wait 20
+key b10 up
+wait 30
+key b10 down
+wait 20
+tapkey w0
+wait 20
+tapkey w1
+wait 20
+tapkey w2
+wait 20
+tapkey w3
+wait 20
+tapkey w4
+wait 20
+tapkey w5
+wait 20
+tapkey w6
+wait 20
+tapkey w7
+wait 20
+tapkey w8
+wait 20
+tapkey w9
+wait 20
+tapkey w10
+wait 20
+tapkey w11
+wait 20
+tapkey w12
+wait 20
+tapkey w13
+wait 20
+tapkey w14
+wait 20
+tapkey w15
+wait 20
+key b10 up
+wait 30
+expect chance1_1 2
+expect chance1_16 2
+# twice from the start: the same notes; about half of 64
+capture A
+tap PLAY
+wait 12750
+tap PLAY
+wait 600
+expect seq_hits >16
+expect seq_hits <48
+capture B
+tap PLAY
+wait 12750
+tap PLAY
+wait 600
+expect cap_ev_diff 0
+expect cap_wav_diff 0
+# RESEED: other notes; undone, the seed as it was
+expect seed 0
+press HOME
+wait 20
+tap ENV
+wait 30
+release HOME
+wait 30
+expect seed >0
+capture B
+tap PLAY
+wait 12750
+tap PLAY
+wait 600
+expect cap_ev_diff >0
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect seed 0
+# a bass step's chance too (every channel)
+tapkey b3
+wait 30
+tapkey w0
+wait 30
+key b10 down
+wait 20
+tapkey w0
+wait 20
+key b10 up
+wait 30
+said CHANCE 1 75%
+expect chance4_1 1

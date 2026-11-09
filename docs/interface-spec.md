@@ -103,6 +103,8 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 - **REC + PLAY:** capture into the per-bar song, with the motion inside each bar (throws, mutes, knob moves: P2.7). **HOME + REC:** undo (the bars, not the motion). **SAVE + REC:** clear the motion.
 
 ### 4.3 STEPS page
+**Built for 5.8 / 5.9 (2026-11-09; plan `docs/plan-5.8-5.9-steps.md`):** an on step pressed turns off at its let-go unless a knob edited it meanwhile (hold to edit); REPEAT on ENV held + a white key (the drums); CHANCE on black 11 held + a white key (every channel); RESEED on HOME + ENV; a drum step held: KNOB 1 its DECAY lock, KNOB 2 its TUNE lock (kick, rim); the big view marks CHANCE (%), REPEAT (F or dots), locks (a tick) and the steps that skip this loop (hollow).
+
 - **White 1–16:** steps; OCT± page through 17–64.
 - **Black 1–8:** channel. **Black 9 / 10 held + white:** accent / ghost (built). **Black 11 held + white:** the step's chance, 100 → 75 → 50 → 25 % (roadmap 5.9).
 - **REC** on bass, skank or lead turns the keys into a keyboard.

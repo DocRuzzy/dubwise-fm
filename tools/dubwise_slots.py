@@ -24,7 +24,8 @@ import time
 
 HDR = bytes([0x7D, 0x44, 0x57])                   # non-commercial, "DW"
 PIECE = 256
-MAGIC = 0x324C5344                                # "DSL2" (the session, 4.8)
+MAGIC = 0x334C5344                                # "DSL3" (5.8, 5.9: step locks, repeats, chance, seeds)
+MAGIC2 = 0x324C5344                               # "DSL2" (the session, 4.8: still loads)
 MAGIC1 = 0x314C5344                               # "DSL1" (before it: still loads)
 
 
@@ -103,7 +104,7 @@ class Dump:
 
 def info(image):
     magic, length, _sum, moves = struct.unpack_from("<IIII", image, 0)
-    if magic not in (MAGIC, MAGIC1) or length + 16 != len(image):
+    if magic not in (MAGIC, MAGIC2, MAGIC1) or length + 16 != len(image):
         return "not a Dubwise slot file"
     tempo = struct.unpack_from("<h", image, 16)[0]  # parameter 0 (P_TEMPO), BPM x 10
     return f"a Dubwise project: {tempo / 10:.1f} BPM, {moves} recorded moves, {len(image)} bytes"

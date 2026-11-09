@@ -563,6 +563,10 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         printf("]\n");
         return 1;
     }
+    if (!strcmp(cmd, "oldsteps")) {      /* the steps as saved before 5.8 (PST1, a drum's gate a length; patstore.c) */
+        pst_oldsteps();
+        return 1;
+    }
     if (!strcmp(cmd, "oldsound")) {      /* sounds saved before 5.3, and no patch library (patches.c) */
         pl_oldsound();
         return 1;

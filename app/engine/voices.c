@@ -33,6 +33,7 @@ static struct {
     float ph, penv, amp, cenv, vel, pm, tenv;    /* state (pm: the beater's own phase, CLICK TONE off 0) */
     float f1, f0, pk, ak, ck, click, drive, cr; /* the block's coefficients (drive 0: clean; cr 1: 1:1) */
     float thump, tk;                             /* 5.7 FM THUMP: the body's own 1:1 burst (0: none) */
+    float tmul, dinv;                            /* 5.8: this hit's TUNE lock (a pitch factor) and DECAY lock (1 / time x) */
     int on;
 } kick;
 
@@ -40,8 +41,30 @@ static struct {
 static struct {
     float pc, pm, p2, ienv, amp, nenv, hp_x, hp_y, vel, denv;
     float f, index, ak, ik, nk, noise_l, hp_a, drop, dk, p2l;   /* (p2l: the 1:3.5 partial's level; 5.7) */
+    float tmul, dinv;                            /* 5.8: this hit's locks */
     int on;
 } rim;
+
+/* the next drum hit's step locks (5.8): a semitone a step of TUNE, a DECAY time x 2^(lock / 4) (a quarter .. 3.4x) */
+static int8_t lk_tune[3], lk_decay[3];
+void voice_locks(uint32_t ch, int32_t tune, int32_t decay)
+{
+    if (ch <= CH_HATS) {
+        lk_tune[ch] = (int8_t)tune;
+        lk_decay[ch] = (int8_t)decay;
+    }
+}
+static float lk_take(uint32_t ch, float *tmul)   /* (voice_trig) the locks for this hit, used up: 1 / the time's factor */
+{
+    float d = 1.0f;
+    *tmul = 1.0f;
+    if (lk_tune[ch])
+        *tmul = fm_exp2f((float)lk_tune[ch] * (1.0f / 12.0f));
+    if (lk_decay[ch])
+        d = fm_exp2f(-(float)lk_decay[ch] * 0.25f);
+    lk_tune[ch] = lk_decay[ch] = 0;
+    return d;
+}
 
 /* ------------------------------------------------------------------- hats --- */
 static struct {
@@ -85,6 +108,7 @@ void voices_init(void)
     lead.note = -1;
     lead.amp = 0.0f;
     kick.on = rim.on = hat.on = bass.on = 0;
+    kick.tmul = rim.tmul = kick.dinv = rim.dinv = 1.0f;
     bass.note = -1;
     kick.amp = rim.amp = hat.amp = bass.amp = 0.0f;
 }
@@ -203,6 +227,7 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
     float v = (float)(vel > 127u ? 127u : vel) * (1.0f / 127.0f);
     switch (ch) {
     case CH_KICK:                                /* phase 0: the sine starts from zero, no click */
+        kick.dinv = lk_take(CH_KICK, &kick.tmul);
         kick.ph = kick.pm = 0.0f;
         kick.penv = kick.cenv = kick.tenv = 1.0f;
         kick.amp = 1.0f;
@@ -212,6 +237,7 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
     case CH_SNARE:
         if (!rim.on)                             /* (from silence: its high-pass from rest too, 5.1) */
             rim.hp_x = rim.hp_y = 0.0f;
+        rim.dinv = lk_take(CH_SNARE, &rim.tmul);
         rim.pc = rim.pm = rim.p2 = 0.0f;
         rim.denv = 1.0f;
         rim.ienv = rim.amp = rim.nenv = 1.0f;
@@ -226,7 +252,12 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
                 hat.p[k] = 0.0f;
             hat.h1x = hat.h1y = hat.h2x = hat.h2y = 0.0f;
         }
-        hat.k = note == 46 ? hat.ko : hat.kc;
+        {                                        /* (its DECAY lock: the TUNE lock is the hats' closed / open) */
+            float tm, d = lk_take(CH_HATS, &tm);
+            hat.k = note == 46 ? hat.ko : hat.kc;
+            if (d != 1.0f)
+                hat.k = fm_powf(hat.k, d);
+        }
         hat.amp = 1.0f;
         hat.vel = v;
         hat.on = 1;
@@ -277,10 +308,12 @@ void voices_panic(void)
 static int render_kick(float *o, uint32_t n)
 {
     uint32_t i;
+    float ak;
     if (!kick.on)
         return 0;
+    ak = kick.dinv != 1.0f ? fm_powf(kick.ak, kick.dinv) : kick.ak;   /* (a DECAY lock: 5.8) */
     for (i = 0; i < n; i++) {
-        float f = kick.f1 + (kick.f0 - kick.f1) * kick.penv, m;
+        float f = (kick.f1 + (kick.f0 - kick.f1) * kick.penv) * kick.tmul, m;
         float y;
         kick.ph = wrap(kick.ph + f * INV_SR);
         if (kick.cr != 1.0f) {                   /* CLICK TONE: the beater's own ratio (5.3) */
@@ -299,7 +332,7 @@ static int render_kick(float *o, uint32_t n)
         o[i] = y * kick.amp * kick.vel * 0.7f;
         kick.penv *= kick.pk;
         kick.cenv = undenorm(kick.cenv * kick.ck);
-        kick.amp *= kick.ak;
+        kick.amp *= ak;
     }
     kick.penv = undenorm(kick.penv);
     kick.tenv = undenorm(kick.tenv);
@@ -311,10 +344,12 @@ static int render_kick(float *o, uint32_t n)
 static int render_rim(float *o, uint32_t n)
 {
     uint32_t i;
+    float ak;
     if (!rim.on)
         return 0;
+    ak = rim.dinv != 1.0f ? fm_powf(rim.ak, rim.dinv) : rim.ak;   /* (a DECAY lock: 5.8) */
     for (i = 0; i < n; i++) {
-        float s, f = rim.f;
+        float s, f = rim.f * rim.tmul;
         if (rim.drop > 0.0f) {                   /* PITCH DROP (5.3): from up to an octave above, quickly down */
             f *= 1.0f + rim.drop * rim.denv;
             rim.denv *= rim.dk;
@@ -336,7 +371,7 @@ static int render_rim(float *o, uint32_t n)
         o[i] = rim.hp_y * rim.amp * rim.vel * 0.45f;
         rim.ienv *= rim.ik;
         rim.nenv *= rim.nk;
-        rim.amp *= rim.ak;
+        rim.amp *= ak;
     }
     rim.ienv = undenorm(rim.ienv);
     rim.nenv = undenorm(rim.nenv);

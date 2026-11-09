@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 Dubwise FM contributors
 """A song slot out over SysEx and back in, through the host simulator and tools/dubwise_slots.py's own framing:
-the demo saved to slot 2 and dumped; the image decoded, sent into slot 3; slot 3 loaded; its project checked.
+the demo saved to slot 2 and dumped; the image decoded, sent into slot 3; slot 3 loaded; its project checked. The
+same image as a slot from before 5.8 (DSL2, a kick step's gate set): loaded with its drum gates cleared.
 Run by tests/run_tests.sh (after the build)."""
 import subprocess
 import sys
@@ -87,6 +88,34 @@ wait 100
 turn K2 1
 wait 30
 said LOAD SLOT SLOT 4 (EMPTY)
+"""
+# a slot saved before 5.8 (DSL2): a kick step's gate (a live-recorded length) reads as no locks once loaded
+import struct  # noqa: E402
+old = bytearray(d.done)
+STEPS = 16 + 512 * 2 + 8 * 4 * 4                # (the header, the parameters, the patterns' settings: the kick's A)
+k = next(i for i in range(64) if old[STEPS + 4 * i] & 3)
+old[STEPS + 4 * k + 3] = 37
+h = 2166136261
+for b in old[16:]:
+    h = ((h ^ b) * 16777619) & 0xFFFFFFFF
+struct.pack_into("<I", old, 0, D.MAGIC2)
+struct.pack_into("<I", old, 8, h)
+B += "\n".join("sysex " + f.hex(" ").upper() + "\nwait 5" for f in D.put_frames(3, bytes(old))) + f"""
+wait 100
+turn K2 -1
+wait 30
+turn K2 1
+wait 30
+said LOAD SLOT SLOT 4 (SAVED)
+tap SAVE
+wait 300
+tap SAVE
+wait 300
+said SLOT 4 LOADED
+wait 300
+expect step1_{k + 1} >0
+expect gate1_{k + 1} 0
+expect lockt1_{k + 1} 0
 """
 rc = run(B, "slot_put.txt")
 print("slot transfer:", "ok" if rc == 0 else "FAIL")
