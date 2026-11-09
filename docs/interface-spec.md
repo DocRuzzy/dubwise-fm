@@ -169,10 +169,10 @@ EDIT opens it for the focused channel (ALGORITHM changes the focus). EDIT again 
 - **Macros** are stored voice fields. Turning one rewrites its raw targets along fixed curves (e.g. kick PUNCH: SWEEP up, PTIME down, CLICK up). The engine reads only raw values. Turning a raw field afterwards leaves the macro where it was; MAIN marks a macro whose targets have since moved with a small dot.
 - **MODEL** is the first raw field on channels with models. Changing it keeps the fields both models share.
 - **Bounded on purpose:** the bass's index has a cap that keeps the fundamental sine-like; decays have caps (they set how long a voice lives); the kick ends 40–60 Hz.
-- **Patches (5.4).** PRESETS browses the focused channel's patches: factory first, then the 16 user slots; the name shows in the header. **SAVE + PRESETS** stores into the next free user slot (a second SAVE + PRESETS within 3 s overwrites the one shown, asked as in 4.9's confirm). A load is one undo step.
+- **Patches (5.4).** PRESETS browses the focused channel's patches: factory first, then the 16 user slots; the name shows in the header. **SAVE + PRESETS** stores into the next free user slot (a second SAVE + PRESETS within 3 s overwrites the one shown, asked twice as in roadmap 4.9). A load is one undo step.
 - **Kits (5.5).** SETUP → LOAD KIT: TUBBY'S, CHANNEL ONE, BLACK ARK, STUDIO ONE, SHAKA STEPPERS, SLENG TENG, ROCKERS UPTOWN. KNOB 3 picks VOICES or VOICES + BUS. Asks twice over unsaved sounds.
 - **Envelope view (5.10).** The centre draws the focused voice's amp envelope and its pitch or index envelope from the current values, with a playhead from each note-on at ~20 Hz. Reduced motion: no playhead.
-- **B-3 (5.15).** Drawbars are two raw banks (16′ 5⅓′ 8′ 4′ | 2⅔′ 2′ 1⅗′ 1⅓′), with 1′ in a third bank beside PERC, PERC FAST and CLICK; values 0–8 like the real bars, and the centre draws them as bars. REGISTRATION (MAIN) steps through a list of common drawbar settings chosen by ear. ROTARY's speed is a parameter: MIDI-learnable (4.11's MIDI learn, e.g. a mod wheel), captured as motion, stored in scenes. Stereo horn only if open question 5 allows it (Studio tier).
+- **B-3 (5.15).** Drawbars are two raw banks (16′ 5⅓′ 8′ 4′ | 2⅔′ 2′ 1⅗′ 1⅓′), with 1′ in a third bank beside PERC, PERC FAST and CLICK; values 0–8 like the real bars, and the centre draws them as bars. REGISTRATION (MAIN) steps through a list of common drawbar settings chosen by ear. ROTARY's speed is a parameter: MIDI-learnable (roadmap 4.11's MIDI learn, e.g. a mod wheel), captured as motion, stored in scenes. Stereo horn only if open question 5 allows it (Studio tier).
 - **Screen reader:** "SOUND, KICK, MAIN", then each value as it turns; patch and kit names on load.
 
 ### 4.10 Dice: the sound randomiser (roadmap 5.6, 5.12)
@@ -223,13 +223,6 @@ A sound-design tool, fired only by the user (principle 1, clarified). It acts on
 ### 5.3 Rendering budget
 Dirty regions only. Meters at 20–30 Hz, echo panel at ~20 Hz, runway border on beat edges. No full redraws during performance.
 
-### 5.5 Legibility floor (roadmap 5.11)
-The roundup review docked firmwares for unreadable pages and waits between menus (`roundup-review-2026-11.md`). Every page meets these, checked against the host screenshots:
-- Any value you perform with (knob readouts, the Big Knob, quantise, the bar count, the patch name) uses the page font or larger, never the smallest one. The smallest font is only for labels beside a value.
-- No page transition is animated. A page or bank change draws its first frame within one main-loop frame of the press, and input is never ignored while drawing.
-- At most eight fields of text a bank; nothing scrolls during performance.
-- Contrast and shapes as §6 (not colour-only).
-
 ### 5.4 Cycle countdown ("runway")
 - **Cycle length:** 8 / 16 / 32 / 64 bars (default 16), separate from launch quantise. In song mode it follows the next section boundary.
 - **Cycle bar:** in the header, one segment per bar (grouped in 4s); the current segment fills beat by beat.
@@ -240,6 +233,13 @@ The roundup review docked firmwares for unreadable pages and waits between menus
 - **Settings:** runway length 1/2/4/8; key runway; numerals; optional audible cue tick (default off).
 - **Accessibility:** not colour-only. The screen reader announces "four bars… one". Reduced-motion mode is available.
 - **Cost:** UI only.
+
+### 5.5 Legibility floor (roadmap 5.11)
+The roundup review docked firmwares for unreadable pages and waits between menus (`roundup-review-2026-11.md`). Every page meets these, checked against the host screenshots:
+- Any value you perform with (knob readouts, the Big Knob, quantise, the bar count, the patch name) uses the page font or larger, never the smallest one. The smallest font is only for labels beside a value.
+- No page transition is animated. A page or bank change draws its first frame within one main-loop frame of the press, and input is never ignored while drawing.
+- At most eight fields of text a bank; nothing scrolls during performance.
+- Contrast and shapes as §6 (not colour-only).
 
 ## 6. Accessibility
 - Screen reader (fm1-base built-in) for pages, values, focus, cued and fired actions, bars and runway.
