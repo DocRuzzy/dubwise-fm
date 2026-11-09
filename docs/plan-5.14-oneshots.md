@@ -1,7 +1,7 @@
 # Plan: roadmap 5.14, your own one-shots on channel 8
 
-Status: **draft, waiting for the owner's OK** (CLAUDE.md: a new stored format, the shots in the flash, needs a plan
-and an OK before code).
+Status: **approved 2026-11-09.** The owner chose µ-law at 22,050 Hz (1.5 s, clean). The technical choices, as
+recommended: 36 KiB of XDATA1, and the tool saves the shots beside the store backup.
 
 ## What the player gets
 

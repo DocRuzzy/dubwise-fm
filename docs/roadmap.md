@@ -208,5 +208,5 @@ Grouped by priority: **A** first (5.1–5.6), then **B** (5.7–5.11, 5.15), the
 2. Real device CPU cost of 22 kHz voices with upsampling.
 3. Whether USB audio input reaches the app cleanly (latency and jitter) on the device.
 4. How to track fm1-base beta changes: pin the submodule and review `plat.h` diffs on each bump.
-5. **The organ's stereo horn (5.15):** principle 6 puts stereo only on effect returns, and a rotary speaker is an insert on a dry channel. Keep it mono (as built by default), or allow a Studio-tier exception whose sides carry only the horn above ~150 Hz? Kirk to decide.
+5. **The organ's stereo horn (5.15):** principle 6 puts stereo only on effect returns, and a rotary speaker is an insert on a dry channel. Keep it mono (as built by default), or allow a Studio-tier exception whose sides carry only the horn above ~150 Hz? **Decided 2026-11-09: the stereo horn, Studio tier only** (mono in Four-track and Seven-inch; the drum band and everything under ~150 Hz mono).
 6. Dice bounds (5.6) and the organ's registrations (5.15) are set by ear: list them in the code with a comment and revisit after device listening.

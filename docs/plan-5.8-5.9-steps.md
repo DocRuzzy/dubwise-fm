@@ -1,6 +1,7 @@
 # Plan: roadmap 5.8 (drum step locks, flam, ratchet) and 5.9 (seeded step probability), one format change
 
-Status: **draft, waiting for the owner's OK** (CLAUDE.md: a stored-format change needs a plan and an OK before code).
+Status: **approved 2026-11-09.** The owner chose CHANCE on every channel. The technical choices, as recommended: the
+locks in a drum step's gate byte with the PST2/DSL3 converter, a 1-byte seed, the locks on the three drums.
 Both items change what a step holds, so they share **one** version bump and one converter. A wrong guess here would
 cost a second converter.
 

@@ -1,7 +1,9 @@
 # Plan: roadmap 5.15, the tonewheel organ (B-3 style) and rotary speaker
 
-Status: **draft, waiting for the owner's OK and open question 5** (CLAUDE.md: the organ's new patch fields are a
-stored-format matter, so a plan comes first). The pool room it needs is free: review-2026-11 §5.4 (the spin ring as
+Status: **approved 2026-11-09.** The owner chose:
+- **option A,** the B-3 fields stored as offsets from the default registration;
+- **that registration: full upper,** 88 8000 000;
+- **open question 5: the stereo horn,** in the Studio tier, folding to mono in Four-track and Seven-inch. The pool room it needs is free: review-2026-11 §5.4 (the spin ring as
 µ-law) gave back 17 KB, so 59 KB of the pool is free.
 
 ## What the player gets
