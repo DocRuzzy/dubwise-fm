@@ -23,11 +23,11 @@ Hortator, Bubba Machine and Felucca [Salt] couldn't be found, and TRIBE's reposi
 
 | Feature | Seen in | In Dubwise |
 |---|---|---|
-| Autosave when stopped and idle (a few seconds), can be switched off | X0X, SLOOP, LOOM-8, FoMni, GR!MM, Melodee | No |
+| Autosave when stopped and idle (a few seconds), can be switched off | X0X, SLOOP, LOOM-8, FoMni, GR!MM, Melodee | **Yes** (2026-11-09: roadmap 4.5) |
 | SAVE lit while there are unsaved changes | X0X, LOOM-8, Polly | **Yes** (`dub.c`: SAVE lit while dirty) |
-| Undo and redo for everything (X0X: 32 steps) | X0X, SLOOP, Skiff, LOOM-8 | Partly: only the last song capture, no redo |
-| Hold a button about 1 s for a help card | X0X, LOOM-8, Polly, AMB-1 | No (spec only) |
-| Tap tempo | X0X, SLOOP, Ravel, Skiff, FM Stud1o | No (spec only: "SEQ taps") |
+| Undo and redo for everything (X0X: 32 steps) | X0X, SLOOP, Skiff, LOOM-8 | **Yes** (2026-11-09: HOME + REC / GLO, roadmap 4.6) |
+| Hold a button about 1 s for a help card | X0X, LOOM-8, Polly, AMB-1 | **Yes** (2026-11-09: roadmap 4.7) |
+| Tap tempo | X0X, SLOOP, Ravel, Skiff, FM Stud1o | **Yes** (2026-11-09: HOME + SEQ taps) |
 | Fine tempo (0.1 BPM); halve or double on the beat | Amenity | No |
 | Visual metronome (PLAY flashing on the beat); count-in | SLOOP, LOOM-8, FM Stud1o | Partly: the runway's beat pulses, no count-in |
 | Battery level in the header | X0X, LOOM-8, Ravel, GR!MM | No |

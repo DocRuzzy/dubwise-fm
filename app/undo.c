@@ -69,6 +69,7 @@ static void undo_watch(uint32_t key, int32_t old, int32_t nw)   /* control.c: ea
     uh_cur = uh_n;
 }
 
+static void undo_join(void) { undo_new = 0; }   /* (the next change: part of the step before, as tap tempo's) */
 static uint32_t undo_seq_next(void) { return ++undo_seq; }   /* (a song capture's place among the steps) */
 static void undo_live_set(int on)
 {

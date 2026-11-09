@@ -121,7 +121,7 @@ When the lock is on, keys outside the allowed set are **silent**. They are never
 |---|---|
 | REC / GLO | Undo / redo (built 2026-11-09: GLO, because HOME + PLAY became the rewind, P3.5) |
 | SELECT | Tempo |
-| SEQ taps | Tap tempo |
+| SEQ taps | Tap tempo (built 2026-11-09: the last four gaps averaged; 2 s pause restarts; refused under MIDI clock in) |
 | ARP | Key/scale lock on/off |
 | SAVE | Save as… |
 | White key | Jump to pattern n (on DUB: solo) |
@@ -148,7 +148,7 @@ When the lock is on, keys outside the allowed set are **silent**. They are never
 - Cued actions blink on key and screen, with "lands in n bars".
 - A throw flashes its channel and creates a new echo repeat on screen.
 - The echo panel turns amber near unity and red past it. The limiter's gain reduction is shown as a bar.
-- Guard tier changes show as a badge plus a toast. Hold any button for help.
+- Guard tier changes show as a badge plus a toast. Hold any button for help (built 2026-11-09, `help.c`: a second on its own shows the button's card for this page in the page's place; it stays after the let-go until the next press, swallowed, or 12 s; a press or turn while the button is still held passes through).
 
 ### 5.3 Rendering budget
 Dirty regions only. Meters at 20–30 Hz, echo panel at ~20 Hz, runway border on beat edges. No full redraws during performance.

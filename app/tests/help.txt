@@ -1,0 +1,79 @@
+# Help cards and tap tempo (help.c). A button held on its own for a second shows its card; the card stays after the
+# button is let go, until a press (swallowed) or a turn, or 12 s. HOME + SEQ, tapped: tap tempo, one step to undo.
+wait 600
+listen
+# HOME held a second: its card; let go: no page flip
+press HOME
+wait 1200
+expect help 6
+said HOME
+release HOME
+wait 100
+expect page 0
+expect help 6
+shot help-home.png
+# a press closes it and is swallowed: no mute
+tapkey w0
+wait 100
+expect help -1
+expect ui.ch1.mute 0
+# a short HOME tap still flips the page
+tap HOME
+wait 100
+expect page 5
+tap HOME
+wait 100
+expect page 0
+# a combo held a while to think: the card, then the turn goes through and HOME's let-go does nothing
+press HOME
+wait 1200
+expect help 6
+turn SELECT 2 60
+wait 100
+expect help -1
+release HOME
+wait 100
+expect ui.tempo 770
+expect page 0
+# a page's own card: SAVE on ARRANGE; letting go doesn't save
+tap HOME
+wait 100
+expect page 5
+press SAVE
+wait 1200
+expect help 7
+said ARRANGE
+release SAVE
+wait 100
+shot help-save-arrange.png
+# 12 s on its own: it goes
+wait 12500
+expect help -1
+tap HOME
+wait 100
+expect page 0
+# tap tempo: four taps 600 ms apart, 100.0 BPM
+press HOME
+wait 20
+tap SEQ
+wait 520
+tap SEQ
+wait 520
+tap SEQ
+wait 520
+tap SEQ
+wait 30
+release HOME
+wait 100
+said TAP TEMPO
+expect ui.tempo 1000
+expect page 0
+expect help -1
+# the taps are one step of the undo history
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+wait 100
+expect ui.tempo 770
