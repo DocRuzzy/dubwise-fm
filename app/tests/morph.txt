@@ -1,0 +1,55 @@
+# MORPH (roadmap 5.12, spec 4.10; app/dice.c): KNOB 3 on the DICE bank goes from A (the sound when the turn began)
+# to B (the history entry KNOB 4 shows); continuous fields in a straight line, switches at the midpoint, held fields
+# left; back at 0 % it is A again exactly. One undo step a run.
+wait 600
+listen
+param dice.seed 1234
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+expect dice_bank 1
+turn K3 1
+wait 30
+said MORPH ROLL ONE FIRST
+# B: a roll (TUNE 66, SWEEP 25, CTONE 38); A: INIT, from PRESET
+tap ENV
+wait 30
+expect ui.v1.tune 66
+turn PRESET -20 10
+wait 30
+said KICK INIT
+expect ui.v1.tune 42
+# halfway
+wait 900
+turn K3 10 30
+wait 30
+said MORPH 50%
+expect morph 50
+expect ui.v1.tune 54
+expect ui.v1.sweep 32
+expect ui.v1.ctone 19
+# all the way: B
+turn K3 10 30
+wait 30
+expect ui.v1.tune 66
+expect ui.v1.sweep 25
+# back to 0 %: A exactly
+turn K3 -20 30
+wait 30
+expect morph 0
+expect ui.v1.tune 42
+expect ui.v1.sweep 40
+expect ui.v1.ctone 0
+# one undo step: the run of turns back to where it was before it
+wait 900
+turn K3 6 30
+wait 900
+expect ui.v1.tune 49
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+expect ui.v1.tune 42

@@ -177,7 +177,7 @@ EDIT opens it for the focused channel (ALGORITHM changes the focus). EDIT again 
 - **Screen reader:** "SOUND, KICK, MAIN", then each value as it turns; patch and kit names on load.
 
 ### 4.10 Dice: the sound randomiser (roadmap 5.6, 5.12)
-**Built (5.6, 2026-11-09, `app/dice.c`):** as below; the bounds table `DICE_B`; the history in the pool (8 a channel); MORPH (KNOB 3) says TO COME until 5.12. DICE ON LINE is stored in the settings record's spare byte (no format change).
+**Built (5.6, 2026-11-09, `app/dice.c`):** as below; the bounds table `DICE_B`; the history in the pool (8 a channel); MORPH (KNOB 3) built in 5.12: A is the sound when a run of turns began from 0 %, B the history entry KNOB 4 shows; 5 % a detent; a switch at 50 %; held fields left. DICE ON LINE is stored in the settings record's spare byte (no format change).
 
 A sound-design tool, fired only by the user (principle 1, clarified). It acts on the focused channel's voice and nothing else: never levels, sends, the dub bus, patterns, LIVE, or another channel.
 

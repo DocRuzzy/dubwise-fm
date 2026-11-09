@@ -4,7 +4,8 @@
  * clarified), on the focused channel's voice and nothing else: never levels, sends, the dub bus, patterns, LIVE or
  * another channel, so it can't jump the mix or run a loop away.
  * The SOUND view's last bank, DICE: KNOB 1 AMOUNT (5-100 %, MUTATE's reach), KNOB 2 MODE (ROLL: a new sound inside
- * the channel's bounds; MUTATE: a step away from the current), KNOB 3 MORPH (5.12, to come), KNOB 4 HISTORY (the
+ * the channel's bounds; MUTATE: a step away from the current), KNOB 3 MORPH (5.12: from the sound as the turn began
+ * to the history entry KNOB 4 shows), KNOB 4 HISTORY (the
  * channel's last 8 results, each played in as it's reached; left there, it's kept). ENV fires (on the DICE bank);
  * HOME + EDIT fires from anywhere. ENV held + KNOB n on MAIN or a raw bank HOLDs that field (a macro: its targets),
  * shown by a lock; Dice leaves held fields alone.
@@ -38,6 +39,11 @@ static struct {
     uint32_t rng, seeded;
 } dc = {30, 0, 0, {0}, {0}, {0}, 0, 0};
 static PLAT_POOL int8_t dice_hist[NCH][DICE_HIST][VM_BASE];
+static struct {                                  /* MORPH (5.12): from A (the sound as the turn began) to B */
+    int8_t a[VM_BASE];
+    uint8_t pct;                                 /* 0..100 % of the way to B */
+    int8_t ch;                                   /* the channel A was taken from, -1 none */
+} mo = {{0}, 0, -1};
 
 static int dice_field(uint32_t ch, uint32_t f)   /* 1: Dice may set field f of channel ch */
 {
@@ -114,6 +120,8 @@ static void dice_fire(uint32_t ch)               /* ENV on the DICE bank, HOME +
     for (f = 0; f < VM_BASE; f++)
         dice_hist[ch][dc.n[ch]][f] = r[f];
     dc.pos[ch] = dc.n[ch]++;
+    mo.pct = 0;                                  /* (a new sound: a morph starts from it) */
+    mo.ch = -1;
     set_dirty = 1;
     dub.dirty_strips = dub.dirty_foot = dub.dirty_centre = 1;
     t[0] = 0;
@@ -137,6 +145,8 @@ static void dice_history(int32_t e)              /* KNOB 4: the channel's result
     p = (int32_t)dc.pos[ch] + e;
     p = p < 0 ? 0 : p >= (int32_t)dc.n[ch] ? (int32_t)dc.n[ch] - 1 : p;
     dc.pos[ch] = (uint8_t)p;
+    mo.pct = 0;
+    mo.ch = -1;
     for (f = 0; f < VM_BASE; f++)
         if (dice_field(ch, f) && !(dc.hold[ch] >> f & 1u))
             dice_set(ch, f, dice_hist[ch][p][f]);
@@ -147,6 +157,42 @@ static void dice_history(int32_t e)              /* KNOB 4: the channel's result
     int_text(dc.n[ch], n);
     text_cat(t, n);
     app_say("HISTORY", t);
+}
+
+static void dice_morph(int32_t e)                /* KNOB 3: from A (the sound when the turn began) to B (the history
+                                                  * entry KNOB 4 shows); a switch flips halfway; held fields stay */
+{
+    uint32_t ch = (uint32_t)dub.focus, f;
+    int32_t p;
+    char t[8];
+    if (!dc.n[ch]) {
+        app_say("MORPH", "ROLL ONE FIRST");
+        return;
+    }
+    if (mo.ch != (int8_t)ch || mo.pct == 0u) {  /* (from 0: A is the sound as it is now) */
+        for (f = 0; f < VM_BASE; f++)
+            mo.a[f] = dice_field(ch, f) ? (int8_t)ctl_get(P_VOICE(ch, f)) : 0;
+        mo.ch = (int8_t)ch;
+    }
+    p = (int32_t)mo.pct + 5 * e;
+    mo.pct = (uint8_t)(p < 0 ? 0 : p > 100 ? 100 : p);
+    for (f = 0; f < VM_BASE; f++) {
+        int32_t a, b, v;
+        if (!dice_field(ch, f) || (dc.hold[ch] >> f & 1u))
+            continue;
+        a = mo.a[f];
+        b = dice_hist[ch][dc.pos[ch]][f];
+        if (DICE_B[ch][f].hi - DICE_B[ch][f].lo <= 1)
+            v = mo.pct < 50u ? a : b;            /* a switch: at the midpoint */
+        else
+            v = a + ((b - a) * (int32_t)mo.pct + (b >= a ? 50 : -50)) / 100;
+        dice_set(ch, f, v);
+    }
+    set_dirty = 1;
+    dub.dirty_foot = dub.dirty_centre = 1;
+    int_text(mo.pct, t);
+    text_cat(t, "%");
+    app_say("MORPH", t);
 }
 
 static void dice_knob(uint32_t i, int32_t e)     /* the DICE bank's knobs */
@@ -162,7 +208,7 @@ static void dice_knob(uint32_t i, int32_t e)     /* the DICE bank's knobs */
         dc.mode = (uint8_t)(e > 0);
         app_say("MODE", dc.mode ? "MUTATE" : "ROLL");
     } else if (i == 2u)
-        app_say("MORPH", "TO COME");
+        dice_morph(e);
     else
         dice_history(e);
     dub.dirty_foot = 1;
@@ -222,9 +268,10 @@ static void dice_value(uint32_t i, char *t)
         text_cat(t, "%");
     } else if (i == 1u)
         text_cat(t, dc.mode ? "MUTATE" : "ROLL");
-    else if (i == 2u)
-        text_cat(t, "--");
-    else if (dc.n[dub.focus]) {
+    else if (i == 2u) {
+        int_text(mo.ch == dub.focus ? mo.pct : 0, t);
+        text_cat(t, "%");
+    } else if (dc.n[dub.focus]) {
         int_text(dc.pos[dub.focus] + 1, t);
         text_cat(t, "/");
         int_text(dc.n[dub.focus], n);
@@ -240,6 +287,8 @@ static int dice_expect(const char *what, int *got)
         *got = dice_bank();
     else if (!strncmp(what, "dice_hold", 9))    /* dice_holdC: channel C's held fields, as bits */
         *got = (int)dc.hold[(uint32_t)(atoi(what + 9) - 1) % NCH];
+    else if (!strcmp(what, "morph"))             /* MORPH's % */
+        *got = mo.ch == dub.focus ? mo.pct : 0;
     else if (!strncmp(what, "dice_n", 6))       /* dice_nC: channel C's history */
         *got = dc.n[(uint32_t)(atoi(what + 6) - 1) % NCH];
     else
