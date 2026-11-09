@@ -107,6 +107,7 @@ static void tap_tempo(uint32_t now);
 static void slot_sx_tick(void);
 static void steppers_load(void);
 static void new_project(void);
+static int pl_rename_done(void);                  /* (patches.c: a rename let go, v0.2) */
 static uint32_t ml_count(void);                    /* (midilearn.c: MIDI learn) */
 static void ml_learn_start(void);
 static void ml_forget_all(void);
@@ -568,6 +569,7 @@ static void button_release(uint32_t k)
         dub.page = dub.page == PAGE_DUB ? PAGE_ARRANGE : PAGE_DUB;
         arr_mark();
         app_say(dub.page == PAGE_ARRANGE ? "ARRANGE" : "DUB", "PAGE");
+    } else if (k == B_SAVE && pl_rename_done()) {   /* (a rename let go: kept, v0.2) */
     } else if (k == B_SAVE && !dub.save_used && dub.page == PAGE_SETUP && setup_slot_row() >= 0) {
         slot_action(setup_slot_row());   /* SETUP's slot rows: SAVE does it */
     } else if (k == B_SAVE && !dub.save_used && dub.page == PAGE_SETUP && su_cur == SU_KIT) {
@@ -721,6 +723,10 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
         dub.dirty_strips = dub.dirty_foot = 1;
         return;
     }
+    if (dub.sound && ch < 0 && (dub.btn >> B_SAVE & 1u) && i < 2u) {   /* SAVE held + KNOB 1 / 2: rename (v0.2) */
+        pl_rename_knob(i, e);
+        return;
+    }
     if (dub.sound && ch < 0 && dice_bank()) {   /* the DICE bank (5.6) */
         dice_knob(i, e);
         return;
@@ -806,7 +812,12 @@ static void encoder(uint32_t k, int32_t e)
         if (dub.btn >> B_SAVE & 1u) {
             dub.save_used = 1;
             pl_save_key();
-        } else
+        } else if (dice_bank() && (dub.btn >> B_ENV & 1u)) {   /* (the DICE bank, ENV held: MORPH's B from the
+                                                          * library, v0.2) */
+            dc.env_used = 1;
+            pl_morph_pick(e);
+        }
+        else
             pl_browse(e);
     } else if (k == EN_PRESET && dub.page == PAGE_DUB && held_mute() >= 0) {   /* a mute key held + PRESET: that
                                                                                 * channel's pattern, on the line (4.8) */
@@ -825,6 +836,9 @@ static void encoder(uint32_t k, int32_t e)
         keys_knob(k - EN_K1, e);
     } else if (dub.page == PAGE_SETUP && k == EN_K3 && su_cur == SU_KIT) {   /* LOAD KIT: VOICES / + BUS (5.5) */
         kit_bus = (uint8_t)(e > 0);
+        setup_say();
+    } else if (dub.page == PAGE_SETUP && k == EN_K3 && su_cur == SU_SLOT_LOAD) {   /* LOAD SLOT: WHOLE / AS NEW */
+        slot_fresh = (uint8_t)(e > 0);
         setup_say();
     } else if (dub.page == PAGE_SETUP && (k == EN_K1 || k == EN_SELECT)) {
         setup_move(e);

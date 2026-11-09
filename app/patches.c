@@ -12,7 +12,9 @@
  * SysEx (4.3's framing, F0 7D 44 57): 31 ch slot (dump) -> 32 ch slot + 48 bytes 7-bit packed, or 13 ch slot
  * (empty); 33 ch slot + patch (put: 16 kept, 15 refused); 34 ch (the channel's 16, then 12 ch); 36 ch (the current
  * sound as a patch: 32 ch 127 ...); 37 ch + patch (into the current sound); 40 id_lo id_hi v_lo v_hi (5.13, the web
- * editor: a voice field set, value + 8192 in 14 bits, as the hands set it: captured and undone like a knob's turn).
+ * editor: a voice field set, value + 8192 in 14 bits, as the hands set it: captured and undone like a knob's turn);
+ * 41 k bus (v0.2, the web editor: kit k loaded as SETUP's LOAD KIT does, bus 1 with its dub bus; one undo step;
+ * answered 47 k).
  * Part of the unity build: dub.c includes it after slots.c (pack7, unpack7). */
 
 #define PATCH_VER 1u
@@ -278,6 +280,126 @@ static void pl_save_key(void)                    /* SAVE held + PRESET on the SO
     dub.dirty_foot = dub.dirty_centre = 1;
 }
 
+/* Renaming one of your patches on the device (v0.2): with it shown on the SOUND view, SAVE held, KNOB 1 moves along
+ * the name and KNOB 2 changes the letter there; letting go of SAVE keeps it (stopped only: a flash write) */
+static const char PL_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.'#*/!";
+static struct {
+    int8_t on;
+    uint8_t ch, slot, cur;
+    char name[9];
+} pren;
+
+static void pl_rename_say(void)
+{
+    char t[16];
+    uint32_t i, k = 0;
+    for (i = 0; i < 8u; i++) {                   /* the letter being changed in brackets: BAS[S] 01 */
+        if (i == pren.cur)
+            t[k++] = '[';
+        t[k++] = pren.name[i];
+        if (i == pren.cur)
+            t[k++] = ']';
+    }
+    t[k] = 0;
+    app_say("RENAME", t);
+}
+
+static void pl_rename_knob(uint32_t i, int32_t e)   /* SAVE held + KNOB 1 / 2 on the SOUND view */
+{
+    uint32_t ch = (uint32_t)dub.focus, nf = pl_nfact(ch), k;
+    int32_t pos = pl_pos[ch];
+    dub.save_used = 1;
+    if (!pren.on || pren.ch != ch) {
+        if (eng_playing()) {
+            app_say("RENAME", "STOP FIRST");
+            return;
+        }
+        if (pos < (int32_t)nf || !pl_used(pl_user(ch, (uint32_t)pos - nf))) {
+            app_say("RENAME", "ONE OF YOURS ONLY");
+            return;
+        }
+        pren.on = 1, pren.ch = (uint8_t)ch, pren.slot = (uint8_t)((uint32_t)pos - nf), pren.cur = 0;
+        pl_name(pl_user(ch, pren.slot), pren.name);
+        for (k = 0; k < 8u; k++)
+            if (!pren.name[k])
+                for (; k < 8u; k++)
+                    pren.name[k] = ' ';
+        pren.name[8] = 0;
+    }
+    if (i == 0u) {
+        int32_t c = (int32_t)pren.cur + e;
+        pren.cur = (uint8_t)(c < 0 ? 0 : c > 7 ? 7 : c);
+    } else {
+        int32_t n = (int32_t)sizeof PL_CHARS - 1, c = 0;
+        for (k = 0; k < (uint32_t)n; k++)
+            if (PL_CHARS[k] == pren.name[pren.cur])
+                c = (int32_t)k;
+        c = ((c + e) % n + n) % n;
+        pren.name[pren.cur] = PL_CHARS[c];
+    }
+    pl_rename_say();
+}
+
+static int pl_rename_done(void)                  /* SAVE let go: 1 if a rename was under way (kept, or not) */
+{
+    patch_t *u;
+    uint32_t k, end = 8u;
+    char t[12];
+    if (!pren.on)
+        return 0;
+    pren.on = 0;
+    if (eng_playing()) {
+        app_say("RENAME", "STOP FIRST");
+        return 1;
+    }
+    while (end > 0u && pren.name[end - 1u] == ' ')
+        end--;
+    if (!end) {
+        app_say("RENAME", "A NAME, PLEASE");
+        return 1;
+    }
+    u = pl_user(pren.ch, pren.slot);
+    for (k = 0; k < 8u; k++)
+        u->name[k] = k < end ? pren.name[k] : 0;
+    u->sum = pl_crc((const uint8_t *)u, 44u);
+    if (!pl_store(pren.ch / 4u)) {
+        app_say("RENAME", "SAVE FAILED");
+        return 1;
+    }
+    pl_name(u, t);
+    app_say("RENAMED", t);
+    dub.dirty_foot = dub.dirty_centre = 1;
+    return 1;
+}
+
+/* MORPH's B from the library (v0.2): on the DICE bank, ENV held + PRESET steps through the channel's patches (factory
+ * and yours) as B without loading them (PRESET alone still loads one: A); KNOB 4 goes back to the history's */
+static int8_t pl_mpos[NCH] = {-1, -1, -1, -1, -1, -1, -1, -1};
+static void pl_morph_pick(int32_t e)
+{
+    uint32_t ch = (uint32_t)dub.focus, n = pl_nfact(ch) + PATCH_N;
+    int32_t pos = pl_mpos[ch], k;
+    patch_t p;
+    char t[12];
+    for (k = 0; k < (int32_t)n; k++) {
+        int32_t q = pos < 0 ? (e > 0 ? 0 : (int32_t)n - 1) : pos + (e > 0 ? 1 : -1);
+        if (q < 0 || q >= (int32_t)n)
+            break;
+        pos = q;
+        if (pl_get(ch, pos, &p)) {
+            pl_mpos[ch] = (int8_t)pos;
+            dice_morph_b(ch, p.f);
+            pl_name(&p, t);
+            app_say("MORPH TO", t);
+            return;
+        }
+    }
+    if (pl_mpos[ch] >= 0 && pl_get(ch, pl_mpos[ch], &p)) {
+        pl_name(&p, t);
+        app_say("MORPH TO", t);
+    }
+}
+
 /* ---------------------------------------------------------------------------------------------- SysEx --- */
 static void pl_reply(uint32_t cmd, uint32_t ch, uint32_t slot, const patch_t *p)
 {
@@ -351,6 +473,18 @@ static int pl_sysex(const uint8_t *p, uint32_t n)   /* (slot_sysex) commands 31.
     patch_t pt;
     if (cmd == 0x40u) {
         pl_set_field(p, n);
+        return 1;
+    }
+    if (cmd == 0x41u) {                          /* 41 K BUS: a kit loaded, as SETUP's LOAD KIT (the web editor, v0.2);
+                                                  * answers 47 K (an undo step, as a press is) */
+        uint8_t f[7] = {0xF0, 0x7D, 0x44, 0x57, 0x47, (uint8_t)ch, 0xF7};
+        if (ch >= NKITS)
+            return 1;
+        undo_mark(0x1000u + 0xFFFu, plat_ms());
+        undo_live_set(1);
+        kit_load(ch, n > 5u && p[5]);
+        undo_live_set(0);
+        plat_sysex_send(f, sizeof f);
         return 1;
     }
     if (ch >= NCH)

@@ -16,25 +16,29 @@ HOST = ROOT / "app/build/host/dubwise_host"
 OUT = Path(__file__).resolve().parent / "fields.js"
 
 
-def fields():
+def dump():
     script = ROOT / "app/build/host/fields_dump.txt"
     script.write_text("wait 100\nfields\n")
     r = subprocess.run([str(HOST), str(script), str(ROOT / "app/build/host")], capture_output=True, text=True)
-    line = next(l for l in r.stdout.splitlines() if l.startswith("FIELDS "))
-    return json.loads(line[len("FIELDS "):])
+    lines = r.stdout.splitlines()
+    take = lambda tag: json.loads(next(l for l in lines if l.startswith(tag + " "))[len(tag) + 1:])
+    return take("FIELDS"), take("KITS")
 
 
 def main():
+    fields, kits = dump()
     text = ("// Made by mkfields.py from the firmware's own parameter table: don't edit.\n"
             "// Every voice field: id, channel (0-7), field (0-31; 28-31 the MAIN macros), name, min, max, default.\n"
-            "const FIELDS = " + json.dumps(fields(), separators=(",", ":")) + ";\n")
+            "const FIELDS = " + json.dumps(fields, separators=(",", ":")) + ";\n"
+            "// The factory kits, in the firmware's order (SysEx 41 K BUS loads kit K).\n"
+            "const KITS = " + json.dumps(kits, separators=(",", ":")) + ";\n")
     if "--check" in sys.argv:
         if not OUT.exists() or OUT.read_text() != text:
             print("tools/site/editor/fields.js is stale: run python3 -I tools/site/editor/mkfields.py")
             return 1
         return 0
     OUT.write_text(text)
-    print(f"{OUT.relative_to(ROOT)}: {len(json.loads(text.split('= ', 1)[1].rstrip(';\n')))} fields")
+    print(f"{OUT.relative_to(ROOT)}: {len(fields)} fields, {len(kits)} kits")
     return 0
 
 

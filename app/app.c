@@ -474,6 +474,7 @@ static int peak_db(float pk) { return pk > 1e-6f ? (int)floorf(20.0f * log10f(pk
  *   perf [reset]          print the engine's per-part profile (P0.7): host us a block, and the device's share of a
  *                         block by the x80 rule; "reset" restarts the maxima */
 static int pmeta_name(const char *a, int *id);
+static void host_kits(void);             /* (dub.c: kits.c's names, as JSON) */
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     int id;
@@ -564,6 +565,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             first = 0;
         }
         printf("]\n");
+        host_kits();                     /* (and the kits, for the page's KITS: v0.2) */
         return 1;
     }
     if (!strcmp(cmd, "oldsteps")) {      /* the steps as saved before 5.8 (PST1, a drum's gate a length; patstore.c) */

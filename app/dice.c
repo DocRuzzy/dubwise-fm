@@ -5,7 +5,7 @@
  * another channel, so it can't jump the mix or run a loop away.
  * The SOUND view's last bank, DICE: KNOB 1 AMOUNT (5-100 %, MUTATE's reach), KNOB 2 MODE (ROLL: a new sound inside
  * the channel's bounds; MUTATE: a step away from the current), KNOB 3 MORPH (5.12: from the sound as the turn began
- * to the history entry KNOB 4 shows), KNOB 4 HISTORY (the
+ * to the history entry KNOB 4 shows, or, v0.2, to a library patch ENV held + PRESET picks on this bank), KNOB 4 HISTORY (the
  * channel's last 8 results, each played in as it's reached; left there, it's kept). ENV fires (on the DICE bank);
  * HOME + EDIT fires from anywhere. ENV held + KNOB n on MAIN or a raw bank HOLDs that field (a macro: its targets),
  * shown by a lock; Dice leaves held fields alone.
@@ -43,7 +43,9 @@ static struct {                                  /* MORPH (5.12): from A (the so
     int8_t a[VM_BASE];
     uint8_t pct;                                 /* 0..100 % of the way to B */
     int8_t ch;                                   /* the channel A was taken from, -1 none */
-} mo = {{0}, 0, -1};
+    int8_t b[VM_BASE];                           /* B when it's a library patch (v0.2) .. */
+    int8_t lib;                                  /* .. picked for this channel (-1: B is the history's) */
+} mo = {{0}, 0, -1, {0}, -1};
 
 static int dice_field(uint32_t ch, uint32_t f)   /* 1: Dice may set field f of channel ch */
 {
@@ -120,8 +122,9 @@ static void dice_fire(uint32_t ch)               /* ENV on the DICE bank, HOME +
     for (f = 0; f < VM_BASE; f++)
         dice_hist[ch][dc.n[ch]][f] = r[f];
     dc.pos[ch] = dc.n[ch]++;
-    mo.pct = 0;                                  /* (a new sound: a morph starts from it) */
+    mo.pct = 0;                                  /* (a new sound: a morph starts from it, to it) */
     mo.ch = -1;
+    mo.lib = -1;
     set_dirty = 1;
     dub.dirty_strips = dub.dirty_foot = dub.dirty_centre = 1;
     t[0] = 0;
@@ -147,6 +150,7 @@ static void dice_history(int32_t e)              /* KNOB 4: the channel's result
     dc.pos[ch] = (uint8_t)p;
     mo.pct = 0;
     mo.ch = -1;
+    mo.lib = -1;                                 /* (B: the history's again) */
     for (f = 0; f < VM_BASE; f++)
         if (dice_field(ch, f) && !(dc.hold[ch] >> f & 1u))
             dice_set(ch, f, dice_hist[ch][p][f]);
@@ -159,14 +163,27 @@ static void dice_history(int32_t e)              /* KNOB 4: the channel's result
     app_say("HISTORY", t);
 }
 
+static void dice_morph_b(uint32_t ch, const int8_t *f)   /* (patches.c: PRESET on the DICE bank) a library patch
+                                                          * as B */
+{
+    uint32_t k;
+    for (k = 0; k < VM_BASE; k++)
+        mo.b[k] = f[k];
+    mo.lib = (int8_t)ch;
+    mo.pct = 0;
+    mo.ch = -1;
+    dub.dirty_foot = 1;
+}
+
 static void dice_morph(int32_t e)                /* KNOB 3: from A (the sound when the turn began) to B (the history
-                                                  * entry KNOB 4 shows); a switch flips halfway; held fields stay */
+                                                  * entry KNOB 4 shows, or the library patch ENV + PRESET picked); a switch
+                                                  * flips halfway; held fields stay */
 {
     uint32_t ch = (uint32_t)dub.focus, f;
     int32_t p;
     char t[8];
-    if (!dc.n[ch]) {
-        app_say("MORPH", "ROLL ONE FIRST");
+    if (!dc.n[ch] && mo.lib != (int8_t)ch) {
+        app_say("MORPH", "ROLL OR PICK ONE");
         return;
     }
     if (mo.ch != (int8_t)ch || mo.pct == 0u) {  /* (from 0: A is the sound as it is now) */
@@ -181,7 +198,7 @@ static void dice_morph(int32_t e)                /* KNOB 3: from A (the sound wh
         if (!dice_field(ch, f) || (dc.hold[ch] >> f & 1u))
             continue;
         a = mo.a[f];
-        b = dice_hist[ch][dc.pos[ch]][f];
+        b = mo.lib == (int8_t)ch ? mo.b[f] : dice_hist[ch][dc.pos[ch]][f];
         if (DICE_B[ch][f].hi - DICE_B[ch][f].lo <= 1)
             v = mo.pct < 50u ? a : b;            /* a switch: at the midpoint */
         else
