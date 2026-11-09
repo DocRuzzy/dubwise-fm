@@ -300,9 +300,10 @@ static int confirm(uint32_t what, const char *name)   /* 1: confirmed (the secon
     return 0;
 }
 enum { CF_MOTION = 1, CF_DEMO, CF_STEPPERS, CF_NEW, CF_FORGET, CF_SLOT_SAVE = 0x10, CF_SLOT_LOAD = 0x20,
-       CF_PATCH_FOREIGN = 0x30, CF_PATCH_OVER = 0x40 };
+       CF_PATCH_FOREIGN = 0x30, CF_PATCH_OVER = 0x40, CF_KIT = 0x80 };
 
 static uint32_t blink_on(void);
+#include "kits.c"                        /* factory kits (GPL-3.0-only; roadmap 5.5) */
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
 #include "setup.c"                       /* the SETUP page (GPL-3.0-only) */
 static void fx_next(int same_page);      /* (fx.c, included further down: it needs the echo's helpers) */
@@ -535,6 +536,9 @@ static void button_release(uint32_t k)
         app_say(dub.page == PAGE_ARRANGE ? "ARRANGE" : "DUB", "PAGE");
     } else if (k == B_SAVE && !dub.save_used && dub.page == PAGE_SETUP && setup_slot_row() >= 0) {
         slot_action(setup_slot_row());   /* SETUP's slot rows: SAVE does it */
+    } else if (k == B_SAVE && !dub.save_used && dub.page == PAGE_SETUP && su_cur == SU_KIT) {
+        if (!set_dirty || confirm(CF_KIT, "LOAD KIT OVER CHANGES"))   /* (5.5: asked twice over unsaved ones) */
+            kit_load(kit_sel % NKITS, kit_bus);
     } else if (k == B_SAVE && !dub.save_used) {
         settings_save();
     }
@@ -744,6 +748,9 @@ static void encoder(uint32_t k, int32_t e)
         fx_knob(k - EN_K1, e);
     } else if (dub.page == PAGE_KEY && k >= EN_K1 && k <= EN_K4) {
         keys_knob(k - EN_K1, e);
+    } else if (dub.page == PAGE_SETUP && k == EN_K3 && su_cur == SU_KIT) {   /* LOAD KIT: VOICES / + BUS (5.5) */
+        kit_bus = (uint8_t)(e > 0);
+        setup_say();
     } else if (dub.page == PAGE_SETUP && (k == EN_K1 || k == EN_SELECT)) {
         setup_move(e);
     } else if (dub.page == PAGE_SETUP && (k == EN_K2 || k == EN_PRESET)) {

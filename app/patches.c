@@ -65,11 +65,13 @@ static uint16_t pl_crc(const uint8_t *p, uint32_t n)   /* CRC-16/CCITT-FALSE */
 static patch_t *pl_user(uint32_t ch, uint32_t s) { return &plib[ch / 4u].p[ch % 4u][s]; }
 static int pl_used(const patch_t *p) { return (p->flags & 1u) && p->sum == pl_crc((const uint8_t *)p, 44u); }
 
-static uint32_t pl_nfact(uint32_t ch)            /* factory patches of channel ch (INIT among them) */
+static uint32_t pl_nfact(uint32_t ch)            /* factory patches of channel ch: INIT, FACTORY's, the kits' (5.5) */
 {
     uint32_t i, n = 1;
     for (i = 0; i < NFACTORY; i++)
         n += FACTORY[i].ch == ch;
+    for (i = 0; i < NKITS; i++)
+        n += (uint32_t)kit_touches(i, ch);
     return n;
 }
 
@@ -92,6 +94,15 @@ static void pl_factory(uint32_t ch, uint32_t k, patch_t *p)   /* factory patch k
                     p->f[FACTORY[i].s[f].f] = FACTORY[i].s[f].v;
                 for (f = 0; f < 8u && FACTORY[i].name[f]; f++)
                     p->name[f] = FACTORY[i].name[f];
+            }
+        for (i = 0; i < NKITS; i++)              /* a kit's voice for this channel (5.5) */
+            if (kit_touches(i, ch) && ++j == k) {
+                const kset_t *s;
+                for (s = KITS[i].s; s->id; s++)
+                    if (kit_is_voice(s->id) && (s->id - P_VOICE_BASE) / VOICE_STRIDE == ch)
+                        p->f[(s->id - P_VOICE_BASE) % VOICE_STRIDE] = (int8_t)s->v;
+                for (f = 0; f < 8u && KITS[i].patch[f]; f++)
+                    p->name[f] = KITS[i].patch[f];
             }
     }
     p->sum = pl_crc((const uint8_t *)p, 44u);
@@ -350,6 +361,42 @@ static int pl_sysex(const uint8_t *p, uint32_t n)   /* (slot_sysex) commands 31.
         pl_reply(0x16, ch, 0x7Fu, 0);
     }
     return 1;
+}
+
+/* ----------------------------------------------------------------------------------------- a kit loaded --- */
+static int32_t kit_pos(uint32_t k, uint32_t ch)  /* kit k's voice as channel ch's factory patch: its position, -1 */
+{
+    uint32_t i, j = 1;
+    for (i = 0; i < NFACTORY; i++)
+        j += FACTORY[i].ch == ch;
+    for (i = 0; i < NKITS; i++)
+        if (kit_touches(i, ch)) {
+            if (i == k)
+                return (int32_t)j;
+            j++;
+        }
+    return -1;
+}
+
+static void kit_load(uint32_t k, int bus)        /* (SETUP's LOAD KIT, SAVE) the voices it sets, whole; the bus too */
+{
+    uint32_t ch;
+    const kset_t *s;
+    patch_t p;
+    for (ch = 0; ch < NCH; ch++) {
+        int32_t pos = kit_pos(k, ch);
+        if (pos >= 0 && pl_get(ch, pos, &p)) {
+            pl_apply(ch, &p);
+            pl_pos[ch] = (int8_t)pos;
+        }
+    }
+    if (bus)
+        for (s = KITS[k].s; s->id; s++)
+            if (!kit_is_voice(s->id))
+                ctl_set(s->id, s->v);
+    set_dirty = 1;
+    dub.dirty_hdr = dub.dirty_strips = dub.dirty_foot = dub.dirty_centre = 1;
+    app_say(KITS[k].name, bus ? "VOICES AND BUS LOADED" : "VOICES LOADED");
 }
 
 #ifdef PLAT_HOST
