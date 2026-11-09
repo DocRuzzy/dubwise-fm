@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Dubwise FM contributors */
 /* The boot splash (APP_SPLASH) and the screen saver, with the SpIllt Beats mark: the owner's own brush drawing, kept
- * as three blues (logo_data.h, made by tools/logo/mklogo.py: 2.6 KB for its two sizes).
+ * with soft edges and four shades of its blue (logo_data.h, made by tools/logo/mklogo.py: 4.6 KB for its
+ * two sizes). Everything is drawn smooth: the rings, the label's edge, the face's edge, the smoke.
  * - The splash: a two-colour screen-print flyer. Cream paper with a grain, the mark in deep blue over an orange
  *   print of itself set a few pixels off (misregistered), DUBWISE and SPILLT BEATS under it.
  * - The saver: a dubplate. The mark on the record's tan label, orange rings running out across the black on the
- *   tempo's beat and fading as they spread (a dub's repeats), a spliff resting on the plate, its smoke curling up.
+ *   tempo's beat and fading as they spread (a dub's repeats). A face in profile, pure black at the left edge, cuts
+ *   into the record (the vase-and-faces figure) and blows smoke across it, a breath every 7 s.
  * The saver comes on while stopped, after SETUP's SCREEN SAVER minutes with nothing touched. Any key, button or knob
  * wakes it, and that touch does nothing else: its press and its release are swallowed. It never comes on while
  * playing (a performer may leave the desk alone for minutes).
@@ -18,8 +20,8 @@
 #define SV_PAPER RGB(236, 226, 204)              /* the flyer */
 #define SV_INK RGB(28, 28, 32)
 #define SV_BAND 120                              /* the screen in two bands (the canvas holds 144 rows) */
-#define SV_CX 120                                /* the record's centre */
-#define SV_CY 112
+#define SV_CX 142                                /* the record's centre (right of the face) */
+#define SV_CY 116
 
 static struct {
     uint32_t last;                               /* the last touch, ms */
@@ -64,58 +66,107 @@ static uint32_t sv_hash(uint32_t x, uint32_t y)
     return h ^ (h >> 16);
 }
 
-static void sv_ring(int32_t cx, int32_t cy, int32_t r, uint16_t c)   /* a circle, one pixel */
+static void sv_ring(int32_t cx, int32_t cy, float r, uint16_t c, uint32_t a)   /* a smooth circle, c at a/256 */
 {
-    int32_t x = r, y = 0, err = 1 - r;
-    while (x >= y) {                             /* the midpoint circle, its eight octants */
-        cv_pset(cx + x, cy + y - sv_oy, c);
-        cv_pset(cx - x, cy + y - sv_oy, c);
-        cv_pset(cx + x, cy - y - sv_oy, c);
-        cv_pset(cx - x, cy - y - sv_oy, c);
-        cv_pset(cx + y, cy + x - sv_oy, c);
-        cv_pset(cx - y, cy + x - sv_oy, c);
-        cv_pset(cx + y, cy - x - sv_oy, c);
-        cv_pset(cx - y, cy - x - sv_oy, c);
-        y++;
-        if (err < 0)
-            err += 2 * y + 1;
-        else {
-            x--;
-            err += 2 * (y - x) + 1;
+    int32_t x, xm = (int32_t)(r * 0.7072f) + 1;
+    for (x = 0; x <= xm; x++) {                  /* each octant's column: the two pixels the curve passes between */
+        float yf = fm_sqrtf(r * r - (float)(x * x));
+        int32_t y = (int32_t)yf, k;
+        uint32_t a1 = (uint32_t)((yf - (float)y) * (float)a), a0 = a - a1;
+        for (k = 0; k < 2; k++, y++) {
+            uint32_t w = k ? a1 : a0;
+            if (y < x)
+                continue;
+            sv_mix(cx + x, cy + y - sv_oy, c, w);
+            sv_mix(cx - x, cy + y - sv_oy, c, w);
+            sv_mix(cx + x, cy - y - sv_oy, c, w);
+            sv_mix(cx - x, cy - y - sv_oy, c, w);
+            if (x != y) {
+                sv_mix(cx + y, cy + x - sv_oy, c, w);
+                sv_mix(cx - y, cy + x - sv_oy, c, w);
+                sv_mix(cx + y, cy - x - sv_oy, c, w);
+                sv_mix(cx - y, cy - x - sv_oy, c, w);
+            }
         }
     }
 }
 
-static void sv_disc(int32_t cx, int32_t cy, int32_t r, uint16_t c)   /* a filled circle */
+static void sv_disc(int32_t cx, int32_t cy, float r, uint16_t c)   /* a filled circle, its edge smooth */
 {
-    int32_t y, x;
-    for (y = -r; y <= r; y++) {
-        for (x = r; x * x + y * y > r * r; x--)
-            ;
-        cv_rect(cx - x, cy + y - sv_oy, 2 * x + 1, 1, c);
+    int32_t y, y0 = sv_oy - cy, y1 = sv_oy + SV_BAND - cy;
+    for (y = (int32_t)-r; y <= (int32_t)r; y++) {
+        float xf;
+        int32_t x;
+        uint32_t e;
+        if (y < y0 || y >= y1)
+            continue;
+        xf = fm_sqrtf(r * r - (float)(y * y));
+        x = (int32_t)xf;
+        e = (uint32_t)((xf - (float)x) * 255.0f);
+        cv_rect(cx - x + 1, cy + y - sv_oy, 2 * x - 1, 1, c);
+        sv_mix(cx - x, cy + y - sv_oy, c, 128u + e / 2u);   /* the edge pixels, as much as the circle covers */
+        sv_mix(cx + x, cy + y - sv_oy, c, 128u + e / 2u);
+        sv_mix(cx - x - 1, cy + y - sv_oy, c, e / 2u);
+        sv_mix(cx + x + 1, cy + y - sv_oy, c, e / 2u);
     }
 }
 
-/* the mark (a run-length list, logo_data.h) at (x0, y0), its tones 1..3 in pal (0: not drawn) */
+/* the mark (a run-length list, logo_data.h) at (x0, y0): each pixel its shade (0..3) from pal, laid over the ground
+ * as much as it covers (its edges soft) */
 static void sv_mark(const uint8_t *d, uint32_t n, int32_t w, int32_t x0, int32_t y0, const uint16_t *pal)
 {
+    static const uint8_t COV[4] = {0, 96, 176, 255};
     uint32_t i;
     int32_t p = 0;
     for (i = 0; i < n; i++) {
-        uint32_t tone = d[i] >> 6;
-        int32_t len = (int32_t)(d[i] & 63u) + 1;
-        if (tone && pal[tone])
+        uint32_t cov = (d[i] >> 4) & 3u, shade = d[i] >> 6;
+        int32_t len = (int32_t)(d[i] & 15u) + 1;
+        if (cov)
             for (; len > 0; len--, p++)
-                cv_pset(x0 + p % w, y0 + p / w - sv_oy, pal[tone]);
+                sv_mix(x0 + p % w, y0 + p / w - sv_oy, pal[shade], COV[cov]);
         else
             p += len;
     }
 }
 
-/* ------------------------------------------------------------------------------------------------ the smoke --- */
-#define SV_EX 184                                /* the ember: the lit end of the spliff resting on the plate */
-#define SV_EY 204
-#define SV_RISE 200                              /* how high the smoke goes before it's gone */
+/* ------------------------------------------------------------------------- the face and its exhaled smoke --- */
+/* a face in profile, pure black, mostly off the screen to the left, facing right: the record shows only where the
+ * face isn't (the vase-and-faces figure). Its edge, (y, x) points down the screen */
+static const uint8_t PROFILE[][2] = {
+    {0, 38}, {24, 44}, {48, 52}, {64, 59}, {76, 55}, {88, 62}, {104, 78}, {113, 90}, {119, 94}, {124, 88}, {130, 76},
+    {138, 80}, {144, 80}, {148, 73}, {153, 79}, {158, 80}, {166, 71}, {184, 80}, {196, 74}, {204, 62}, {216, 52},
+    {240, 54},
+};
+#define PROFILE_N (sizeof PROFILE / sizeof PROFILE[0])
+#define SV_MX 74                                 /* the lips, where the smoke leaves */
+#define SV_MY 148
+#define SV_REACH 186                             /* how far the smoke goes before it's gone */
+#define SV_BREATH 7.0f                           /* an exhale every 7 s */
+
+static float sv_face_x(int32_t y)                /* the face's edge at row y: a smooth curve through PROFILE */
+{
+    uint32_t i;
+    for (i = 1; i < PROFILE_N; i++)
+        if (y <= PROFILE[i][0]) {
+            float p0 = PROFILE[i > 1 ? i - 2 : 0][1], p1 = PROFILE[i - 1][1], p2 = PROFILE[i][1];
+            float p3 = PROFILE[i + 1 < PROFILE_N ? i + 1 : i][1];
+            float u = (float)(y - PROFILE[i - 1][0]) / (float)(PROFILE[i][0] - PROFILE[i - 1][0]);
+            return 0.5f * (2.0f * p1 + (p2 - p0) * u + (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3) * u * u +
+                           (3.0f * p1 - p0 - 3.0f * p2 + p3) * u * u * u);   /* (Catmull-Rom) */
+        }
+    return PROFILE[PROFILE_N - 1][1];
+}
+
+static void sv_face(void)                        /* black over the record left of its edge, the edge smooth */
+{
+    int32_t y;
+    for (y = sv_oy; y < sv_oy + SV_BAND && y < 240; y++) {
+        float xf = sv_face_x(y);
+        int32_t x = (int32_t)xf;
+        cv_rect(0, y - sv_oy, x, 1, C_BLACK);
+        sv_mix(x, y - sv_oy, C_BLACK, 255u - (uint32_t)((xf - (float)x) * 255.0f) / 2u - 64u);
+    }
+}
 
 static float sv_vnoise(float x)                  /* value noise along a line, smooth: 0..1 */
 {
@@ -126,76 +177,72 @@ static float sv_vnoise(float x)                  /* value noise along a line, sm
     return (a + (b - a) * f) * (1.0f / 1023.0f);
 }
 
-/* two strands curling up from the ember: thin and close at first, wider, looser and fainter as they rise, leaning
- * with the room's air, breaking into wisps (noise rising with them) */
+static float sv_breath(float tau)                /* how hard the breath was going out at time tau: 0..1 */
+{
+    float p;
+    if (tau < 0.0f)
+        return 0.0f;
+    p = tau - SV_BREATH * (float)(int32_t)(tau * (1.0f / SV_BREATH));   /* 0..7 s into this breath */
+    if (p > 2.4f)
+        return 0.0f;                             /* (breathing in) */
+    p *= 1.0f / 2.4f;
+    return p < 0.15f ? p * (1.0f / 0.15f) : 1.0f - (p - 0.15f) * (1.0f / 0.85f) * (p - 0.15f) * (1.0f / 0.85f);
+}
+
+/* the exhale, blown out to the right: each column d px out from the lips is smoke that left them a while ago (it
+ * slows as it goes), so the puffs travel; two strands, curling, widening and rising as they go, breaking into
+ * wisps, fading */
 static void sv_smoke(float t)
 {
-    int32_t h, s, x;
-    for (h = 2; h < SV_RISE; h++) {
-        int32_t y = SV_EY - h;
-        float hf = (float)h, up = 1.0f - hf / (float)SV_RISE;
-        if (y - sv_oy < 0 || y - sv_oy >= SV_BAND)
+    int32_t d, s, y;
+    for (d = 1; d < SV_REACH; d++) {
+        float df = (float)d, out = 1.0f - df / (float)SV_REACH;
+        float age = df * (1.0f / 70.0f) + df * df * (1.0f / 9000.0f);   /* 70 px/s at the lips, slowing */
+        float puff = sv_breath(t - age);
+        int32_t x = SV_MX + d;
+        if (puff < 0.02f)
             continue;
         for (s = 0; s < 2; s++) {
-            float amp = 0.6f + hf * 0.13f, w = 0.8f + hf * 0.065f, cx, a0, br;
-            cx = (float)SV_EX - hf * 0.22f + 5.0f * fm_sinf(0.23f * t + (float)s) * hf * (1.0f / (float)SV_RISE) +
-                 amp * fm_sinf(0.047f * hf - 1.5f * t + (float)s * 2.1f) +
-                 0.45f * amp * fm_sinf(0.12f * hf - 2.6f * t + (float)s * 0.7f);
-            br = sv_vnoise(40.0f + hf * 0.035f - t * 0.55f + (float)s * 13.0f);   /* where the strand breaks */
+            float amp = 0.3f + df * 0.11f, w = 0.9f + df * 0.075f, cy, a0, br;
+            cy = (float)SV_MY - df * 0.16f - df * df * 0.0006f +
+                 amp * fm_sinf(0.05f * df - 1.3f * t + (float)s * 2.3f) +
+                 0.5f * amp * fm_sinf(0.13f * df - 2.2f * t + (float)s * 0.9f);
+            br = sv_vnoise(40.0f + df * 0.04f - t * 0.5f + (float)s * 13.0f);
             br = (br - 0.2f) * 2.0f;
             br = br < 0.0f ? 0.0f : br > 1.0f ? 1.0f : br;
-            a0 = (h < 10 ? 170.0f : 230.0f) * up * br * (s ? 0.75f : 1.0f);
+            a0 = 220.0f * out * br * puff * (s ? 0.7f : 1.0f);
             if (a0 < 4.0f)
                 continue;
-            for (x = (int32_t)(cx - 2.5f * w); x <= (int32_t)(cx + 2.5f * w) + 1; x++) {
-                float d = ((float)x - cx) / w, k = 1.0f / (1.0f + d * d);
+            for (y = (int32_t)(cy - 2.5f * w); y <= (int32_t)(cy + 2.5f * w) + 1; y++) {
+                float e = ((float)y - cy) / w, k = 1.0f / (1.0f + e * e);
                 uint32_t a = (uint32_t)(a0 * k * k);
-                if (a > 3u)
+                if (a > 3u && y >= sv_oy && y < sv_oy + SV_BAND)
                     sv_mix(x, y - sv_oy, RGB(206, 210, 220), a > 200u ? 200u : a);
             }
         }
     }
 }
 
-static void sv_spliff(uint32_t frame)            /* resting on the plate, its lit end to the right, glowing */
-{
-    static const uint16_t EMBER[4] = {RGB(255, 112, 40), RGB(255, 150, 60), RGB(255, 96, 32), RGB(255, 186, 96)};
-    int32_t i, k, x0 = SV_EX - 34, y0 = SV_EY + 9;
-    for (i = 0; i <= 30; i++) {                  /* the paper: a cone, thin at the roach, wider at the lit end */
-        int32_t x = x0 + i, y = y0 - (i * 9) / 34, half = 1 + i / 12;
-        for (k = -half; k <= half; k++)
-            cv_pset(x, y + k - sv_oy, k == half ? RGB(176, 168, 152) : RGB(234, 228, 214));
-        cv_pset(x, y + half + 1 - sv_oy, RGB(8, 8, 8));   /* its shadow on the plate */
-    }
-    cv_rect(x0 - 3, y0 - 1 - sv_oy, 4, 3, RGB(196, 160, 112));   /* the roach */
-    cv_rect(SV_EX - 4, SV_EY - 2 - sv_oy, 3, 5, RGB(120, 116, 112));   /* the ash */
-    for (k = -5; k <= 5; k++)                    /* the glow around the ember */
-        for (i = -5; i <= 5; i++)
-            if (i * i + k * k <= 25)
-                sv_mix(SV_EX + i, SV_EY + k - sv_oy, RGB(255, 110, 40), (uint32_t)(70 - (i * i + k * k) * 2));
-    cv_rect(SV_EX - 1, SV_EY - 2 - sv_oy, 3, 5, EMBER[sv_hash(frame, 3u) & 3u]);   /* it flickers */
-    cv_pset(SV_EX, SV_EY - sv_oy, EMBER[3]);
-}
-
 /* ------------------------------------------------------------------------------------------------- the saver --- */
 static void sv_scene(float ph, float t)          /* the dubplate: rings at phase ph (0..1 of the spacing), t in s */
 {
-    static const uint16_t PAL[4] = {0, RGB(52, 92, 160), RGB(84, 130, 196), RGB(150, 200, 228)};
+    static const uint16_t PAL[4] = {RGB(40, 76, 146), RGB(60, 104, 176), RGB(104, 152, 208), RGB(164, 208, 234)};
     int32_t i, w;
-    for (i = 0; i < 9; i++) {                    /* each further ring a repeat down: dimmer */
-        float r = 62.0f + ((float)i + ph) * 8.0f;
-        uint32_t a = (uint32_t)(230.0f * (1.0f - ((float)i + ph) / 9.0f));
-        sv_ring(SV_CX, SV_CY, (int32_t)r, sv_fade(SV_ORANGE, a));
-        sv_ring(SV_CX, SV_CY, (int32_t)r + 4, RGB(26, 24, 24));   /* the groove between */
+    sv_disc(SV_CX, SV_CY, 150.0f, RGB(20, 19, 22));   /* the vinyl */
+    for (i = 0; i < 31; i++)                     /* its grooves */
+        sv_ring(SV_CX, SV_CY, 60.0f + (float)i * 3.0f, RGB(44, 42, 46), 160u);
+    for (i = 0; i < 9; i++) {                    /* the echo's rings, each further one a repeat down: dimmer */
+        float r = 60.0f + ((float)i + ph) * 10.0f;
+        sv_ring(SV_CX, SV_CY, r, SV_ORANGE, (uint32_t)(240.0f * (1.0f - ((float)i + ph) / 9.0f)));
     }
-    sv_disc(SV_CX, SV_CY, 54, SV_TAN);
-    sv_ring(SV_CX, SV_CY, 54, RGB(120, 84, 52));
+    sv_disc(SV_CX, SV_CY, 54.0f, SV_TAN);
+    sv_ring(SV_CX, SV_CY, 54.0f, RGB(120, 84, 52), 200u);
     sv_mark(LOGO_SAVER, sizeof LOGO_SAVER, LOGO_SAVER_W, SV_CX - LOGO_SAVER_W / 2, SV_CY - LOGO_SAVER_H / 2, PAL);
-    sv_spliff((uint32_t)(t * 10.0f));
+    sv_face();
     sv_smoke(t);
     if (sv.hour) {
         w = text_w(&FONT_XS, "SOUND SYSTEM STILL RUNNING");
-        cv_text(120 - w / 2, 220 - sv_oy, &FONT_XS, "SOUND SYSTEM STILL RUNNING", C_GRAY);
+        cv_text(SV_CX - w / 2, 226 - sv_oy, &FONT_XS, "SOUND SYSTEM STILL RUNNING", C_GRAY);
     }
 }
 
@@ -212,8 +259,8 @@ static void sv_paint(float ph, float t)
 /* ------------------------------------------------------------------------------------------------ the splash --- */
 void app_splash(void)                            /* the flyer: the mark over its orange print, the name under it */
 {
-    static const uint16_t UNDER[4] = {0, SV_ORANGE, SV_ORANGE, SV_ORANGE};
-    static const uint16_t TOP[4] = {0, RGB(28, 58, 120), RGB(40, 80, 150), RGB(70, 112, 178)};
+    static const uint16_t UNDER[4] = {SV_ORANGE, SV_ORANGE, SV_ORANGE, SV_ORANGE};
+    static const uint16_t TOP[4] = {RGB(26, 54, 116), RGB(36, 74, 144), RGB(60, 100, 168), RGB(104, 144, 200)};
     int32_t w, x, y, mx = 120 - LOGO_SPLASH_W / 2, my = 12;
     for (sv_oy = 0; sv_oy < 240; sv_oy += SV_BAND) {
         cv_begin(240, SV_BAND, SV_PAPER);

@@ -4,8 +4,10 @@
 """The SpIllt Beats mark for the firmware, from the owner's brush drawing (spillt-mark-drawing.jpeg).
 
 The drawing's blue strokes are cut from its tan ground and kept as three tones (deep, mid, light: the brush's
-light along its strokes), cleaned of the JPEG's speckle (and any ERASE), then written
-as app/logo_data.h: each size a run-length list, one byte a run (tone << 6 | length - 1, lengths 1..64).
+light along its strokes), cleaned of the JPEG's speckle (and any ERASE), then scaled down by area: each pixel keeps
+how much of it is ink (its coverage, 0..3: soft edges, drawn over any ground) and the ink's shade (0..3, deep to
+light). Written as app/logo_data.h: each size a run-length list, one byte a run (shade << 6 | coverage << 4 |
+length - 1, lengths 1..16).
 Usage: python3 -I tools/logo/mklogo.py [preview.png]
 """
 import os
@@ -75,28 +77,28 @@ def drop_small(t, n):
 
 
 def scaled(t, k):
-    """to scale k: each pixel the tone most of its source area has (ink if a third of it is)"""
+    """to scale k by area: (shade, coverage) a pixel, coverage 0 the ground"""
+    ink = Image.fromarray(((t > 0) * 255).astype(np.uint8))
+    shade = Image.fromarray((np.where(t > 0, t - 1, 0) * 127).astype(np.uint8))   # 0, 127, 254
     h, w = t.shape
     H, W = int(h * k), int(w * k)
-    out = np.zeros((H, W), np.uint8)
-    for y in range(H):
-        for x in range(W):
-            a = t[int(y / k):max(int((y + 1) / k), int(y / k) + 1), int(x / k):max(int((x + 1) / k), int(x / k) + 1)]
-            inkf = (a > 0).mean()
-            if inkf >= 0.34:
-                v = a[a > 0]
-                out[y, x] = np.bincount(v, minlength=4)[1:].argmax() + 1
-    ys, xs = np.nonzero(out)
-    return out[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    cov = np.asarray(ink.resize((W, H), Image.BOX)).astype(float) / 255.0
+    sh = np.asarray(shade.resize((W, H), Image.BOX)).astype(float) / 254.0
+    sh = np.where(cov > 0, sh / np.maximum(cov, 1e-6), 0)   # the ink's own shade, not diluted by the ground
+    c = np.clip(np.round(cov * 3.0), 0, 3).astype(np.uint8)
+    d = np.clip(np.round(sh * 3.0), 0, 3).astype(np.uint8)
+    v = np.where(c > 0, d << 2 | c, 0).astype(np.uint8)
+    ys, xs = np.nonzero(c)
+    return v[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
 
 
 def rle(t):
     b, flat, i = [], t.flatten(), 0
     while i < len(flat):
         j = i
-        while j < len(flat) and flat[j] == flat[i] and j - i < 64:
+        while j < len(flat) and flat[j] == flat[i] and j - i < 16:
             j += 1
-        b.append(int(flat[i]) << 6 | (j - i - 1))
+        b.append(int(flat[i]) << 4 | (j - i - 1))
         i = j
     return b
 
@@ -106,8 +108,8 @@ def main():
     lines = ["/* SPDX-License-Identifier: GPL-3.0-only",
              " * Copyright (C) 2026 Dubwise FM contributors */",
              "/* The SpIllt Beats mark, from the owner's brush drawing: made by tools/logo/mklogo.py, don't edit. Each",
-             " * size a run-length list, row by row: one byte a run, tone << 6 | (length - 1); tone 0 the ground, 1 deep,",
-             " * 2 mid, 3 the brush's light. */", ""]
+             " * size a run-length list, row by row: one byte a run, shade << 6 | coverage << 4 | (length - 1); coverage",
+             " * 0 the ground, 3 solid ink (1, 2: an edge); shade 0 the deepest blue .. 3 the brush's light. */", ""]
     total, previews = 0, []
     for name, k in SIZES.items():
         s = scaled(t, k)
@@ -126,9 +128,12 @@ def main():
     open(OUT, "w").write("\n".join(lines))
     print(f"total {total} B -> {os.path.relpath(OUT)}")
     if len(sys.argv) > 1:
-        pal = np.array([(188, 138, 90), (52, 92, 160), (84, 130, 196), (150, 200, 228)], np.uint8)
-        big = Image.fromarray(pal[t]).resize((t.shape[1] * 3, t.shape[0] * 3), Image.NEAREST)
-        big.save(sys.argv[1])
+        s = previews[0]
+        blues = np.array([(52, 92, 160), (70, 112, 180), (100, 150, 205), (150, 200, 228)], float)
+        ground = np.array((188, 138, 90), float)
+        a = ((s & 3) / 3.0)[..., None]
+        img = ground * (1 - a) + blues[s >> 2] * a
+        Image.fromarray(img.astype(np.uint8)).resize((s.shape[1] * 3, s.shape[0] * 3), Image.NEAREST).save(sys.argv[1])
 
 
 if __name__ == "__main__":

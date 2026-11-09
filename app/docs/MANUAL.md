@@ -117,7 +117,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | COUNTDOWN NUMERALS | The big countdown number on the screen. |
 | CUE TICK | A short tick on the runway's beats, higher on each bar's first. |
 | REDUCED MOTION | No pulsing border, no green flash. The count still shows, and the screen reader still hears it. |
-| SCREEN SAVER | OFF, 1, 5 (the default) or 15 minutes: while stopped and untouched that long, a dubplate: the SpIllt Beats mark on its label, orange rings rippling out on the tempo, and a curl of smoke rising from the edge of the plate. Any key, button or knob wakes it, and that touch does nothing else, so waking it never mutes or starts anything. It never comes on while playing. |
+| SCREEN SAVER | OFF, 1, 5 (the default) or 15 minutes: while stopped and untouched that long, a dubplate: the SpIllt Beats mark on its label and orange rings rippling out on the tempo, while a face in silhouette at the edge blows smoke across it. Any key, button or knob wakes it, and that touch does nothing else, so waking it never mutes or starts anything. It never comes on while playing. |
 | CUE LEAD | How early a quantised change lands before its line: 0–50 ms (10 by default, so it catches the downbeat). |
 | LOCK MIDI IN | The key lock filters MIDI notes coming in, too (off by default). |
 | BIG KNOB ON | Where the Big Knob sits: the whole MIX, or only the ECHO RETURN. |
