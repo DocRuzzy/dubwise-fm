@@ -6,7 +6,7 @@
 selector.jpg (the owner's illustration, 2026-11-09) is scaled to the screen's 240 x 240, cut to its best 256
 colours (no dither: the drawing's flat colours and ink lines stay clean) and packed (PackBits: a byte n < 128 is
 n + 1 colours as they come, n >= 128 is the next colour 257 - n times). The SpIllt Beats mark the smoke gathers
-into: points on its strokes, about 3.5 px apart, from the owner's brush drawing (tools/logo/).
+into: points on its strokes, about 7.5 px apart (the lobes of a comic-book cloud), from the owner's brush drawing (tools/logo/).
 Usage: python3 -I tools/art/mkart.py [preview.png]
 """
 import os
@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.join(HERE, "..", "logo"))
 import mklogo  # noqa: E402  (the mark's drawing, cleaned)
 
 OUT = os.path.join(HERE, "..", "..", "app", "art_data.h")
-MARK_K = 0.42                                   # the smoke mark's size, of the drawing's 238 x 205
-SPACING = 3.5
+MARK_K = 0.80                                  # the smoke mark's size, of the drawing's 238 x 205
+SPACING = 7.5                                  # its lobes' spacing (they overlap: r 5..8)
 
 
 def rgb565(c):

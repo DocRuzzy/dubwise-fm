@@ -5,9 +5,9 @@
  *   logo_data.h, made by tools/logo/mklogo.py) as a two-colour screen-print flyer. Cream paper with a grain, the
  *   mark in deep blue over an orange print of itself set a few pixels off, DUBWISE and SPILLT BEATS under it.
  * - The saver: the owner's illustration of a selector at his desk (art_data.h, made by tools/art/mkart.py: 240 x
- *   240, 256 colours, 52 KB). A thin wisp rises off his spliff; every 12 s a stream of smoke leaves it, arcs over
- *   his cap and gathers into the SpIllt Beats mark in the room's dark corner (puffs in the picture's own style, an
- *   ink line round them), holds, then breaks up and drifts off. Drawn smooth: each puff blended into the picture.
+ *   240, 256 colours, 52 KB). Every 20 s his smoke billows out of the spliff into the SpIllt Beats mark, a cloud
+ *   in the picture's own comic-book style (cream lobes, a grey shade, a grey-brown line round it, curls), as big as
+ *   the picture, holds, and breaks up lobe by lobe; the other half of the time the picture is clear.
  * The saver comes on while stopped, after SETUP's SCREEN SAVER minutes with nothing touched. Any key, button or knob
  * wakes it, and that touch does nothing else: its press and its release are swallowed. It never comes on while
  * playing (a performer may leave the desk alone for minutes).
@@ -98,13 +98,18 @@ static void sv_art(void)                         /* the illustration (art_data.h
 }
 
 /* ---------------------------------------------------------------------------------------------- the smoke --- */
+/* In the picture's own style: a comic-book cloud of round lobes, cream, a grey shadow low and right in each, one
+ * ink line round the whole, and ink curls in some. Every 20 s it billows out of the spliff into the SpIllt Beats
+ * mark, as big as the picture (covering it: that's the show), holds, and breaks up, lobe by lobe; for the other
+ * half of the time the picture is clear. */
 #define SV_TX 195                                /* the spliff's lit end in the picture */
 #define SV_TY 110
-#define SV_MKX 60                                /* where the smoke draws the mark: the room's dark corner */
-#define SV_MKY 50
-#define SV_CYCLE 12.0f                           /* the mark drawn and gone, every 12 s */
-#define SV_OUTLINE RGB(40, 28, 26)               /* the picture's own ink, round each puff */
-#define SV_PUFF RGB(242, 238, 228)
+#define SV_MKX 112                               /* the mark's centre */
+#define SV_MKY 104
+#define SV_CYCLE 20.0f
+#define SV_OUTLINE RGB(112, 100, 92)             /* the cloud's own line: a grey-brown, as drawn */
+#define SV_SHADE RGB(204, 194, 180)
+#define SV_PUFF RGB(246, 240, 228)
 
 static float sv_vnoise(float x)                  /* value noise along a line, smooth: 0..1 */
 {
@@ -115,90 +120,98 @@ static float sv_vnoise(float x)                  /* value noise along a line, sm
     return (a + (b - a) * f) * (1.0f / 1023.0f);
 }
 
-static void sv_blob(float cx, float cy, float r, uint16_t c, float a)   /* a soft round puff */
+static void sv_disc(float cx, float cy, float r, uint16_t c)   /* a solid round lobe, its edge smooth */
 {
-    int32_t x, y;
-    float r2 = r * r, k = 0.5f / r;
-    for (y = (int32_t)(cy - r) - 1; y <= (int32_t)(cy + r) + 1; y++) {
-        if (y < sv_oy || y >= sv_oy + SV_BAND)
+    int32_t y;
+    if (r < 0.5f)
+        return;
+    for (y = (int32_t)(cy - r); y <= (int32_t)(cy + r) + 1; y++) {
+        float dy = (float)y - cy, h2 = r * r - dy * dy, h, xl, xr;
+        int32_t il, ir;
+        if (h2 <= 0.0f || y < sv_oy || y >= sv_oy + SV_BAND)
             continue;
-        for (x = (int32_t)(cx - r) - 1; x <= (int32_t)(cx + r) + 1; x++) {
-            float dx = (float)x - cx, dy = (float)y - cy, e = (r2 - dx * dx - dy * dy) * k;   /* ~ r - distance */
-            if (e > 0.0f) {
-                uint32_t al = (uint32_t)(a * (e > 1.6f ? 1.0f : e * 0.625f) * 255.0f);   /* (a soft edge) */
-                if (al > 6u)
-                    sv_mix(x, y - sv_oy, c, al);
-            }
-        }
+        h = fm_sqrtf(h2);
+        xl = cx - h;
+        xr = cx + h;
+        il = (int32_t)xl + 1;                    /* the pixels wholly inside: filled; the two at the ends: blended */
+        ir = (int32_t)xr - 1;
+        if (ir >= il)
+            cv_rect(il, y - sv_oy, ir - il + 1, 1, c);
+        sv_mix(il - 1, y - sv_oy, c, (uint32_t)(((float)il - xl) * 255.0f));
+        sv_mix(ir + 1, y - sv_oy, c, (uint32_t)((xr - (float)(ir + 1)) * 255.0f));
     }
 }
 
-/* puff i at time tc into the cycle: from the lit end, up over the cap and across the room to its point on the mark
- * (staggered over 2.6 s, each 2.4 s on the way), held there swaying, then broken up and drifting off. 0: not out */
-static int sv_puff(uint32_t i, float tc, float t, float *x, float *y, float *r, float *a)
+/* lobe i at time tc into the cycle: 0 when it isn't out. Out of the lit end (staggered over 2 s, 1.6 s on the
+ * way, swelling), held on the mark (breathing), then broken off: drifting up and out, shrinking to nothing */
+static int sv_lobe(uint32_t i, float tc, float t, float *x, float *y, float *r)
 {
-    float j = (float)(sv_hash(i, 11u) & 255u) * (1.0f / 255.0f), s0 = 0.2f + 2.6f * ((float)i + j) / (float)MARK_PTS;
-    float tx = (float)(SV_MKX + MARK_PT[i][0]), ty = (float)(SV_MKY + MARK_PT[i][1]), u;
+    float j = (float)(sv_hash(i, 11u) & 255u) * (1.0f / 255.0f), rr = 7.0f + 3.5f * j;
+    float tx = (float)(SV_MKX + MARK_PT[i][0]), ty = (float)(SV_MKY + MARK_PT[i][1]);
+    float s0 = 2.0f * (float)(sv_hash(i, 5u) & 1023u) * (1.0f / 1023.0f), u, v, w;
     if (tc < s0)
         return 0;
-    if (tc < s0 + 2.4f) {                        /* on the way: a curve through two points above the head */
-        float v, w, b0, b1, b2, b3;
-        u = (tc - s0) * (1.0f / 2.4f);
+    if (tc < s0 + 1.6f) {                        /* billowing out: a curve up from the lit end */
+        u = (tc - s0) * (1.0f / 1.6f);
         v = u * u * (3.0f - 2.0f * u);
         w = 1.0f - v;
-        b0 = w * w * w;
-        b1 = 3.0f * w * w * v;
-        b2 = 3.0f * w * v * v;
-        b3 = v * v * v;
-        *x = b0 * (float)SV_TX + b1 * (268.0f + 10.0f * j) + b2 * (170.0f - 20.0f * j) + b3 * tx;   /* (right of the head, */
-        *y = b0 * (float)SV_TY + b1 * 60.0f + b2 * (-46.0f + 16.0f * j) + b3 * ty;                  /* over the cap) */
-        *x += 3.0f * fm_sinf(9.0f * u + (float)i) * (1.0f - v);
-        *r = 2.2f + 1.2f * v;
-        *a = 0.5f + 0.5f * v;
+        *x = w * w * (float)SV_TX + 2.0f * w * v * (220.0f - 40.0f * j) + v * v * tx;
+        *y = w * w * (float)SV_TY + 2.0f * w * v * (30.0f + 30.0f * j) + v * v * ty;
+        *r = rr * (0.25f + 0.75f * v);
         return 1;
     }
-    if (tc < 8.0f) {                             /* the mark, held, its puffs swaying */
-        *x = tx + 0.6f * fm_sinf(1.7f * t + (float)i);
-        *y = ty + 0.5f * fm_sinf(1.3f * t + (float)i * 0.7f);
-        *r = 3.3f;
-        *a = 1.0f;
+    if (tc < 7.5f) {                             /* the mark, breathing */
+        *x = tx + 0.8f * fm_sinf(1.1f * t + (float)i);
+        *y = ty + 0.6f * fm_sinf(0.9f * t + (float)i * 0.7f);
+        *r = rr * (1.0f + 0.06f * fm_sinf(1.4f * t + (float)i * 1.3f));
         return 1;
     }
-    u = (tc - 8.0f) * (1.0f / 2.5f);             /* breaking up: up and away, spreading, fading */
+    u = (tc - 7.5f - 1.5f * j) * (1.0f / 1.4f);  /* breaking up: lobe by lobe */
     if (u >= 1.0f)
         return 0;
-    *x = tx - 8.0f * u + 7.0f * u * (sv_vnoise(20.0f + (float)i * 0.3f + t * 0.5f) - 0.5f) * 4.0f;
-    *y = ty - 16.0f * u * (0.6f + j);
-    *r = 3.3f + 3.0f * u;
-    *a = (1.0f - u) * (1.0f - u);
+    if (u < 0.0f)
+        u = 0.0f;
+    *x = tx + (tx - (float)SV_MKX) * 0.3f * u + 10.0f * u * (sv_vnoise(30.0f + (float)i * 0.37f) - 0.5f);
+    *y = ty - 22.0f * u * (0.5f + j) + (ty - (float)SV_MKY) * 0.2f * u;
+    *r = rr * (1.0f - u * u);
     return 1;
+}
+
+static void sv_curl(float cx, float cy, float r, float ph)   /* an ink curl in a lobe: a spiral in */
+{
+    int32_t k;
+    for (k = 0; k < 40; k++) {                   /* (a turn and a half, two pixels thick) */
+        float th = (float)k * 0.24f, rho = r * 0.66f * (1.0f - th * (1.0f / 12.0f));
+        float px = cx + rho * fm_cosf(th + ph), py = cy + rho * fm_sinf(th + ph);
+        int32_t ix = (int32_t)px, iy = (int32_t)py;
+        float fx = px - (float)ix, fy = py - (float)iy;
+        if (iy < sv_oy - 1 || iy > sv_oy + SV_BAND)
+            continue;
+        sv_mix(ix, iy - sv_oy, SV_OUTLINE, (uint32_t)((1.0f - fx) * (1.0f - fy) * 230.0f));
+        sv_mix(ix + 1, iy - sv_oy, SV_OUTLINE, (uint32_t)(fx * (1.0f - fy) * 230.0f));
+        sv_mix(ix, iy + 1 - sv_oy, SV_OUTLINE, (uint32_t)((1.0f - fx) * fy * 230.0f));
+        sv_mix(ix + 1, iy + 1 - sv_oy, SV_OUTLINE, (uint32_t)(fx * fy * 230.0f));
+        sv_mix(ix + 1, iy - sv_oy, SV_OUTLINE, 110u);
+    }
 }
 
 static void sv_smoke(float t)
 {
-    float tc = t - SV_CYCLE * (float)(int32_t)(t * (1.0f / SV_CYCLE)), x, y, r, a;
+    float tc = t - SV_CYCLE * (float)(int32_t)(t * (1.0f / SV_CYCLE)), x, y, r;
     uint32_t i, pass;
-    int32_t h;
-    for (h = 2; h < 44; h++) {                   /* a thin wisp off the lit end, always */
-        float hf = (float)h, up = 1.0f - hf / 44.0f;
-        float cx = (float)SV_TX + 2.0f + (0.4f + hf * 0.12f) * fm_sinf(0.2f * hf - 2.0f * t) - hf * 0.1f;
-        int32_t yy = SV_TY - h, xx;
-        if (yy < sv_oy || yy >= sv_oy + SV_BAND)
-            continue;
-        for (xx = (int32_t)cx - 3; xx <= (int32_t)cx + 3; xx++) {
-            float d = ((float)xx - cx) / (0.7f + hf * 0.04f), k = 1.0f / (1.0f + d * d);
-            uint32_t al = (uint32_t)(170.0f * up * k * k);
-            if (al > 3u)
-                sv_mix(xx, yy - sv_oy, SV_PUFF, al);
-        }
-    }
-    for (pass = 0; pass < 2; pass++)             /* the ink round them all first, then the puffs: one outline */
+    if (tc >= 10.5f)
+        return;                                  /* the picture's half */
+    for (pass = 0; pass < 4; pass++)             /* the ink round all, the shade, the light, the curls */
         for (i = 0; i < MARK_PTS; i++)
-            if (sv_puff(i, tc, t, &x, &y, &r, &a)) {
-                if (pass == 0 && a > 0.45f)      /* (the ink goes first as a puff thins: no dark haze) */
-                    sv_blob(x, y, r + 1.2f, SV_OUTLINE, (a - 0.45f) * 1.1f);
-                else
-                    sv_blob(x, y, r, SV_PUFF, a * 0.95f);
+            if (sv_lobe(i, tc, t, &x, &y, &r)) {
+                if (pass == 0)
+                    sv_disc(x, y, r + 1.8f, SV_OUTLINE);
+                else if (pass == 1)
+                    sv_disc(x, y, r, SV_SHADE);
+                else if (pass == 2)
+                    sv_disc(x - r * 0.22f, y - r * 0.26f, r * 0.74f, SV_PUFF);
+                else if ((sv_hash(i, 3u) % 6u) == 0u && r > 6.0f)   /* (curls toward the cloud's edge, as drawn) */
+                    sv_curl(x + (x - (float)SV_MKX) * 0.06f, y + (y - (float)SV_MKY) * 0.06f, r * 0.95f, 0.5f * t + (float)i);
             }
 }
 
