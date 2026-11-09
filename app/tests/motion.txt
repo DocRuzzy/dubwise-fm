@@ -29,6 +29,7 @@ wait 30
 key w8 up
 param song 1
 wait 30
+wait 136
 tap PLAY
 wait 600
 expect eng.echo.fb 45
@@ -46,6 +47,7 @@ wait 30
 param echo.fb 45
 tap REC
 wait 30
+wait 200
 tap PLAY
 wait 500
 param echo.fb 30
@@ -60,6 +62,7 @@ expect mot_bar1 4
 # played: 30 from 0.5 s on (the 80 at 1 s punched out), the throw as before
 param echo.fb 45
 wait 30
+wait 170
 tap PLAY
 wait 700
 expect eng.echo.fb 30
@@ -75,6 +78,7 @@ expect ui.ch1.throw 0
 # a hand on the feedback overrides its motion for the rest of the bar
 param echo.fb 45
 wait 30
+wait 280
 tap PLAY
 wait 300
 param echo.fb 60

@@ -490,8 +490,17 @@ static void button_release(uint32_t k)
     if (help_ate_release(k))             /* its help card shown: nothing more */
         return;
     if (k == B_PLAY && !dub.play_used) {
+        static uint32_t stop_t;          /* when PLAY last stopped the transport, 0: not just now */
+        uint32_t now = plat_ms();
         int on = !ctl_get(P_PLAY);
+        if (on && stop_t && now - stop_t < 400u) {   /* stop twice (roadmap 5.2, spec 4.1.3): tails off, no start */
+            stop_t = 0;
+            ctl_set(P_TAILS, 1);
+            app_say("TAILS OFF", "");
+            return;
+        }
         ctl_set(P_PLAY, on);
+        stop_t = on ? 0u : (now ? now : 1u);
         app_say(on ? "PLAY" : "STOP", "");
     } else if (k == B_HOME && !dub.home_used) {   /* HOME: the DUB page; again: ARRANGE (spec 4) */
         dub.page = dub.page == PAGE_DUB ? PAGE_ARRANGE : PAGE_DUB;

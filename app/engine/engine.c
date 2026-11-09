@@ -240,11 +240,22 @@ static void tier_track(uint32_t total16)         /* the load (avg ticks x 16) ->
 /* ------------------------------------------------------------- transport --- */
 static int cue_due(const cue_t *c) { return t_beat > c->fb || (t_beat == c->fb && t_phase >= c->fp); }
 
+/* tails off (roadmap 5.2, spec 4.1.3: PLAY tapped twice): the echo's and the spring's returns fade to nothing over
+ * 20 ms (a gain on both, no click), then the echo's tape, the spring and the phaser are emptied (tails_clear). The
+ * dry voices ring out as after any stop */
+#define TAILS_N 882u                             /* 20 ms */
+static uint32_t tails_left;                      /* samples of the fade left, 0: none */
+static int tails_done;                           /* faded out: emptied at the block's end */
 static void set_param(uint32_t id, int32_t v)
 {
     if (id >= P_NIDS || !param_desc(id))
         return;
     v = param_clamp(id, v);
+    if (id == P_TAILS) {                         /* tails off (5.2): the returns fade, then the effects are emptied */
+        if (tails_left == 0u)
+            tails_left = TAILS_N;
+        return;
+    }
     if (id == P_SHOT) {                          /* a one-shot: every set fires it, the same value again too (a
                                                   * replay's first, when the pass left it there: 5.1) */
         evlog_ev(0, id, v);
@@ -1405,7 +1416,21 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
                     sg_env = undenorm(sg_env * sg_rel);
                 gs *= sg_env;
             }
-            float r = ge * eret[i], rr = ge * eretr[i], sr = gs * sret[i], srr = gs * sretr[i];
+            float r, rr, sr, srr;
+            if (tails_left) {                    /* tails off: the returns down to nothing (a straight line, 20 ms) */
+                float g = (float)--tails_left * (1.0f / (float)TAILS_N);
+                ge *= g;
+                gs *= g;
+                if (!tails_left)
+                    tails_done = 1;
+            } else if (tails_done) {             /* (the rest of the block: silent until they are emptied) */
+                ge = 0.0f;
+                gs = 0.0f;
+            }
+            r = ge * eret[i];
+            rr = ge * eretr[i];
+            sr = gs * sret[i];
+            srr = gs * sretr[i];
             ep = fm_maxf(ep, fm_fabsf(ebus[i]));
             sp = fm_maxf(sp, fm_fabsf(sbus[i]));
             rp = fm_maxf(rp, fm_maxf(fm_fabsf(r), fm_fabsf(rr)));
@@ -1537,6 +1562,15 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         if (t_playing)
             t_step(d);
         pos += d;
+    }
+    if (tails_done) {                            /* tails off: faded, so the effects emptied (silent: no click) */
+        tails_done = 0;
+        echo_clear();
+        spring_init();
+        if (ph_on == PH_ECHO || ph_on == PH_OFF)
+            phaser_reset();                      /* (on the dry path it rings out with the voices: emptied there, a
+                                                  * voice still sounding through it would click) */
+        sret_last_n = 0;
     }
 #ifdef PLAT_HOST
     {

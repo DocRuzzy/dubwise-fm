@@ -43,9 +43,10 @@ turn K2 1
 wait 30
 key w2 up
 expect note6_3 1
-# a new chord in the lane: the skank follows it
+# a new chord in the lane: the skank follows it (PLAY 400 ms after the stop: sooner is tails off, roadmap 5.2)
 param chord1 1
 tap HOME
+wait 400
 tap PLAY
 wait 900
 expect chord_ch5 1

@@ -36,6 +36,21 @@ static uint32_t quiet;                           /* line samples in a row: silen
 static int last_heads_zero;
 #define IDLE_AFTER ECHO_LINE                     /* the whole tape read as zero: it is empty */
 
+void echo_clear(void)                            /* the tape and the loop's state emptied; its time and settings kept
+                                                  * (roadmap 5.2: tails off) */
+{
+    uint32_t i;
+    for (i = 0; i < ECHO_LINE; i++)
+        line[i] = 0;
+    for (i = 0; i < AP_TOTAL; i++)
+        ap_buf[i] = 0.0f;
+    hp_x1 = hp_y1 = lp_y1 = dec_s1 = dec_s2 = up_prev = up_cur = up_lp = 0.0f;
+    upr_prev = upr_cur = upr_lp = out_r = 0.0f;
+    lim_env = 0.0f;
+    lim_g = 1.0f;
+    hp4_clear(&side_hp);
+}
+
 void echo_init(void)
 {
     uint32_t i;

@@ -151,6 +151,9 @@ enum {
     P_SHOT,                   /* a one-shot fired (black 8-10): shot (0..7, + 8 backwards) | velocity << 4 | a toggle << 11
                                * (each press a new value, so two of the same are two) */
     P_VOX_END,
+    P_TAILS = 0x0EE,          /* tails off (roadmap 5.2): every set fades the returns over 20 ms, then empties the echo's
+                               * tape, the spring and the phaser. Not captured, not undone, not saved */
+    P_TAILS_END,
     P_PH_ON = 0x0F0,          /* the phaser (P2.3): PH_OFF, PH_HATS, PH_SKANK, PH_ECHO, PH_MIX */
     P_PH_RATE,                /* 0..127: 0.1 .. 18 Hz */
     P_PH_DEPTH,               /* 0..127 */

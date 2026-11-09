@@ -88,7 +88,7 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 - Quantise gains **CYCLE** (after 32 bars): the next "one" of the cycle. Templates (STEPS) land on the bar line itself, not early.
 - GLO opens a first **SETUP** page (a list: KNOB 1 / SELECT moves, KNOB 2 / PRESET changes); test tones moved there.
 
-#### 4.1.3 Stop twice: tails off (roadmap 5.2)
+#### 4.1.3 Stop twice: tails off (roadmap 5.2; built 2026-11-09)
 - A stop (PLAY tapped while playing) stays as built: notes and motion let go; the echo and spring ring out.
 - **A second PLAY tap within 400 ms of the stop** doesn't start the transport. It fades the returns over 20 ms, then clears the echo tape, spring and phaser. Said and shown: "TAILS OFF".
 - After 400 ms, PLAY starts as before.

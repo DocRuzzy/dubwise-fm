@@ -116,8 +116,17 @@ static void song_sync(void)              /* the engine's song changes back to th
 {
     if (eng_param(P_SONG_LEN) != ctl_get(P_SONG_LEN) && ctl_get(P_SONG_REC) && eng_playing())
         ctl_set(P_SONG_LEN, eng_param(P_SONG_LEN));
-    if (ctl_get(P_PLAY) && !eng_param(P_PLAY) && !eng_playing() && ctl_get(P_SONG_MODE) == SONG_ONCE)
+    static uint8_t seen;                 /* the engine seen playing since the UI's start: only then is a stop its own
+                                          * (a song played ONCE ended). Before this, a PLAY whose start the engine had
+                                          * not taken up yet (the same frame) read as ended, and was undone */
+    if (!ctl_get(P_PLAY))
+        seen = 0;
+    else if (eng_playing())
+        seen = 1;
+    if (ctl_get(P_PLAY) && seen && !eng_param(P_PLAY) && !eng_playing() && ctl_get(P_SONG_MODE) == SONG_ONCE) {
+        seen = 0;
         ctl_set(P_PLAY, 0);
+    }
 }
 
 static void arr_scene_name(uint32_t s, char *t)

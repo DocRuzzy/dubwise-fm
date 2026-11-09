@@ -29,6 +29,7 @@ typedef struct {
 } echo_cfg_t;
 
 void echo_init(void);
+void echo_clear(void);                           /* tails off (5.2): the tape emptied, its time and settings kept */
 void echo_config(const echo_cfg_t *c);           /* the audio interrupt, before echo_run */
 /* 44.1 kHz: n samples of send in, the return out, left and right. Width: the right reads the tape later, and only
  * the difference above ~120 Hz reaches it (the low end stays mono: design principles) */

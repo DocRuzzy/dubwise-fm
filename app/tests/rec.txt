@@ -111,6 +111,7 @@ expect kb 0
 tap REC
 wait 30
 said KEYBOARD ON
+wait 70
 tap PLAY
 wait 200
 expect rec 1

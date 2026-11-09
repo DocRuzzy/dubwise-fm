@@ -28,7 +28,7 @@ static int undo_kept(uint32_t key)
         return 1;
     if (key >= P_CH_BASE && key < P_CH_BASE + NCH * CH_STRIDE && (key - P_CH_BASE) % CH_STRIDE == CHF_THROW_AMT)
         return 0;                                /* (a throw's amount, set by its key's velocity: part of the throw) */
-    return key != P_PLAY && key != P_SONG_REC && key != P_SPIN && key != P_SHOT && mot_momentary(key) < 0;
+    return key != P_PLAY && key != P_SONG_REC && key != P_SPIN && key != P_SHOT && key != P_TAILS && mot_momentary(key) < 0;
 }
 
 static void undo_drop_oldest(void)               /* the oldest step out (the ring full) */

@@ -31,6 +31,7 @@ expect ui.song.len 5
 # played back once: the kick drops on bar 2's line and comes back on bar 4's; at the end the transport stops
 param song 1
 wait 30
+wait 170
 tap PLAY
 wait 100
 expect eng.ch1.mute 0

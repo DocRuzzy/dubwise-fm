@@ -72,6 +72,7 @@ param ch4.mute 0
 # a pattern change: a two-beat note, B (empty) launched for the next beat; the note still ends at its gate
 step 4 A 1 2 33 0 120
 clearpat 4 B
+wait 290
 tap PLAY
 wait 300
 cue ch4.pat 1 1
@@ -86,6 +87,7 @@ wait 30
 clearpat 7 A
 step 7 A 1 2 69 0 255
 step 4 A 1 2 33 0 255
+wait 260
 tap PLAY
 wait 600
 tap PLAY
@@ -159,6 +161,7 @@ param ch4.mute 0
 # a pattern change: a two-beat note, B (empty) launched for the next beat; the note still ends at its gate
 step 4 A 1 2 33 0 120
 clearpat 4 B
+wait 290
 tap PLAY
 wait 300
 cue ch4.pat 1 1
@@ -173,6 +176,7 @@ wait 30
 clearpat 7 A
 step 7 A 1 2 69 0 255
 step 4 A 1 2 33 0 255
+wait 260
 tap PLAY
 wait 600
 tap PLAY
