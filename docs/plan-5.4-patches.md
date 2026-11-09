@@ -1,6 +1,7 @@
 # Plan: roadmap 5.4, sound patches (format, library, SysEx)
 
-Status: **draft, waiting for the owner's OK** (CLAUDE.md: a stored-format change needs a plan and an OK before code).
+Status: **approved 2026-11-09** with the owner's decisions below (CLAUDE.md: a stored-format change needs a plan and an OK
+before code).
 
 ## What the player gets
 
@@ -78,8 +79,9 @@ Files are the 48 raw bytes (`.dwpatch`).
 
 - **A project saved before 5.4:** `OBJ_SOUND` loads as now. No patch objects exist, so the library is empty (factory
   patches still browse).
-- **A backup made before 5.4,** restored: it has no patch objects, so the library on the device is left as it is.
-  Checked in `backup.txt`.
+- **A backup made before 5.4,** restored: the platform writes an empty object for each one a backup lacks (`plat.h`), so
+  the library is emptied: the device as it was then. The manual says so; `dubwise_slots.py patch get` keeps patches
+  first.
 - **A library object with a magic we don't know** (a newer firmware's `PAT2`, then a downgrade): read as empty, and
   **not overwritten** until the player confirms ("PATCHES FROM NEWER FIRMWARE: SAVE ANYWAY?", asked twice). A downgrade
   can't silently wipe them.
@@ -122,13 +124,23 @@ const table in flash (a few hundred bytes).
 - **CPU:** 0. It's main loop only, and the render never sees a patch, only the fields as ctl_set moves them.
 - **Tier:** all.
 
-## Decisions for the owner
+## Decisions (the owner, 2026-11-09)
 
-1. **Saves while playing wait for the stop** (no audio dropout), rather than refusing ("STOP FIRST"). Recommended:
-   wait.
-2. **The library is device-wide,** not part of a project or song slot. Recommended: device-wide.
-3. **Drop the SND1 → SND2 converter** (it would convert nothing) and state the neutral-at-0 rule instead. Recommended.
-4. **Factory patches in 5.4:** INIT + the demo and UK STEPPERS sounds now, the rest with 5.5. Recommended.
-5. **Naming:** automatic names on the device for now (KICK 01); renaming by the tool. Renaming on the device (KNOB 1–4
-   pick letters) could follow as a small item. Recommended.
-6. **VOX gets patches too** (siren settings), like the other seven. Recommended: yes, it's free in the layout.
+1. **No saves while playing:** SAVE + PRESET says "STOP TO SAVE" (a flash write would cut the sound). The same holds
+   for a SysEx put: refused (15) while playing. So no pool mirror is needed for deferred writes. The library is still
+   read into the pool once at boot, so browsing never reads the flash.
+2. **Device-wide library.** It doesn't limit the count: 16 a channel fits two store objects, and if that's ever tight,
+   the unused XDATA1 window (92 KiB) holds over 1,500 more. Project templates ("NEW PROJECT FROM SLOT") are noted as a
+   separate roadmap idea: a song slot already carries a whole project's sounds.
+3. **No SND1 → SND2 converter;** the neutral-at-0 rule is written into `params.h`.
+4. **Factory patches in 5.4:** INIT on every channel, plus what's already tuned: STEPPERS for the bass and skank (UK
+   STEPPERS' settings) and the lead's other instrument. The rest come with 5.5.
+5. **Automatic names** (KICK 01) on the device; renaming by the tool. On-device renaming is a later item.
+6. **VOX gets patches** like the other seven.
+
+Changed from the draft:
+- **Overwriting:** SAVE + PRESET while a user patch is shown (as browsed to, or edited since) asks "OVERWRITE KICK 03",
+  and a second SAVE + PRESET within 3 s overwrites it: tweak, then save over. On a factory patch, or a sound with no
+  patch shown, it saves to the next free slot.
+- **SysEx put into the current sound (37):** like a controller's moves, it isn't kept in undo (undo keeps what the
+  panel's hands do).

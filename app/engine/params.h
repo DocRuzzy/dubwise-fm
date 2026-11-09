@@ -34,6 +34,9 @@ enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };
 /* the MAIN macros (roadmap 5.3, spec 4.9): four a channel (not the vox: its MAIN is the siren's own four), stored as
  * the voice's last four fields; -64..63, 0 every target at its default. The engine never reads them: turning one
  * rewrites its raw targets (sound.c) */
+/* A field appended to a voice must sound neutral at 0: an older save (OBJ_SOUND) or patch (5.4) holds 0 there, and
+ * loads as it was made. One that can't be needs a version and a converter, planned first (CLAUDE.md). Every voice
+ * field's range fits int8 (a patch keeps them so: patches.txt checks, voice_int8). */
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
 enum { INST_MELODICA, INST_BRASS, INST_N };

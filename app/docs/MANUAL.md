@@ -69,7 +69,7 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | HOME + SEQ, tapped | Tap tempo: from the second tap, the average of the last four gaps (a pause over 2 s starts again). Refused while MIDI clock in has the tempo. |
 | Any button, held a second on its own | Its help card for this page. It stays when you let go, and the next press (which does nothing else) or 12 s puts the page back. A combo you hold while thinking still works: a knob or key pressed with the button held closes the card and does its job. |
 | ALGORITHM | Moves the focus between the channels. |
-| EDIT | The SOUND view of the focused channel. First MAIN: four macros, each turning several settings at once along a shaped curve (the kick's PUNCH: the sweep up, the fall quicker, the click up); in the middle (0) everything is at its default. Press EDIT again for the raw settings, four at a time, then once more to go back to the echo's knobs. A raw setting turned after its macro leaves the macro where it is, and MAIN shows a small dot by it. ALGORITHM picks the channel. Channel 8 (VOX) has no MAIN: its first bank is the siren's. |
+| EDIT | The SOUND view of the focused channel. First MAIN: four macros, each turning several settings at once along a shaped curve (the kick's PUNCH: the sweep up, the fall quicker, the click up); in the middle (0) everything is at its default. Press EDIT again for the raw settings, four at a time, then once more to go back to the echo's knobs. A raw setting turned after its macro leaves the macro where it is, and MAIN shows a small dot by it. ALGORITHM picks the channel. Channel 8 (VOX) has no MAIN: its first bank is the siren's. **Patches:** on the SOUND view, PRESET steps through the channel's patches and loads each as you turn (INIT and the factory ones first, then your own; a run of turns is one undo step); the footer shows the patch's name, with a * once you've changed it. Hold SAVE and turn PRESET to keep the sound: into the next free slot of the channel's 16 (named BASS 01, BASS 02 ...), or, if one of your patches is showing, over it (it asks twice). Stopped only (writing the flash would interrupt the sound). Your patches belong to the FM-1, not to a project: they're there in every project. |
 | GLO | The SETUP page (below). |
 | MASTER | Sets the volume. |
 | SAVE | Saves your project: the tempo, sounds, patterns, scenes, the song and its moves, the FX and SETUP. SAVE lights while there's something to save. On SETUP's slot rows it saves to (or loads from) a song slot instead. |
@@ -370,7 +370,9 @@ see felucca-bsp's `tools/fm1_rescue.sh`.
 ## Backing up, and sharing songs
 
 **The whole FM-1 to a file.** `python3 base/tools/fm1_backup.py backup FILE` saves what's stored (your project and
-settings); `restore FILE` puts it back (the FM-1 asks you to confirm with SEL; stop playing first).
+settings); `restore FILE` puts it back (the FM-1 asks you to confirm with SEL; stop playing first). The backup includes your
+sound patches. Restoring a backup made before patches existed empties the patch library (it puts the FM-1 back as it
+was then), so keep the patches you want with `dubwise_slots.py patch get` first.
 
 **One song slot to a file, to keep or share.** With the FM-1 connected over USB and stopped:
 
@@ -382,6 +384,19 @@ python3 tools/dubwise_slots.py info mydub.dws      # what a file holds
 
 A `.dws` file is a whole project: the desk, sounds, key, patterns, scenes, the song and every recorded move. After a
 `put`, load it on the FM-1 with SETUP → LOAD SLOT. (Both tools need `pip install mido python-rtmidi`.)
+
+**Sound patches to a file, to keep or share.** Channels are 1–8 (KICK SNARE HATS BASS SKANK ORGAN LEAD VOX), slots
+1–16:
+
+```
+python3 tools/dubwise_slots.py patch list 4                 # the bass's 16 slots, by name
+python3 tools/dubwise_slots.py patch get 4 1 mybass.dwpatch # bass slot 1 to a file
+python3 tools/dubwise_slots.py patch put 4 7 mybass.dwpatch # a file into bass slot 7 (stopped)
+python3 tools/dubwise_slots.py patch current 4 now.dwpatch  # the bass as it sounds now
+python3 tools/dubwise_slots.py patch name mybass.dwpatch "SUB ROLL"   # rename a file (8 characters)
+```
+
+A `.dwpatch` file is one channel's sound (48 bytes); it goes back onto the same channel.
 
 ---
 

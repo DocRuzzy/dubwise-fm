@@ -299,7 +299,8 @@ static int confirm(uint32_t what, const char *name)   /* 1: confirmed (the secon
     app_say(name, "AGAIN TO CONFIRM");
     return 0;
 }
-enum { CF_MOTION = 1, CF_DEMO, CF_STEPPERS, CF_NEW, CF_FORGET, CF_SLOT_SAVE = 0x10, CF_SLOT_LOAD = 0x20 };
+enum { CF_MOTION = 1, CF_DEMO, CF_STEPPERS, CF_NEW, CF_FORGET, CF_SLOT_SAVE = 0x10, CF_SLOT_LOAD = 0x20,
+       CF_PATCH_FOREIGN = 0x30, CF_PATCH_OVER = 0x40 };
 
 static uint32_t blink_on(void);
 #include "steps.c"                       /* the STEPS page (GPL-3.0-only) */
@@ -629,6 +630,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
 #include "perf.c"                        /* the PERF page (GPL-3.0-only) */
 #include "saver.c"                       /* the boot splash and the screen saver (GPL-3.0-only) */
 #include "slots.c"                       /* song slots (GPL-3.0-only) */
+#include "patches.c"                     /* sound patches (GPL-3.0-only; roadmap 5.4) */
 #include "undo.c"                        /* undo and redo (GPL-3.0-only) */
 #include "help.c"                        /* help cards and tap tempo (GPL-3.0-only) */
 #include "midilearn.c"                   /* MIDI learn and the USB MIDI host (GPL-3.0-only) */
@@ -720,6 +722,13 @@ static void encoder(uint32_t k, int32_t e)
         app_say("FOCUS", CH_NAME[dub.focus]);
     } else if (dub.page == PAGE_ARRANGE && k >= EN_K1 && k <= EN_K4) {
         arr_knob(k - EN_K1, e);
+    } else if (k == EN_PRESET && dub.page == PAGE_DUB && dub.sound && held_mute() < 0) {   /* the SOUND view: patches
+                                                                                          * (5.4); SAVE held: store */
+        if (dub.btn >> B_SAVE & 1u) {
+            dub.save_used = 1;
+            pl_save_key();
+        } else
+            pl_browse(e);
     } else if (k == EN_PRESET && dub.page == PAGE_DUB && held_mute() >= 0) {   /* a mute key held + PRESET: that
                                                                                 * channel's pattern, on the line (4.8) */
         int32_t ch = held_mute();
@@ -1240,9 +1249,15 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
     if (ch >= 0)
         cv_text(234 - text_w(&FONT_T, CH_NAME[ch]), 4, &FONT_T, CH_NAME[ch], C_AMB);
     else if (dub.sound && held_throw() < 0) {   /* which voice, which bank */
-        char t2[20];
+        char t2[28];
+        patch_t pp;
         t2[0] = 0;
-        text_cat(t2, CH_NAME[dub.focus]);
+        if (pl_get((uint32_t)dub.focus, pl_pos[dub.focus], &pp)) {   /* the patch shown (5.4), * when edited since */
+            pl_name(&pp, t2);
+            if (pl_edited((uint32_t)dub.focus))
+                text_cat(t2, "*");
+        } else
+            text_cat(t2, CH_NAME[dub.focus]);
         if (dub.sound == 1u && has_main(dub.focus))
             text_cat(t2, " MAIN");
         else {
@@ -1259,7 +1274,7 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
 static uint32_t foot_sig(void)           /* changes whenever what the footer shows does */
 {
     uint32_t h = ((uint32_t)(held_mute() + 1) * 17u + (uint32_t)(held_throw() + 1)) * 7u + dub.sound * 131u
-                 + (uint32_t)dub.focus * 1031u, i;
+                 + (uint32_t)dub.focus * 1031u + (uint32_t)(pl_pos[dub.focus] + 1) * 7919u, i;
     for (i = 0; i < 4u; i++) {
         char t[16], *p;
         knob_value(i, held_mute(), t);
@@ -1268,6 +1283,8 @@ static uint32_t foot_sig(void)           /* changes whenever what the footer sho
         if (dub.sound == 1u && has_main(dub.focus))
             h = h * 3u + (uint32_t)macro_moved(dub.focus, i);
     }
+    if (dub.sound && pl_pos[dub.focus] >= 0)
+        h = h * 5u + (uint32_t)pl_edited((uint32_t)dub.focus);
     return h;
 }
 
@@ -1350,6 +1367,7 @@ void dub_draw(void)
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     slot_tick();                         /* (a loaded slot's, the same way) */
     slot_sx_tick();                      /* (a slot going to a computer) */
+    pl_sx_tick();                        /* (a channel's patches going to a computer) */
     song_sync();
     if (saver_draw(now)) {               /* the screen saver: the whole screen its own */
         lights();
@@ -1577,7 +1595,8 @@ static int dub_expect(const char *what, int *got)
     else if (!strcmp(what, "key_flashes"))
         *got = (int)dub.key_flashes;
     else if (steps_expect(what, got) || keys_expect(what, got) || arr_expect(what, got) || saver_expect(what, got)
-             || undo_expect(what, got) || help_expect(what, got) || ml_expect(what, got) || sound_expect(what, got))
+             || undo_expect(what, got) || help_expect(what, got) || ml_expect(what, got) || sound_expect(what, got)
+             || pl_expect(what, got))
         return 1;
     else if (!strcmp(what, "roots"))     /* 1: the cycle bar red, gold and green (72.0 BPM's first bar) */
         *got = roots_now();

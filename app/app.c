@@ -241,6 +241,7 @@ static int save_project(int quiet);
 static void settings_save(void) { save_project(0); }
 static int ml_save(void);
 static void ml_load(void);
+static void pl_load(void);                 /* (patches.c: the patch library, 5.4) */
 
 static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
@@ -331,6 +332,7 @@ static void load_saved(void)             /* the store's objects into both sides 
     }
     proj_load();
     ml_load();
+    pl_load();
     ctl_set(P_TEMPO, set.tempo);
     ctl_set(P_QUANT, set.quant);
     ctl_set(P_ECHO_TIME, set.echo_time);  /* (clamped to their ranges) */
@@ -540,6 +542,14 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     }
     if (!strcmp(cmd, "oldsave")) {       /* a save from before the session (patstore.c), for the next reboot */
         pst_oldsave();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldsound")) {      /* sounds saved before 5.3, and no patch library (patches.c) */
+        pl_oldsound();
+        return 1;
+    }
+    if (!strcmp(cmd, "foreignpatch")) {  /* a newer firmware's patch library (a downgrade; patches.c) */
+        pl_foreign_obj();
         return 1;
     }
     if (!strcmp(cmd, "clearpat")) {      /* clearpat CH PAT: every step off */
