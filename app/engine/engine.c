@@ -745,9 +745,11 @@ static void drain(void)                          /* every queued command, at the
     }
 }
 
+static void spin_init(void);                     /* (the spin-back's ring, below) */
 void eng_init(void)
 {
     uint32_t id, ch;
+    spin_init();
     for (id = 0; id < P_NIDS; id++) {
         ev[id] = (int16_t)param_def(id);
     }
@@ -1055,12 +1057,41 @@ static uint32_t until_cue(void)                  /* samples to the first cue's m
 }
 
 /* ------------------------------------------------------------- spin-back --- */
-/* P3.5: the output's last 1.6 s kept (11,025 Hz, mono, int16: 35 KB in the pool); HOME + PLAY plays it backwards,
+/* P3.5: the output's last 1.6 s kept (11,025 Hz, mono, 8-bit mu-law since review-2026-11 5.4: 17.3 KB in the pool, was
+ * 35 KB as int16; a rewind is lo-fi anyway); HOME + PLAY plays it backwards,
  * the "record" dragged back faster and faster (1x .. 2.6x) and fading over 0.8 s, then a beat of silence with the
  * effects wiped, then the tune again from bar 1 ("pull up, come again"), if it was playing */
 #define SPIN_N 17664u
 #define SPIN_SECS 0.8f
-static PLAT_POOL int16_t spin_ring[SPIN_N];
+static PLAT_POOL uint8_t spin_ring[SPIN_N];      /* G.711 mu-law */
+static PLAT_POOL int16_t spin_dec[256];          /* mu-law -> int16 */
+#define MULAW_SILENT 0xFFu
+
+static uint8_t mulaw_enc(int32_t v)              /* int16 -> G.711 mu-law */
+{
+    uint32_t sign = 0, mag, exp = 7, mant;
+    if (v < 0) {
+        sign = 0x80u;
+        v = -v;
+    }
+    mag = (uint32_t)(v > 32635 ? 32635 : v) + 0x84u;
+    while (exp > 0u && !(mag & (0x4000u >> (7u - exp))))
+        exp--;
+    mant = (mag >> (exp + 3u)) & 0x0Fu;
+    return (uint8_t)~(sign | exp << 4 | mant);
+}
+
+static void spin_init(void)                      /* the decoder's table; the ring silent */
+{
+    uint32_t i;
+    for (i = 0; i < 256u; i++) {
+        uint32_t u = ~i & 0xFFu, exp = (u >> 4) & 7u, mant = u & 0x0Fu;
+        int32_t mag = (int32_t)(((mant << 3) + 0x84u) << exp) - 0x84;
+        spin_dec[i] = (int16_t)(u & 0x80u ? -mag : mag);
+    }
+    for (i = 0; i < SPIN_N; i++)
+        spin_ring[i] = MULAW_SILENT;
+}
 static uint32_t spin_w, spin_acc_n, spin_gap, spin_again;
 static int32_t spin_acc;
 static float spin_pos, spin_t;
@@ -1209,7 +1240,7 @@ static void spin_block(int32_t *lr, uint32_t n)  /* after the render: the ring f
             spin_acc += (lr[2u * i] >> 9) + (lr[2u * i + 1u] >> 9);
             if (++spin_acc_n == 4u) {
                 int32_t v = spin_acc / 4;
-                spin_ring[spin_w] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+                spin_ring[spin_w] = mulaw_enc(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
                 spin_w = spin_w + 1u == SPIN_N ? 0u : spin_w + 1u;
                 spin_acc = 0;
                 spin_acc_n = 0;
@@ -1228,8 +1259,8 @@ static void spin_block(int32_t *lr, uint32_t n)  /* after the render: the ring f
             k0 = (uint32_t)spin_pos;
             k1 = k0 + 1u == SPIN_N ? 0u : k0 + 1u;
             fr = spin_pos - (float)k0;
-            a = (float)spin_ring[k0];
-            b = (float)spin_ring[k1];
+            a = (float)spin_dec[spin_ring[k0]];
+            b = (float)spin_dec[spin_ring[k1]];
             amp = spin_t < SPIN_SECS - 0.25f ? 1.0f : (SPIN_SECS - spin_t) * 4.0f;
             out = (a + (b - a) * fr) * (amp > 0.0f ? amp : 0.0f) * 256.0f;   /* (stored as (L + R) / 512) */
             spin_t += 1.0f / 44100.0f;

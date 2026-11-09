@@ -174,7 +174,7 @@ Grouped by priority: **A** first (5.1–5.6), then **B** (5.7–5.11, 5.15), the
 2. **5.3 → 5.4 → 5.5**, in that order. The patch format (5.4) has to hold 5.3's new fields, and the kits (5.5) are factory patches. 5.4 changes a stored format, so plan it first (CLAUDE.md).
 3. **5.6 Dice.** It needs 5.3's bounded ranges and 5.4's patches.
 4. **Group B: 5.7–5.11.** 5.8 changes the pattern format: plan first.
-5. **review-2026-11 §5.4** (the spin ring as µ-law, −17.6 KB of pool), on its own. It's the room 5.15 needs.
+5. **review-2026-11 §5.4** (the spin ring as µ-law, −17.6 KB of pool), on its own. It's the room 5.15 needs. **Done (2026-11-09):** pool −17,152 B (284,812 of 344,064), image +176 B; `spin.txt` passes, the rewind −46 dB from the int16 one.
 6. **5.15 organ**, once open question 5 (the stereo horn) is decided. Its patch fields change a stored format: plan first.
 7. **Group C: 5.12–5.14**, as wanted.
 
