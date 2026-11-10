@@ -1,5 +1,7 @@
 # Prior art: FM-1 alt firmwares — lessons for Dubwise FM
 
+> **2026-11-10:** DUB-1's notes below describe it at `501c4cf`. It has moved a long way since (1.2-1.4: a hand-played desk, sets, a DJ filter, a virtual dub mixer). The current comparison, features and architecture both, is `docs/dub1-comparison-2026-11.md`.
+
 Reviewed 2026-11-08. Sources: `sbegueria/fm1-dub` (DUB-1, 501c4cf) and `charlesvestal/fm1-x0x` (X0X, `docs/plans/*.md`), both GPL-3.0-only. Also `charlesvestal/fm1-base` and `hugelton/felucca-bsp` (MPL-2.0), which we build on.
 
 We take lessons from DUB-1 and X0X, not their app layers. DUB-1 is generative dub techno; X0X is a 909/808/303 groovebox.
