@@ -119,10 +119,10 @@ static const demo_move_t DEMO_MOVES[] = {
     {24, 0, V(CH_KICK, VK_MODEL), KICK_808}, {24, 0, V(CH_SNARE, VR_MODEL), RIM_808},
     {24, 0, V(CH_HATS, VH_MODEL), HAT_808}, {24, 0, P_PH_ON, PH_HATS}, {24, 0, V(CH_SKANK, VS_MODEL), 0},
     {24, 0, V(CH_LEAD, VL_INST), INST_HORN}, {24, 0, V(CH_VOX, VX_SAY), 2},
-    {24, 60, P_SHOT, SHOT(0, 110, 1)},                           /* WHEEL UP */
+    {24, 60, P_SHOT, SHOT(0, 90, 1)},                           /* WHEEL UP */
     {27, 960, TH(CH_SNARE), 1}, {27, 1200, TH(CH_SNARE), 0},
     {28, 0, V(CH_LEAD, VL_INST), INST_LAYER}, {28, 0, V(CH_LEAD, VL_HORN), HORN_SAX},   /* FM+HORN, the sax */
-    {28, 0, V(CH_VOX, VX_SAY), 3}, {28, 60, P_SHOT, SHOT(0, 110, 0)},   /* BIG UP */
+    {28, 0, V(CH_VOX, VX_SAY), 3}, {28, 60, P_SHOT, SHOT(0, 90, 0)},   /* BIG UP */
     {29, 0, P_ECHO_FB, 52}, {29, 960, P_ECHO_FB, 72}, {30, 0, P_ECHO_FB, 52},
     {31, 480, TH(CH_SKANK), 1}, {31, 720, TH(CH_SKANK), 0},
     /* VERSION: the BBD */
@@ -134,7 +134,7 @@ static const demo_move_t DEMO_MOVES[] = {
     {35, 960, TH(CH_SKANK), 1}, {35, 1200, TH(CH_SKANK), 0},
     /* OUTRO: the tape echo back, the mix through the tape drive; a FILL; the drop to wet */
     {36, 0, P_ECHO_TYPE, ECHO_TAPE}, {36, 0, P_DRIVE_ON, DRIVE_MIX}, {36, 0, V(CH_VOX, VX_SAY), 7},
-    {36, 60, P_SHOT, SHOT(0, 110, 1)},                           /* ONE MORE */
+    {36, 60, P_SHOT, SHOT(0, 90, 1)},                           /* ONE MORE */
     {38, 960, TH(CH_SNARE), 1}, {38, 1200, TH(CH_SNARE), 0},
     {39, 0, P_FILL, 1}, {39, 1440, P_FILL, 0},                   /* the fill's steps play */
     {39, 1440, P_WET, 1},                                        /* the drop to wet: held to the end */
@@ -249,7 +249,8 @@ static void demo_load(void)
     ctl_set(P_CH(CH_ORGAN, CHF_LEVEL), 84);
     ctl_set(P_CH(CH_LEAD, CHF_LEVEL), 88);
     ctl_set(P_CH(CH_LEAD, CHF_ECHO_SEND), 50);
-    ctl_set(P_CH(CH_VOX, CHF_ECHO_SEND), 70);
+    ctl_set(P_CH(CH_VOX, CHF_LEVEL), 70);         /* (the sirens and shouts under the band: the owner, 2026-11-10) */
+    ctl_set(P_CH(CH_VOX, CHF_ECHO_SEND), 56);
     ctl_set(P_VOICE(CH_LEAD, VL_INST), INST_MELODICA);
     ctl_set(P_VOICE(CH_LEAD, VL_HORN), HORN_TRUMPET);
     ctl_set(P_VOICE(CH_LEAD, VL_BLEND), 0);

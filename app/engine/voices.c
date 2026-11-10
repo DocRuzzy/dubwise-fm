@@ -718,7 +718,9 @@ static struct {
     uint32_t rng;
     bq_t hp, pk, lp, nbp;                        /* the bell; the breath's band */
     int set;
-} horn = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0x7F4A7C15u, {0}, {0}, {0}, {0}, 0};
+    float tongue;                                /* the tongue's burst, this sample (render_lead) */
+} horn = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0x7F4A7C15u, {0}, {0}, {0}, {0}, 0, 0.0f};
+#define HORN_ATT (1.0f / (0.012f * SR))         /* the horn speaks within 12 ms, whatever ATTACK says */
 static void bq_hpf(bq_t *q, float hz, float qf);
 static void bq_bpf(bq_t *q, float hz, float qf);
 static void horn_config(void)                    /* (7.7: the bell's, fixed; the breath's band) */
@@ -772,7 +774,8 @@ static float horn_tick(float f, float hard, uint32_t type)   /* one sample of th
         s = ((1.0f - hard) * sa + hard * sb) * (1.0f / 27000.0f);
     }
     t = 0.5f + 0.5f * fm_sin_turns(horn.ph + 0.25f >= 1.0f ? horn.ph - 0.75f : horn.ph + 0.25f);
-    horn.nz = horn_rnd() * t * t;                /* the breath, pulsed as the lips (the reed) open each cycle */
+    horn.nz = horn_rnd() * (t * t + 4.0f * horn.tongue);   /* the breath, pulsed as the lips (the reed) open each
+                                                  * cycle; and the tongue's burst at the start */
     s += bq_run(&horn.nbp, horn.nz) * horn_rms[type][1][o] * fm_exp2f(HORN_NOISE_DB[type] * 0.16609640f) * 2.5f;
     s = bq_run(&horn.lp, bq_run(&horn.pk, bq_run(&horn.hp, s)));
     return s * lev;
@@ -825,8 +828,17 @@ static int render_lead(float *o, uint32_t n)
             } else
                 s = 0.0f;
             if (lead.inst != INST_BRASS) {       /* the horn: blown as hard as the breath and the velocity */
-                float h = horn_tick(f, fm_minf(1.0f, env * (0.3f + 0.7f * lead.vel) * lead.bright * (1.0f / 1.66f)),
-                                    (uint32_t)lead.horn) * HORN_GAIN;
+                /* the tongued attack (the owner, 2026-11-10: "not punchy enough"): a reggae horn section stabs. The
+                 * note speaks within ~12 ms, swells ~4 dB over its sustain for ~120 ms (the trumpet takes' overshoot,
+                 * 2-5.5 dB), brighter while it does (brass brightens as it gets louder), and the tongue's release is
+                 * a short burst of breath. The velocity scales all three */
+                float bite = fm_expf(-lead.t * (1.0f / 0.12f)) * lead.vel, tongue = fm_expf(-lead.t * (1.0f / 0.008f));
+                float hard = fm_minf(1.0f, env * (0.3f + 0.7f * lead.vel) * lead.bright * (1.0f / 1.66f) + 0.55f * bite);
+                float h;
+                if (lead.amp < 1.0f && lead.note >= 0)
+                    lead.amp = fm_minf(1.0f, lead.amp + HORN_ATT);   /* (on top of ATTACK's: it speaks at once) */
+                horn.tongue = tongue * lead.vel;
+                h = horn_tick(f, hard, (uint32_t)lead.horn) * HORN_GAIN * (1.0f + 0.6f * bite);
                 s = lead.inst == INST_HORN ? h : 1.4f * ((1.0f - lead.blend) * s + lead.blend * h);   /* (the layer's
                                                   * two only partly alike: 1.4 back to one's loudness) */
             }
