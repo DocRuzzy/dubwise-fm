@@ -184,7 +184,7 @@ static void fx_draw(int all)
     cv_rect(0, 0, 240, 1, C_LINE);
     for (i = 0; i < 4u; i++) {
         int32_t x = 6 + (int32_t)i * 59;
-        cv_text(x, 4, &FONT_XS, b->label[i], C_GRAY);
+        cv_text(x, 4, &FONT_XS, b->label[i], kc_or(KC_KNOB(i), C_GRAY));
         fx_value(b->id[i], t);
         cv_text(x, 18, &FONT_B, t, C_HI);   /* (a value: the page font, never the smallest; 5.11) */
     }

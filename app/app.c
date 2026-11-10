@@ -43,6 +43,13 @@ static const uint16_t SET_FX[] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_S
                                     P_SGATE_REL, P_ECHO_PP, P_PH_MODE, P_PH_RATE2, P_ECHO_WOW, P_SPEAKER,
                                     P_ECHO_HEAD3, P_DESK, P_HPF_LP, P_ECHO_TYPE};   /* (7.1, 7.4, 7.5, 7.9) */
 #define NSET_FX (sizeof SET_FX / sizeof SET_FX[0])
+/* 8.8: the knobs' colours, matched to their caps: seven encoders, 3 bits each (21 bits) in the FX bytes' last three
+ * (unused before: 0 in an older save). Stored XOR the default set, so 0 is the default set (the owner's scheme) */
+enum { KC_BIG, KC_ALGO, KC_PRESET, KC_K1, KC_K2, KC_K3, KC_K4, KC_N };
+enum { KCOL_OFF, KCOL_WHITE, KCOL_RED, KCOL_ORANGE, KCOL_YELLOW, KCOL_GREEN, KCOL_BLUE, KCOL_PURPLE, KCOL_N };
+#define KC_AT 29u                                /* set.fx[29..31] */
+typedef char kc_fits[NSET_FX <= KC_AT ? 1 : -1];
+static const uint8_t KC_DEF[KC_N] = {KCOL_RED, KCOL_YELLOW, KCOL_OFF, KCOL_WHITE, KCOL_ORANGE, KCOL_BLUE, KCOL_GREEN};
 typedef char set_fx_fits[NSET_FX <= 32u ? 1 : -1];
 static uint16_t scenes_dirty;            /* (arrange.c sets the bits; saved and cleared by SAVE) */
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
@@ -223,6 +230,23 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 void app_panic(void) { eng_panic(); }
 
 /* --------------------------------------------------------------- settings --- */
+static uint32_t kc_bits(void)                     /* the 21 bits as stored */
+{
+    return (uint32_t)set.fx[KC_AT] | (uint32_t)set.fx[KC_AT + 1u] << 8 | (uint32_t)set.fx[KC_AT + 2u] << 16;
+}
+static uint32_t kcol(uint32_t k)                  /* knob k's colour (KCOL_*) */
+{
+    return ((kc_bits() >> (3u * k)) & 7u) ^ KC_DEF[k % KC_N];
+}
+static void kcol_set(uint32_t k, uint32_t c)
+{
+    uint32_t b = kc_bits() & ~(7u << (3u * k));
+    b |= ((c ^ KC_DEF[k % KC_N]) & 7u) << (3u * k);
+    set.fx[KC_AT] = (uint8_t)b;
+    set.fx[KC_AT + 1u] = (uint8_t)(b >> 8);
+    set.fx[KC_AT + 2u] = (uint8_t)(b >> 16);
+    set_dirty = 1;
+}
 static void settings_defaults(void)
 {
     set.magic = SET_MAGIC;

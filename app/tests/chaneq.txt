@@ -88,15 +88,21 @@ expect ui.ch1.midf -20
 tap EDIT
 wait 30
 expect sound_bank 0
-# a channel's key held: KNOB 4 steps its filter on the Big Knob's detents (up the high-pass, down into the low-pass);
-# the hold is for editing, so the mute stays as it was
+# a channel's key held: KNOB 2 steps its filter on the Big Knob's detents (up the high-pass, down into the low-pass);
+# the hold is for editing, so the mute stays as it was (8.8: K1 level, K2 filter, K3 echo send, K4 spring send)
 key w3 down 80
 wait 30
-turn K4 2
+turn K2 2
 wait 30
 said BASS FILTER HP 100 HZ
 expect ui.ch4.filt 8
-turn K4 -3
+turn K3 3
+wait 30
+expect ui.ch4.echo 6
+turn K4 2
+wait 30
+expect ui.ch4.spring 4
+turn K2 -3
 wait 30
 said BASS FILTER LP
 expect ui.ch4.filt -4

@@ -314,7 +314,7 @@ static void arr_draw(int all)
         uint32_t i;
         for (i = 0; i < 4u; i++) {
             int32_t x = 6 + (int32_t)i * 59;
-            cv_text(x, 4, &FONT_XS, L[i], C_GRAY);
+            cv_text(x, 4, &FONT_XS, L[i], kc_or(KC_KNOB(i), C_GRAY));
             t[0] = 0;
             if (i == 0u)
                 int_text(arr.cursor + 1, t);

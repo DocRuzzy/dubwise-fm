@@ -204,7 +204,7 @@ static void keys_draw(int all)
         static const char *const K1[4] = {"ROOT", "SCALE", "LOCK", "OCTAVE"}, *const K2[4] = {"BAR", "ROOT", "TYPE", "BARS"};
         for (i = 0; i < 4u; i++) {
             int32_t x = 6 + (int32_t)i * 59;
-            cv_text(x, 4, &FONT_XS, ks.bank ? K2[i] : K1[i], C_GRAY);
+            cv_text(x, 4, &FONT_XS, ks.bank ? K2[i] : K1[i], kc_or(KC_KNOB(i), C_GRAY));
             t[0] = 0;
             if (ks.bank) {
                 int32_t c = ctl_get(P_CHORD0 + ks.slot);

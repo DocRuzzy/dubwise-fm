@@ -272,11 +272,11 @@ The roundup review docked firmwares for unreadable pages and waits between menus
 3. Prototype the DUB page and runway in the browser emulator; run a usability pass (C1, C4, C3, and a first-timer runway test).
 
 #### 4.1.x As built in 8.1 (2026-11-10): each channel's filter and EQ
-- **A white key 1–8 held + KNOB 4:** that channel's own filter on the Big Knob's steps: turning up is the high-pass
+- **A white key 1–8 held + KNOB 2 (8.8: was 4):** that channel's own filter on the Big Knob's steps: turning up is the high-pass
   (the 9069B's steps), down past OFF the low-pass (the 9068B's), closing as it goes. Several keys held: every held
   channel's filter moves together, so the kick, snare and hats keys held make the drums' filter one move (mastery
   guide C3, drill (c)).
-- **A white key 1–8 held + the Big Knob turned:** the same as KNOB 4. It's Tubby's knob, switched across channels,
+- **A white key 1–8 held + the Big Knob turned:** the same as KNOB 2. It's Tubby's knob, switched across channels,
   and the hand on the key can't miss.
 - **A white key 1–8 held + the Big Knob pressed:** those filters straight back OFF, the snap back to bypass. With no
   key held, the press still toggles the Big Knob's own high-pass and low-pass.
@@ -292,3 +292,9 @@ The roundup review docked firmwares for unreadable pages and waits between menus
 - **8.9: a white key 1–8 held + ALGORITHM:** that channel's pan, 2 a detent (every key held: theirs), "SKANK PAN R 10".
   The focus stays. A small amber tick along the strip's foot shows where it sits; none at centre. Only the highs move
   (a 4th-order split at 150 Hz), and the Seven-inch tier is mono.
+- **8.8: the held key's knobs reordered** (the owner, 2026-11-10; nobody's muscle memory yet): KNOB 1 level, 2 the filter,
+  3 the echo send, 4 the spring send (were 1 level, 2 echo, 3 spring, 4 filter). KNOB 3 is then always the echo (its
+  return, a send) and KNOB 4 always the spring. That's what lets each knob wear one colour.
+- **8.8: the knobs' colours:** SETUP's COLOUR rows, one a knob. The footer's labels are drawn in KNOB 1–4's colours on
+  every page, the Big Knob's arc in its own, the focus mark in ALGORITHM's. The labels stay, so colour is never the
+  only cue. The default set: the Big Knob red, ALGORITHM yellow, PRESET off, KNOB 1 white, 2 orange, 3 blue, 4 green.

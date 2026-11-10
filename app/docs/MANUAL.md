@@ -78,8 +78,8 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | KNOB 2 · FB | How long the repeats last: the time they take to fall 60 dB, from 0.1 s to endless (INF). |
 | KNOB 3 · ECHO | The echo's return level. |
 | KNOB 4 · SPRG | The spring's return level. |
-| Hold white key 1–8 + KNOB 1–4 | That channel's level, echo send, spring send and **its own filter** (KNOB 4). Turning a knob while you hold the key keeps the key from flipping the mute. |
-| Hold white key 1–8 + BIG KNOB | **That channel's own filter**, on the Big Knob's steps: turn up for the high-pass (70 Hz to 7.5 kHz), down past OFF for the low-pass (closing as you go). Hold several keys and they move together: hold the kick, snare and hats keys for the drums' filter as one. The strip's name turns amber, underlined, while its EQ or filter is in. See 3f. |
+| Hold white key 1–8 + KNOB 1–4 | That channel's **level** (KNOB 1), **its own filter** (KNOB 2), **echo send** (KNOB 3) and **spring send** (KNOB 4): the echo always on KNOB 3 and the spring on KNOB 4, as their returns are. Turning a knob while you hold the key keeps the key from flipping the mute. |
+| Hold white key 1–8 + BIG KNOB | **That channel's own filter** (as KNOB 2), on the Big Knob's steps: turn up for the high-pass (70 Hz to 7.5 kHz), down past OFF for the low-pass (closing as you go). Hold several keys and they move together: hold the kick, snare and hats keys for the drums' filter as one. The strip's name turns amber, underlined, while its EQ or filter is in. See 3f. |
 | Hold white key 1–8 + press BIG KNOB | Those channels' filters straight back OFF: the snap back on the one. |
 | Hold white key 1–8 + ALGORITHM | That channel's **pan**: left, centre, right (several keys held: all of them). Only the part above about 150 Hz moves; the lows stay centred. A small amber tick at the strip's foot shows where it sits. SAVE and slots keep it; the song records it, so it can move. |
 | Hold white key 1–8 + EDIT | That channel's **STRIP** at once (its EQ: LO, MID, FREQ, HI), with no banks to step through. ALGORITHM then moves to the next channel's STRIP. See 3f. |
@@ -97,6 +97,22 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | (Stereo) | Each voice is mono; you place it with its pan (hold its key and turn ALGORITHM). The pan moves only what's above about 150 Hz, so the kick and bass stay solid in the middle whatever you do. The echo and the spring are stereo: the spring always, the echo with WIDTH. The Seven-inch tier (when the FM-1 is overloaded) folds everything to mono. |
 | Black key 1 | Spring crash: strikes the spring tank, a thunderclap even with nothing sent to it. Held while you hold a throw key, it sends that throw to the spring as well. |
 | FX | The FX page: ECHO (time, feedback, tone, 2T head), SPRING (decay, tone, return), CROSS (the echo's return into the spring, the spring's into the echo), TAPE (the dive), PHASER (where it is: OFF, HATS, SKANK, ECHO or the whole MIX; RATE 0.1–18 Hz, DEPTH, FEEDBACK), GATE (the spring gate: each snare opens the spring for HOLD, then it shuts over RELEASE, so a long spring is chopped into a tail after every snare), DRIVE (tape saturation on the BASS or the whole MIX: DRIVE up to +14 dB into the tape, BLEND with the clean sound; quiet sounds keep their level, loud ones flatten and thicken) and WIDTH (the echo's right side 8–16 ms behind its left, for a wider echo; the phaser's sine or square sweep; PING-PONG, the echo's repeats left, right, left, while the bass in them stays in the middle) and BI-PHASE (a second phaser: MODE SINGLE, CASCADE, the two in a row for deeper sweeps with the second at its own RATE 2, or STEREO, the left and right sweeping against each other, on the echo's return; elsewhere STEREO works as CASCADE so the dry sound stays mono); press FX again for the next. KNOB 1–4 change them. The cross-sends make a loop between the two effects, so they're held back automatically when the echo or the spring is set long: it never runs away. |
+
+**The knobs' colours.** Each knob keeps one job across the pages, so it can wear a colour, and the screen draws its
+labels in that colour. The default set:
+
+| Knob | Colour | Its job |
+| --- | --- | --- |
+| BIG KNOB (SELECT) | Red | The filter: the whole mix's, or a held channel's |
+| ALGORITHM | Yellow | Where things sit: the focus, or a held channel's pan |
+| PRESET | (none) | Moving around: scenes, patterns, patches |
+| KNOB 1 | White | The main one: echo TIME, a channel's LEVEL, LO |
+| KNOB 2 | Orange | The heat: feedback (FB), a channel's FILTER, MID |
+| KNOB 3 | Blue | The echo: its return, a channel's echo send |
+| KNOB 4 | Green | The spring: its return, a channel's spring send |
+
+Colour your caps (or a dot of paint on each) to match, or set the screen to match the caps you have: SETUP's COLOUR
+rows, one a knob, OFF for the page's own colours.
 
 The keys light by one rule: bright is playing, dim is muted or not in use yet, and a slow blink means waiting.
 
@@ -142,6 +158,7 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | TEST TONES | A test tone on every channel (not saved). |
 | OUTPUT | LINE (the default: headphones, the line out, USB) or SPEAKER (BASS+): for the FM-1's own little speaker, which plays almost nothing under 50 Hz. The kick's and the bass's lows are heard through their harmonics instead, and the lows the speaker can't play are cut, so it doesn't flap. Set it back to LINE for headphones or a system. |
 | DESK | CLEAN (the default) or MCI: each channel after its fader goes through a gentle saturation, a little hot, the way the MCI desk at King Tubby's overdrove when a fader was pushed (its fader came before its drive). A loud channel thickens; a quiet one passes as it is. After Airwindows' ConsoleMC. Studio tier only: when the guard steps down it goes back to CLEAN. |
+| COLOUR BIG KNOB … COLOUR KNOB 4 | Seven rows, one a knob (the Big Knob, ALGORITHM, PRESET, KNOB 1–4): the colour of its cap, OFF, WHITE, RED, ORANGE, YELLOW, GREEN, BLUE or PURPLE. The screen draws that knob's labels (and the Big Knob's arc, the focus mark) in it. The default set: red, yellow, off, white, orange, blue, green. |
 | ONE SHOTS | FACTORY, or YOURS when you've put your own on the FM-1 (below, "Your own one-shots"). Turn KNOB 2 twice to have BIM, HORN and LASER back (stopped). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |

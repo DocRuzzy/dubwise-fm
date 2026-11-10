@@ -89,10 +89,22 @@ static const char *const BTN_NAME[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO
                                          "PLAY", "REC", "OCT-", "OCT+"};
 static const char *const ENC_NAME[NE] = {"BIG KNOB", "FOCUS", "PRESET", "K1", "K2", "K3", "K4"};
 static const char *const KNOB_LABEL[4] = {"TIME", "FB", "ECHO", "SPRG"};   /* spec 4.1 */
-static const char *const FOCUS_LABEL[4] = {"LEVEL", "ECHO", "SPRG", "FILT"};   /* a mute key held */
+static const char *const FOCUS_LABEL[4] = {"LEVEL", "FILT", "ECHO", "SPRG"};   /* a mute key held (8.8: the echo
+                                                                                 * on KNOB 3, the spring on 4, as
+                                                                                 * their returns are) */
 static const char *const DEST_NAME[DEST_N] = {"E", "S", "ES"};
 static const char *const DEST_WORD[DEST_N] = {"ECHO", "SPRING", "BOTH"};
 #define C_RED RGB(232, 76, 60)
+/* 8.8: the knob colours (matched to the caps: SETUP), as the screen draws them */
+static const char *const KCOL_NAME[KCOL_N] = {"OFF", "WHITE", "RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "PURPLE"};
+static const uint16_t KCOL_RGB[KCOL_N] = {0, RGB(240, 240, 244), RGB(236, 70, 56), RGB(246, 140, 40), RGB(244, 214, 52),
+                                          RGB(80, 210, 110), RGB(70, 150, 245), RGB(176, 110, 236)};
+static uint16_t kc_or(uint32_t k, uint16_t c)     /* knob k's colour, or c (OFF: the page's own) */
+{
+    uint32_t v = kcol(k);
+    return v ? KCOL_RGB[v] : c;
+}
+#define KC_KNOB(i) (KC_K1 + (i))
 /* (forward: the pages' files are included further down) */
 static void song_rec_toggle(void);
 static void song_undo_last(void);
@@ -833,9 +845,9 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
         return;
     }
     if (ch >= 0) {
-        static const uint8_t F[3] = {CHF_LEVEL, CHF_ECHO_SEND, CHF_SPRING_SEND};
-        if (i < 3u)
-            int_text(ctl_get(P_CH(ch, F[i])), t);
+        static const uint8_t F[4] = {CHF_LEVEL, CHF_FILT, CHF_ECHO_SEND, CHF_SPRING_SEND};
+        if (i != 1u)
+            int_text(ctl_get(P_CH(ch, F[i & 3u])), t);
         else
             text_cat(t, chfilt_name(ctl_get(P_CH(ch, CHF_FILT))));   /* 8.1: the channel's filter */
     } else if (i == 0u)
@@ -997,14 +1009,15 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
         return;
     }
     if (ch >= 0) {                       /* hold-to-focus: the held channel's strip */
-        static const uint8_t F[3] = {CHF_LEVEL, CHF_ECHO_SEND, CHF_SPRING_SEND};
+        static const uint8_t F[4] = {CHF_LEVEL, CHF_FILT, CHF_ECHO_SEND, CHF_SPRING_SEND};   /* (8.8: K3 the echo, K4
+                                                  * the spring, as their returns; K2 the filter) */
         if (!dub.dbl[ch]) {              /* the hold is for editing: the mute stays as it was */
             dub.dbl[ch] = 1;
             ctl_cue(P_CH(ch, CHF_MUTE), dub.m0[ch], act_beats());
         }
-        if (i < 3u)
-            id = P_CH(ch, F[i]);
-        else {                           /* 8.1: KNOB 4, the channel's own filter (every key held: theirs) */
+        if (i != 1u)
+            id = P_CH(ch, F[i & 3u]);
+        else {                           /* 8.1: KNOB 2, the channel's own filter (every key held: theirs) */
             hold_edits(held_mutes());
             chfilt_step(held_mutes(), e);
             return;
@@ -1521,7 +1534,7 @@ static void draw_strips(void)
                 cv_text(x + 19, by + bh + 3, &FONT_T, "S", C_AMB);
 
             if ((int32_t)ch == dub.focus)
-                cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
+                cv_rect(x + 3, STRIP_H - 2, 22, 2, kc_or(KC_ALGO, C_GRAY));   /* (8.8: ALGORITHM's colour) */
             {                            /* 8.9: the pan, a tick along the strip's foot (none at centre) */
                 int32_t pn = eng_param(P_CH(ch, CHF_PAN));
                 if (pn)
@@ -1598,7 +1611,7 @@ static void draw_centre(void)
         for (k = 1; k <= nd; k++) {
             float a = 3.14159265f * (1.0f - (float)(k - 1) / (float)(nd - 1));   /* left to right */
             int32_t x = 180 + (int32_t)(24.0f * fm_cosf(a)), y = 42 - (int32_t)(22.0f * fm_sinf(a));
-            cv_rect(x - dot / 2, y - dot / 2, dot, dot, k * s <= stp ? C_HI : C_LINE);
+            cv_rect(x - dot / 2, y - dot / 2, dot, dot, k * s <= stp ? kc_or(KC_BIG, C_HI) : C_LINE);   /* (8.8: its cap's colour) */
         }
         cv_text(180 - text_w(&FONT_B, bk_name(stp)) / 2, 44, &FONT_B, bk_name(stp), stp ? C_WHITE : C_DIM);
         lands_text(lands_in(), t);
@@ -1620,7 +1633,7 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
     for (i = 0; i < 4u; i++) {
         int32_t x = 6 + (int32_t)i * 59;
         if (held_throw() >= 0)
-            cv_text(x, 4, &FONT_XS, i == 0u ? "DEST" : "", C_AMB);
+            cv_text(x, 4, &FONT_XS, i == 0u ? "DEST" : "", kc_or(KC_KNOB(i), C_AMB));
         else if (dub.sound && ch < 0) {
             char l[12];
             int32_t sid = sound_id(i), mch;
@@ -1631,7 +1644,7 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
             else if (sid >= 0)
                 label_of((uint32_t)sid, l, sizeof l);
             {
-                int32_t lx = cv_text(x, 4, &FONT_XS, l, C_AMB);
+                int32_t lx = cv_text(x, 4, &FONT_XS, l, kc_or(KC_KNOB(i), C_AMB));
                 if (sid >= 0 && macro_of((uint32_t)sid, &mch, &mk) && macro_moved(mch, mk))
                     cv_rect(lx + 2, 9, 3, 3, C_WHITE);   /* a dot: a target turned since (spec 4.9) */
                 if (!dice_bank() && dice_held(i)) {   /* a lock: Dice leaves it alone (5.6) */
@@ -1642,7 +1655,7 @@ static void draw_footer(void)            /* the four knobs: the echo's, or the h
                 }
             }
         } else
-            cv_text(x, 4, &FONT_XS, ch >= 0 ? FOCUS_LABEL[i] : KNOB_LABEL[i], ch >= 0 ? C_AMB : C_GRAY);
+            cv_text(x, 4, &FONT_XS, ch >= 0 ? FOCUS_LABEL[i] : KNOB_LABEL[i], kc_or(KC_KNOB(i), ch >= 0 ? C_AMB : C_GRAY));
         knob_value(i, ch, t);
         cv_text(x, 18, &FONT_B, t, i == 1u && ch < 0 && eng_echo_g() >= 1.0f ? C_RED : C_HI);
     }
