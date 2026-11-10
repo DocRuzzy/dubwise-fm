@@ -275,12 +275,13 @@ void echo_run(const float *in, float *out, float *outr, uint32_t n)
             upr_prev = upr_cur;
             up_cur = line_step(dec_s2);
             upr_cur = out_r;
-            if (x == 0.0f && fm_fabsf(dec_s2) < 1e-12f && up_cur == 0.0f && last_heads_zero)   /* (the decimator's
+            if (x == 0.0f && fm_fabsf(dec_s2) < 1e-12f && up_cur == 0.0f && last_heads_zero) {   /* (the decimator's
                                                   * last 1e-25s count as silence: it never quite reaches 0) */
                 if (++quiet == IDLE_AFTER)       /* idle from here: every part of it back to exactly 0 (a start from
                                                   * silence then the same each time, bit for bit: a replay, 5.1) */
                     echo_settle();
-            else
+            } else                               /* (9.1: braced. The else went with the inner if, so quiet was reset
+                                                  * on every silent sample and the echo never idled) */
                 quiet = 0;
         }
         /* back up: linear between the last two line samples (a line sample late), then smoothed */
@@ -293,3 +294,5 @@ void echo_run(const float *in, float *out, float *outr, uint32_t n)
 
 float echo_gr(void) { return lim_g; }
 float echo_t_now(void) { return t_now; }
+
+int echo_idle(void) { return quiet >= IDLE_AFTER; }

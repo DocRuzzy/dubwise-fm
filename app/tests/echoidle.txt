@@ -1,0 +1,20 @@
+# 9.1 (the prerelease assessment's finding 1): the echo goes idle once a throw has died away, and costs nothing then.
+# A dangling else had kept it busy for the rest of the session after its first input.
+wait 600
+expect echo_idle 1
+param dev.tones 1
+param ch2.solo 1
+param ch2.throw 1
+wait 300
+param ch2.throw 0
+param dev.tones 0
+wait 100
+expect echo_idle 0
+# the feedback's T60 at its default is a few seconds; the line holds ~3 s more: well idle by 20 s
+wait 20000
+expect echo_idle 1
+perf reset
+wait 2000
+perf
+# (perf_ch10 is the echo's part: tenths of a % of the device's block)
+expect perf_ch10 <20

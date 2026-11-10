@@ -39,4 +39,5 @@ void echo_config(const echo_cfg_t *c);           /* the audio interrupt, before 
 void echo_run(const float *in, float *outl, float *outr, uint32_t n);
 float echo_gr(void);                             /* the return limiter's gain now (1: not limiting) */
 float echo_t_now(void);                          /* the slewed time, line samples */
+int echo_idle(void);                             /* 9.1: 1 the tape empty and nothing coming in: it costs nothing */
 void echo_wow_start(void);                       /* 6.3: the wow from its start (a replay the same) */

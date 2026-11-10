@@ -894,6 +894,8 @@ int app_expect(const char *what, int *got)
         *got = peak_db(pk);
     } else if (!strcmp(what, "out_db"))        /* the mix, before MASTER */
         *got = peak_db(eng_out_peak());
+    else if (!strcmp(what, "echo_idle"))    /* 9.1: the echo idle (its tape empty, nothing in) */
+        *got = echo_idle();
     else if (!strcmp(what, "echo_db"))
         *got = peak_db(eng_echo_peak());
     else if (!strcmp(what, "echo_ret_db"))   /* the echo's return, after its level */
