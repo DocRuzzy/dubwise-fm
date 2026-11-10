@@ -216,6 +216,10 @@ static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value
         return v ? "FAST" : "SLOW";
     if (id == P_VOICE(CH_VOX, VX_SAY))           /* (6.6: the shout's name; OFF: black 8 is BIM) */
         return v ? lpc_name(v - 1) : "OFF";
+    if (id == P_VOICE(CH_LEAD, VL_INST) && v < INST_N) {   /* (7.3: REED) */
+        static const char *const I[INST_N] = {"MELODICA", "BRASS", "REED"};
+        return I[v];
+    }
     if (id == P_VOICE(CH_VOX, VX_SHAPE))         /* (7.1) */
         return v ? "NJD" : "CLASSIC";
     if (id == P_VOICE(CH_BASS, VB_SUBTONE))      /* (6.1) */

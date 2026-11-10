@@ -91,10 +91,22 @@ static struct {
 #define DOUBLE_N 530u                            /* 12 ms */
 static struct {
     float pc, pc2, pm, mprev, f, amp, vel, vib, scoop, t;
-    float inst, bright, att, rel, vdepth, spread;
+    float bright, att, rel, vdepth, spread;
+    int inst;                                    /* INST_MELODICA, INST_BRASS, INST_REED (7.3) */
     int32_t note;                                /* held, -1 none */
     int on;
 } lead;
+/* 7.3: REED, a free-reed melodica after Puranik & Scavone's harmonium model (DAFx-23, CC-BY: its structure, no code):
+ * the reed's air flow, rising while the tongue opens and cut off as it passes the plate (one jump a period, rich in
+ * odd and even harmonics; PolyBLEP keeps the jump clean), into the instrument's body (three resonances; the paper finds
+ * the enclosure shapes the tone more than the reed). The breath sets how far the reed swings (louder: a shorter, brighter
+ * pulse) and pulls the pitch a hair (a free reed goes sharp as the pressure falls). The body's resonances are estimates
+ * (no melodica measurements are published): 1.1, 2.5 and 4.2 kHz */
+typedef struct { float b0, b1, b2, a1, a2, z1, z2; } bq_t;
+static bq_t reed_bq[3];
+static void bq_peak(bq_t *q, float hz, float qf, float db);
+static float reed_air;                           /* the breath's noise, low-passed */
+static uint32_t reed_rng = 0x2545F491u;
 static float dbl[DOUBLE_N];
 static uint32_t dbl_pos;
 
@@ -214,13 +226,19 @@ void voices_config(const int16_t *ev, int tier)
     bass.gk = ev[P_VOICE(CH_BASS, VB_GLIDE)] ? 1.0f - fm_expf(-1.0f / (lin(ev[P_VOICE(CH_BASS, VB_GLIDE)], 1.0f, 300.0f)
                                                                          * 0.001f * SR * 0.5f * 0.25f))
                                              : 1.0f;            /* (a one-pole a half-rate sample, ~T/4: there in T) */
-    lead.inst = ev[P_VOICE(CH_LEAD, VL_INST)] ? 1.0f : 0.0f;
+    lead.inst = ev[P_VOICE(CH_LEAD, VL_INST)];
     lead.bright = lin(ev[P_VOICE(CH_LEAD, VL_BRIGHT)], 0.3f, 3.0f);
     lead.att = 1.0f / (lin(ev[P_VOICE(CH_LEAD, VL_ATTACK)], 10.0f, 150.0f) * 0.001f * SR);
     lead.rel = t60k(lin(ev[P_VOICE(CH_LEAD, VL_RELEASE)], 30.0f, 600.0f));
     lead.spread = ev[P_VOICE(CH_LEAD, VL_DETUNE)] ? 0.0035f * fm_exp2f((float)ev[P_VOICE(CH_LEAD, VL_DETUNE)] * (1.0f / 32.0f))
                                                   : 0.0035f;   /* 5.3: 6 cents at 0 */
     lead.vdepth = lin(ev[P_VOICE(CH_LEAD, VL_VIBRATO)], 0.0f, 40.0f) * (1.0f / 1200.0f);   /* octaves */
+    if (lead.inst == INST_REED) {                /* (7.3: the body; BRIGHT lifts its upper two) */
+        float b = (float)ev[P_VOICE(CH_LEAD, VL_BRIGHT)] * (1.0f / 127.0f);
+        bq_peak(&reed_bq[0], 1100.0f, 2.0f, 6.0f);
+        bq_peak(&reed_bq[1], 2500.0f, 3.0f, 2.0f + 8.0f * b);
+        bq_peak(&reed_bq[2], 4200.0f, 4.0f, -6.0f + 8.0f * b);
+    }
     (void)tier;
 }
 
@@ -491,6 +509,56 @@ static int render_bass(float *o, uint32_t n)
     return 1;
 }
 
+static void bq_peak(bq_t *q, float hz, float qf, float db)   /* RBJ's peaking EQ (coefficients only; state kept) */
+{
+    float a = fm_exp2f(db * (1.0f / 12.0412f)), w = 6.2831853f * hz * INV_SR, al = fm_sinf(w) / (2.0f * qf),
+          c = fm_cosf(w), a0 = 1.0f / (1.0f + al / a);
+    q->b0 = (1.0f + al * a) * a0;
+    q->b1 = -2.0f * c * a0;
+    q->b2 = (1.0f - al * a) * a0;
+    q->a1 = q->b1;
+    q->a2 = (1.0f - al / a) * a0;
+}
+static inline float bq_run(bq_t *q, float x)    /* transposed direct form II */
+{
+    float y = q->b0 * x + q->z1;
+    q->z1 = undenorm(q->b1 * x - q->a1 * y + q->z2);
+    q->z2 = undenorm(q->b2 * x - q->a2 * y);
+    return y;
+}
+static inline float pblamp(float t, float dt)   /* PolyBLAMP: a slope change's correction near t = 0 (x slope / 2) */
+{
+    if (t < dt) {
+        t = t / dt - 1.0f;
+        return -t * t * t * (1.0f / 3.0f);
+    }
+    if (t > 1.0f - dt) {
+        t = (t - 1.0f) / dt + 1.0f;
+        return t * t * t * (1.0f / 3.0f);
+    }
+    return 0.0f;
+}
+#define REED_W 0.08f                             /* the closing: the tongue past the plate over 8 % of a period */
+/* the flow over a period: (t/d)^1.5 as the reed opens, then cut to 0 over REED_W; its two corners PolyBLAMP'd (a flow
+ * cut in one sample, as first built, aliased at -35 dB; this measures -57 dB at A4, -54 at C6) */
+static inline float reed_flow(float ph, float dt, float d)
+{
+    float q1 = ph - d, q2 = ph - d - REED_W, u;
+    if (q1 < 0.0f)
+        q1 += 1.0f;
+    if (q2 < 0.0f)
+        q2 += 1.0f;
+    if (ph < d) {
+        u = ph / d;
+        u *= fm_sqrtf(u);
+    } else if (ph < d + REED_W)
+        u = 1.0f - (ph - d) * (1.0f / REED_W);
+    else
+        u = 0.0f;
+    u += 0.5f * dt * ((-1.0f / REED_W - 1.5f / d) * pblamp(q1, dt) + (1.0f / REED_W) * pblamp(q2, dt));
+    return u - (0.4f * d + 0.5f * REED_W);       /* (less its mean) */
+}
+
 static int render_lead(float *o, uint32_t n)
 {
     uint32_t i;
@@ -508,7 +576,25 @@ static int render_lead(float *o, uint32_t n)
         if (lead.t > 0.3f)                       /* vibrato, after 300 ms (the player's breath settles) */
             vib = lead.vdepth * fm_sin_turns(lead.vib);
         lead.vib = wrap(lead.vib + 4.5f * INV_SR);
-        if (lead.inst > 0.5f) {                  /* brass: a scoop up into the note, the index with the loudness */
+        if (lead.inst == INST_REED) {            /* 7.3: the free reed */
+            float d = 0.62f - 0.18f * env * (0.4f + 0.6f * lead.vel) / lead.bright, dt, air;
+            if (d < 0.25f)
+                d = 0.25f;
+            if (d > 0.9f)
+                d = 0.9f;
+            f *= fm_exp2f(vib + 0.003f * (1.0f - env));   /* (sharp as the breath falls: ~2 Hz at A4) */
+            dt = f * INV_SR;
+            lead.pc = wrap(lead.pc + dt);
+            lead.pc2 = wrap(lead.pc2 + dt * (1.0f + lead.spread));   /* a second reed a few cents up (DETUNE) */
+            s = 0.6f * (reed_flow(lead.pc, dt, d) + reed_flow(lead.pc2, dt * (1.0f + lead.spread), d));
+            reed_rng ^= reed_rng << 13;
+            reed_rng ^= reed_rng >> 17;
+            reed_rng ^= reed_rng << 5;
+            air = (float)(int32_t)reed_rng * (1.0f / 2147483648.0f);
+            reed_air += (air - reed_air) * 0.3f;  /* the breath past the reed, faint */
+            s += 0.012f * reed_air * env;
+            s = bq_run(&reed_bq[2], bq_run(&reed_bq[1], bq_run(&reed_bq[0], s)));
+        } else if (lead.inst == INST_BRASS) {    /* brass: a scoop up into the note, the index with the loudness */
             lead.scoop *= 0.9994f;               /* ~40 ms */
             f *= fm_exp2f(vib - lead.scoop * (1.0f / 12.0f));
             lead.pc = wrap(lead.pc + f * INV_SR);

@@ -55,7 +55,7 @@ enum { OUT_LINE, OUT_SPEAKER, OUT_N };          /* 6.2 */
 enum { SUB_SINE, SUB_CLASSIC, SUB_N };          /* 6.1: the bass's sub: a sine, or sine + 1/3 3rd + 1/5 5th */            /* the rotary: ours, or setBfree's whirl (Studio only; v0.3) */
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
-enum { INST_MELODICA, INST_BRASS, INST_N };
+enum { INST_MELODICA, INST_BRASS, INST_REED, INST_N };   /* 7.3: REED, the free-reed melodica */
 /* the chord channels' steps hold a voicing, not a note: the notes are the chord lane's (P_CHORD0..) */
 enum { VOICING_LO, VOICING_MID, VOICING_HI, VOICING_N };
 /* a chord code (root x 8 + quality) voiced: three notes from base up (MIDI), the root's octave by the voicing */

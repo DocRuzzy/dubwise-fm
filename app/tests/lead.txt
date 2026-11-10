@@ -21,6 +21,21 @@ wait 700
 midi 81 45 00
 wait 800
 wavstop
+# 7.3: REED, the free-reed melodica (a reed's flow into the body's resonances); low and high, no clicks or DC
+param v7.inst 2
+wav reed.wav
+midi 91 45 64
+wait 900
+midi 81 45 00
+wait 800
+expect ch7_db <-80
+wavstop
+wav reed-hi.wav
+midi 91 54 7F
+wait 900
+midi 81 54 00
+wait 800
+wavstop
 param v7.inst 0
 # the keyboard on the lead (REC on its STEPS page), two octaves over the bass's: key 4 is A3
 tap SEQ
@@ -47,3 +62,5 @@ expect ch7_db <-60
 tap PLAY
 #wav melodica.wav peak<-1 dc<-50 zc_hz>420 zc_hz<480 click<-30
 #wav brass.wav peak<-1 dc<-50 zc_hz>380 click<-30
+#wav reed.wav peak<-1 dc<-60 click<-35
+#wav reed-hi.wav peak<-1 dc<-60 click<-28
