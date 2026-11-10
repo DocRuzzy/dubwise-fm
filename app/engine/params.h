@@ -177,6 +177,9 @@ enum {
     P_SPRING_TONE,            /* its damping: 2 .. 7 kHz */
     P_SPRING_KICK,            /* 0 -> 1: the tank struck (the crash) */
     P_SPRING_END,
+    P_BK_RES = 0x0D8,         /* 8.10: the Big Knob's resonance, BKRES_OFF (the Altec's, Q 1), BKRES_LOW, BKRES_HIGH (as the
+                               * AudioThing Dub Filter's "impedance": each step rings as it clicks). A SETUP preference */
+    P_BK_END,
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..40 = HPF_HZ (the Altec's on 4, 8 .. 40) */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */
     P_HPF_LP,                 /* 7.5: 1, the Big Knob a low-pass (the Altec 9068B, the 9069B's sibling): its press */
@@ -221,6 +224,7 @@ float echo_div_beats(int32_t d);
 const char *echo_div_name(int32_t d);                 /* "1/8." */
 float echo_t60(int32_t fb);                          /* seconds */
 enum { HPF_ON_MIX, HPF_ON_ECHO, HPF_ON_N };
+enum { BKRES_OFF, BKRES_LOW, BKRES_HIGH, BKRES_N };   /* 8.10 */
 enum { PH_OFF, PH_HATS, PH_SKANK, PH_ECHO, PH_MIX, PH_N };
 enum { PHM_SINGLE, PHM_CASCADE, PHM_STEREO, PHM_N };   /* STEREO on the echo's return only; elsewhere CASCADE */
 enum { DRIVE_OFF, DRIVE_BASS, DRIVE_MIX, DRIVE_N };

@@ -1,0 +1,44 @@
+# 8.10: the Big Knob's resonance (SETUP: BIG KNOB RESONANCE, OFF / LOW / HIGH): the two-pole's Q 1 (the Altec's), 2 or
+# 4, so each step rings as it clicks, as the AudioThing Dub Filter's "impedance". The snare's test tone (220 Hz) just
+# under the Big Knob's 250 Hz step: OFF takes it ~5 dB down; HIGH lifts it ~4 dB (the peak at the step).
+wait 600
+listen
+param dev.tones 1
+param ch2.solo 1
+param hpf 16
+wait 300
+expect eng.bk.res 0
+expect out_db >-27
+expect out_db <-23
+tap GLO
+wait 30
+turn K1 36
+wait 30
+said BIG KNOB RESONANCE OFF
+turn K2 1
+wait 30
+said BIG KNOB RESONANCE LOW
+turn K2 1
+wait 30
+said BIG KNOB RESONANCE HIGH
+expect eng.bk.res 2
+wait 300
+expect out_db >-18
+expect out_db <-14
+# the steps moved while it rings: no overload, no DC
+wav bkres.wav
+param hpf 20
+wait 200
+param hpf 12
+wait 200
+param hpf 16
+wait 600
+wavstop
+#wav bkres.wav peak<-1 dc<-50
+# (stable at any Q: the state-variable filter, outside every feedback loop)
+# kept with SAVE (the settings' spare bits), through a reboot
+tap SAVE
+wait 1500
+reboot
+wait 800
+expect eng.bk.res 2

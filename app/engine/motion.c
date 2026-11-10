@@ -84,7 +84,8 @@ int mot_recordable(uint32_t id)                  /* (not the spin-back: a song t
                                                   * channel's pattern: the song's bars keep those, on their lines) */
 {
     return id >= P_CH_BASE && id < P_NIDS && id != P_SPIN && param_desc(id) != 0
-           && !(id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE == CHF_PAT) && id != P_TAILS;
+           && !(id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE == CHF_PAT) && id != P_TAILS
+           && id != P_BK_RES;                    /* (8.10: a SETUP preference, not the song's) */
 }
 
 int mot_momentary(uint32_t id)

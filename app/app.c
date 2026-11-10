@@ -44,7 +44,8 @@ static const uint16_t SET_FX[] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_S
                                     P_ECHO_HEAD3, P_DESK, P_HPF_LP, P_ECHO_TYPE};   /* (7.1, 7.4, 7.5, 7.9) */
 #define NSET_FX (sizeof SET_FX / sizeof SET_FX[0])
 /* 8.8: the knobs' colours, matched to their caps: seven encoders, 3 bits each (21 bits) in the FX bytes' last three
- * (unused before: 0 in an older save). Stored XOR the default set, so 0 is the default set (the owner's scheme) */
+ * (unused before: 0 in an older save). Stored XOR the default set, so 0 is the default set (the owner's scheme).
+ * 8.10: bits 21-22 (the last byte's 5-6) the Big Knob's resonance (P_BK_RES; 0, OFF, in an older save) */
 enum { KC_BIG, KC_ALGO, KC_PRESET, KC_K1, KC_K2, KC_K3, KC_K4, KC_N };
 enum { KCOL_OFF, KCOL_WHITE, KCOL_RED, KCOL_ORANGE, KCOL_YELLOW, KCOL_GREEN, KCOL_BLUE, KCOL_PURPLE, KCOL_N };
 #define KC_AT 29u                                /* set.fx[29..31] */
@@ -352,6 +353,7 @@ static int save_project(int quiet)       /* SAVE (quiet: the autosave, which say
         uint32_t i;
         for (i = 0; i < NSET_FX; i++)
             set.fx[i] = (uint8_t)ctl_get(SET_FX[i]);
+        set.fx[KC_AT + 2u] = (uint8_t)((set.fx[KC_AT + 2u] & 0x1Fu) | (uint32_t)ctl_get(P_BK_RES) << 5);   /* 8.10 */
     }
     {
         uint32_t i;
@@ -438,6 +440,7 @@ static void load_saved(void)             /* the store's objects into both sides 
         uint32_t i;
         for (i = 0; i < NSET_FX; i++)
             ctl_set(SET_FX[i], set.fx[i]);
+        ctl_set(P_BK_RES, set.fx[KC_AT + 2u] >> 5 & 3u);   /* 8.10: the Big Knob's resonance (0 in an older save: OFF) */
     }
     {
         uint32_t i;

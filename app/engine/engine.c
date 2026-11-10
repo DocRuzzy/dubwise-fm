@@ -132,7 +132,7 @@ static volatile uint32_t crashes;
 static volatile int32_t echo_div_now;
 static volatile uint32_t lock_now = 0xFFFu;
 static bigknob_t bk, bkr;                        /* the Big Knob (P1.1), left and right */
-static int32_t bk_step = -1, bk_lp;              /* its step set; 7.5: a low-pass */
+static int32_t bk_step = -1, bk_lp, bk_res;      /* its step set; 7.5: a low-pass; 8.10: its resonance */
 static volatile float out_peak;                  /* the output's, before MASTER (tests, meters)      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
@@ -782,7 +782,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
                       ev[P_CH(CH_ORGAN, CHF_MID_F)], ev[P_CH(CH_ORGAN, CHF_HI)], ev[P_CH(CH_ORGAN, CHF_FILT)], 44100.0f);
     }
     lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
-    if (ev[P_HPF_STEP] != bk_step || ev[P_HPF_LP] != bk_lp) {   /* a step: at once, unsmoothed (the detents are the
+    if (ev[P_HPF_STEP] != bk_step || ev[P_HPF_LP] != bk_lp || ev[P_BK_RES] != bk_res) {   /* a step: at once, unsmoothed (the detents are the
                                                                  * sound); 7.5: or the other filter */
         float hz;
         bk_step = ev[P_HPF_STEP];
@@ -790,6 +790,9 @@ static void bus_update(void)                     /* the echo's and the voices' s
         hz = bk_lp ? lpf_hz(bk_step) : hpf_hz(bk_step);
         bigknob_step(&bk, hz, bk_lp);
         bigknob_step(&bkr, hz, bk_lp);
+        bk_res = ev[P_BK_RES];                   /* 8.10: Q 1 (the Altec's), 2 or 4: the step rings */
+        bigknob_q(&bk, bk_res == BKRES_HIGH ? 4.0f : bk_res == BKRES_LOW ? 2.0f : 1.0f);
+        bigknob_q(&bkr, bk_res == BKRES_HIGH ? 4.0f : bk_res == BKRES_LOW ? 2.0f : 1.0f);
     }
 }
 

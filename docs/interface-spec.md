@@ -298,3 +298,5 @@ The roundup review docked firmwares for unreadable pages and waits between menus
 - **8.8: the knobs' colours:** SETUP's COLOUR rows, one a knob. The footer's labels are drawn in KNOB 1–4's colours on
   every page, the Big Knob's arc in its own, the focus mark in ALGORITHM's. The labels stay, so colour is never the
   only cue. The default set: the Big Knob red, ALGORITHM yellow, PRESET off, KNOB 1 white, 2 orange, 3 blue, 4 green.
+- **8.10: SETUP's BIG KNOB RESONANCE** (OFF / LOW / HIGH): the Big Knob's two-pole Q 1, 2 or 4. A preference, the
+  device's: not a project's, not recorded. Kept in the settings' last spare bits.

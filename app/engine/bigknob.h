@@ -17,3 +17,5 @@ typedef struct {
 void bigknob_init(bigknob_t *b);
 void bigknob_step(bigknob_t *b, float hz, int lp);   /* 0: off (bypass); lp: as a low-pass (7.5) */
 void bigknob_run(bigknob_t *b, float *x, uint32_t n);   /* in place */
+void bigknob_q(bigknob_t *b, float q);           /* 8.10: the two-pole's Q (1: the Altec's; higher rings at each step);
+                                                  * after bigknob_step */

@@ -54,7 +54,8 @@ static int project_param(uint32_t id)            /* a project's, not the device'
         return 1;
     if (id >= P_CHORD0 && id < P_CHORD_END)
         return 1;
-    return id >= P_CH_BASE && id < P_NIDS && param_desc(id) && mot_momentary(id) < 0 && id != P_SPIN && id != P_SHOT && id != P_TAILS;
+    return id >= P_CH_BASE && id < P_NIDS && param_desc(id) && mot_momentary(id) < 0 && id != P_SPIN && id != P_SHOT && id != P_TAILS
+           && id != P_BK_RES;                    /* (8.10: a SETUP preference, the device's) */
 }
 
 static const slot_head_t *slot_head(uint32_t s)  /* the slot's header in the flash, 0: empty */

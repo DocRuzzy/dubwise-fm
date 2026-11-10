@@ -231,6 +231,7 @@ static const pdesc_t VOX[P_VOX_END - P_SIREN] = {
 };
 static const pdesc_t TAILS = {"tails", 0, 1, 0};
 static const pdesc_t FILL = {"fill", 0, 1, 0};
+static const pdesc_t BKRES = {"bk.res", 0, BKRES_N - 1, BKRES_OFF};   /* 8.10 */
 static const pdesc_t DESK_COL = {"desk", 0, DESK_N - 1, DESK_CLEAN};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
@@ -347,6 +348,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &SPRING[id - P_SPRING_RET];
     if (id >= P_HPF_STEP && id < P_HPF_END)
         return &HPF[id - P_HPF_STEP];
+    if (id == P_BK_RES)
+        return &BKRES;
     if (id >= P_WET && id < P_DESK_END)
         return &DESK[id - P_WET];
     if (id == P_TAILS)
