@@ -35,6 +35,11 @@ static float dec_s1, dec_s2;                     /* the decimator's low-pass (tw
  * 22.05 kHz and 22.05 to 11.025 kHz: the spring's taps (P1.2; Kaiser, 39 taps, 80 dB down). What folds back then
  * lies above ~4 kHz and 80 dB down, where the two one-poles let a hat's 9-10 kHz fold to 1-2 kHz 15-17 dB under it.
  * ~30 multiplies a line sample; ~2.7 ms more delay */
+#ifdef PLAT_HOST                                 /* (the A/B is the simulator's until the owner chooses: 512 B of RAM
+                                                  * the device can't spare at the floor) */
+#define ECHO_AA 1
+#endif
+#if ECHO_AA
 #define AA_N 10
 static const float AA[AA_N] = {-3.918133401e-05f, 3.435328263e-04f, -1.247887089e-03f, 3.310629063e-03f,
                                -7.346797129e-03f, 1.454619641e-02f, -2.690197254e-02f, 4.891961872e-02f,
@@ -59,6 +64,9 @@ static inline float aa_hb(const float *h, uint32_t at)   /* a half-band at the n
         a += AA[k] * (h[(at - 2u * k) & (AA_R - 1u)] + h[(at - 38u + 2u * k) & (AA_R - 1u)]);
     return a;
 }
+#else
+static void aa_rest(void) {}
+#endif
 static float up_prev, up_cur, up_lp;             /* the interpolator's two line-rate outputs, and its smoothing */
 static float upr_prev, upr_cur, upr_lp;          /* the right side's */
 static hp4_t side_hp;                            /* the right's difference, high-passed at 150 Hz, 24 dB/oct */
@@ -297,6 +305,7 @@ void echo_run(const float *in, float *out, float *outr, uint32_t n)
     }
     for (i = 0; i < n; i++) {
         float x = fm_fabsf(in[i]) < 1e-15f ? 0.0f : in[i];   /* (-300 dB and under: nothing; a replay then the same) */
+#if ECHO_AA
         if (cfg.aa) {                            /* 9.7: the half-bands (the one-poles' state kept at rest) */
             aa_xi = (aa_xi + 1u) & (AA_R - 1u);
             aa_x[aa_xi] = x;
@@ -307,7 +316,9 @@ void echo_run(const float *in, float *out, float *outr, uint32_t n)
                     aa_out = undenorm(aa_hb(aa_y, aa_yi));
             }
             dec_s2 = aa_out;
-        } else {
+        } else
+#endif
+        {
             dec_s1 = undenorm(dec_s1 + 0.44f * (x - dec_s1));   /* ~4 kHz, twice: images below 5.5 kHz kept out */
             dec_s2 = undenorm(dec_s2 + 0.44f * (dec_s1 - dec_s2));
         }
