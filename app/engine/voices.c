@@ -115,6 +115,7 @@ static struct {
 typedef struct { float b0, b1, b2, a1, a2, z1, z2; } bq_t;
 static bq_t reed_bq[3];
 static void bq_peak(bq_t *q, float hz, float qf, float db);
+static void bq_lpf(bq_t *q, float hz, float qf);
 static float reed_air;                           /* the breath's noise, low-passed */
 static uint32_t reed_rng = 0x2545F491u;
 static float dbl[DOUBLE_N];
@@ -259,11 +260,13 @@ void voices_config(const int16_t *ev, int tier)
     lead.spread = ev[P_VOICE(CH_LEAD, VL_DETUNE)] ? 0.0035f * fm_exp2f((float)ev[P_VOICE(CH_LEAD, VL_DETUNE)] * (1.0f / 32.0f))
                                                   : 0.0035f;   /* 5.3: 6 cents at 0 */
     lead.vdepth = lin(ev[P_VOICE(CH_LEAD, VL_VIBRATO)], 0.0f, 40.0f) * (1.0f / 1200.0f);   /* octaves */
-    if (lead.inst == INST_REED) {                /* (7.3: the body; BRIGHT lifts its upper two) */
-        float b = (float)ev[P_VOICE(CH_LEAD, VL_BRIGHT)] * (1.0f / 127.0f);
-        bq_peak(&reed_bq[0], 1100.0f, 2.0f, 6.0f);
-        bq_peak(&reed_bq[1], 2500.0f, 3.0f, 2.0f + 8.0f * b);
-        bq_peak(&reed_bq[2], 4200.0f, 4.0f, -6.0f + 8.0f * b);
+    if (lead.inst == INST_REED) {                /* (7.3: the body, fitted 2026-11-10 to 34 melodica notes; BRIGHT
+                                                  * slides its low-pass an octave either way and its upper resonance
+                                                  * +-4 dB; at 64, as measured) */
+        float b = ((float)ev[P_VOICE(CH_LEAD, VL_BRIGHT)] - 64.0f) * (1.0f / 63.0f);
+        bq_peak(&reed_bq[0], 1455.0f, 0.69f, 15.0f);
+        bq_peak(&reed_bq[1], 2929.0f, 1.04f, 12.7f + 4.0f * b);
+        bq_lpf(&reed_bq[2], 5965.0f * fm_exp2f(b), 0.40f);
     }
     (void)tier;
 }
@@ -558,6 +561,16 @@ static void bq_peak(bq_t *q, float hz, float qf, float db)   /* RBJ's peaking EQ
     q->a1 = q->b1;
     q->a2 = (1.0f - al / a) * a0;
 }
+static void bq_lpf(bq_t *q, float hz, float qf)   /* RBJ's low-pass (7.3's fitted body) */
+{
+    float w = 6.2831853f * fm_minf(hz, 18000.0f) * INV_SR, al = fm_sinf(w) / (2.0f * qf), c = fm_cosf(w),
+          a0 = 1.0f / (1.0f + al);
+    q->b0 = 0.5f * (1.0f - c) * a0;
+    q->b1 = (1.0f - c) * a0;
+    q->b2 = q->b0;
+    q->a1 = -2.0f * c * a0;
+    q->a2 = (1.0f - al) * a0;
+}
 static inline float bq_run(bq_t *q, float x)    /* transposed direct form II */
 {
     float y = q->b0 * x + q->z1;
@@ -633,6 +646,7 @@ static int render_lead(float *o, uint32_t n)
             reed_air += (air - reed_air) * 0.3f;  /* the breath past the reed, faint */
             s += 0.012f * reed_air * env;
             s = bq_run(&reed_bq[2], bq_run(&reed_bq[1], bq_run(&reed_bq[0], s)));
+            s *= 0.5f;                           /* (the fitted body's gain: the FM melodica's loudness) */
         } else if (lead.inst == INST_BRASS) {    /* brass: a scoop up into the note, the index with the loudness */
             lead.scoop *= 0.9994f;               /* ~40 ms */
             f *= fm_exp2f(vib - lead.scoop * (1.0f / 12.0f));
