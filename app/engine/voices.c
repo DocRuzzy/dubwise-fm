@@ -6,6 +6,7 @@
 #include "fastmath.h"
 #include "dsp.h"
 #include "d808.h"                                /* 7.6: the 808 models, after Plaits */
+#include "plat.h"                                /* PLAT_POOL (7.3: the reed's tables) */
 
 #define SR 44100.0f
 #define INV_SR (1.0f / 44100.0f)
@@ -115,6 +116,7 @@ static struct {
 typedef struct { float b0, b1, b2, a1, a2, z1, z2; } bq_t;
 static bq_t reed_bq[3];
 static void bq_peak(bq_t *q, float hz, float qf, float db);
+static void reed_tables(void);
 static void bq_lpf(bq_t *q, float hz, float qf);
 static float reed_air;                           /* the breath's noise, low-passed */
 static uint32_t reed_rng = 0x2545F491u;
@@ -129,6 +131,7 @@ void voices_start(void)                          /* the transport's start: the n
 void voices_init(void)
 {
     d808_init();
+    reed_tables();
     lead.on = 0;
     lead.note = -1;
     lead.amp = 0.0f;
@@ -264,9 +267,8 @@ void voices_config(const int16_t *ev, int tier)
                                                   * slides its low-pass an octave either way and its upper resonance
                                                   * +-4 dB; at 64, as measured) */
         float b = ((float)ev[P_VOICE(CH_LEAD, VL_BRIGHT)] - 64.0f) * (1.0f / 63.0f);
-        bq_peak(&reed_bq[0], 1455.0f, 0.69f, 15.0f);
-        bq_peak(&reed_bq[1], 2929.0f, 1.04f, 12.7f + 4.0f * b);
-        bq_lpf(&reed_bq[2], 5965.0f * fm_exp2f(b), 0.40f);
+        bq_lpf(&reed_bq[0], 1992.0f * fm_exp2f(b), 2.60f);   /* (refitted with the puff, 12 real notes) */
+        bq_peak(&reed_bq[1], 3749.0f * fm_exp2f(0.5f * b), 1.37f, 11.4f + 4.0f * b);
     }
     (void)tier;
 }
@@ -578,37 +580,65 @@ static inline float bq_run(bq_t *q, float x)    /* transposed direct form II */
     q->z2 = undenorm(q->b2 * x - q->a2 * y);
     return y;
 }
-static inline float pblamp(float t, float dt)   /* PolyBLAMP: a slope change's correction near t = 0 (x slope / 2) */
+/* 7.3, refitted 2026-11-10 by ear and measure: the reed's air comes in a short puff, a half-sine open 8 % (blown hard)
+ * to 15 % (soft) of each cycle: its harmonics level to about the 12th, then a cliff (the real ones' brightness and
+ * buzz; the first REED's flow, open half the cycle, was dull). The puff band-limited exactly: its Fourier series, in a
+ * table an octave of notes (the top note's harmonics under 20 kHz), two widths, built at boot into the pool */
+#define REED_GAIN 2.8f
+#define RT_N 1024u
+#define RT_OCT 6u                                /* tables for notes up to 130, 260 .. 4,160 Hz */
+static PLAT_POOL int16_t reed_tab[2][RT_OCT][RT_N];
+static const float RT_DELTA[2] = {0.15f, 0.08f}; /* soft, hard */
+static float reed_sample(float d, uint32_t K, float ph)   /* the puff's Fourier series to harmonic K, at phase ph */
 {
-    if (t < dt) {
-        t = t / dt - 1.0f;
-        return -t * t * t * (1.0f / 3.0f);
+    float a = 3.14159265f / d, acc = 0.0f;
+    uint32_t k;
+    for (k = 1; k <= K; k++) {
+        /* c_k = integral over the puff of sin(pi t / d) e^(-i 2 pi k t) = a (1 + e^(-i w d)) / (a^2 - w^2) */
+        float wk = 6.2831853f * (float)k, den = a * a - wk * wk, re, im, kp = (float)k * ph;
+        if (fm_fabsf(den) < 1e-3f * a * a) {   /* (w = a: the limit, -i d / 2) */
+            re = 0.0f;
+            im = -0.5f * d;
+        } else {
+            re = a * (1.0f + fm_cosf(wk * d)) / den;
+            im = -a * fm_sinf(wk * d) / den;
+        }
+        kp -= (float)(int32_t)kp;
+        acc += 2.0f * (re * fm_sin_turns(kp + 0.25f >= 1.0f ? kp - 0.75f : kp + 0.25f) - im * fm_sin_turns(kp));
     }
-    if (t > 1.0f - dt) {
-        t = (t - 1.0f) / dt + 1.0f;
-        return t * t * t * (1.0f / 3.0f);
-    }
-    return 0.0f;
+    return acc;
 }
-#define REED_W 0.08f                             /* the closing: the tongue past the plate over 8 % of a period */
-/* the flow over a period: (t/d)^1.5 as the reed opens, then cut to 0 over REED_W; its two corners PolyBLAMP'd (a flow
- * cut in one sample, as first built, aliased at -35 dB; this measures -57 dB at A4, -54 at C6) */
-static inline float reed_flow(float ph, float dt, float d)
+static void reed_tables(void)                    /* (boot; no scratch: each sample summed in place, scaled by the
+                                                  * puff's own peak, at its middle) */
 {
-    float q1 = ph - d, q2 = ph - d - REED_W, u;
-    if (q1 < 0.0f)
-        q1 += 1.0f;
-    if (q2 < 0.0f)
-        q2 += 1.0f;
-    if (ph < d) {
-        u = ph / d;
-        u *= fm_sqrtf(u);
-    } else if (ph < d + REED_W)
-        u = 1.0f - (ph - d) * (1.0f / REED_W);
-    else
-        u = 0.0f;
-    u += 0.5f * dt * ((-1.0f / REED_W - 1.5f / d) * pblamp(q1, dt) + (1.0f / REED_W) * pblamp(q2, dt));
-    return u - (0.4f * d + 0.5f * REED_W);       /* (less its mean) */
+    uint32_t w, o, n;
+    for (w = 0; w < 2u; w++)
+        for (o = 0; o < RT_OCT; o++) {
+            float d = RT_DELTA[w], top = 65.0f * (float)(2u << o);
+            uint32_t K = (uint32_t)(20000.0f / top);
+            float sc = 27000.0f / reed_sample(d, K, 0.5f * d);
+            for (n = 0; n < RT_N; n++) {
+                float v = reed_sample(d, K, (float)n * (1.0f / (float)RT_N)) * sc;
+                reed_tab[w][o][n] = (int16_t)(v > 32767.0f ? 32767.0f : v < -32768.0f ? -32768.0f : v);
+            }
+        }
+}
+static inline float reed_read(const int16_t *t, float ph)
+{
+    float x = ph * (float)RT_N;
+    uint32_t i = (uint32_t)x;
+    float fr = x - (float)i, a = (float)t[i & (RT_N - 1u)], b = (float)t[(i + 1u) & (RT_N - 1u)];
+    return (a + fr * (b - a)) * (1.0f / 30000.0f);   /* (the scale's 27,000 at the puff's peak; as before, 30,000) */
+}
+static inline uint32_t reed_oct(float f)         /* the table whose top note is at or over f */
+{
+    uint32_t o = 0;
+    float top = 130.0f;
+    while (o + 1u < RT_OCT && f > top) {
+        top *= 2.0f;
+        o++;
+    }
+    return o;
 }
 
 static int render_lead(float *o, uint32_t n)
@@ -629,24 +659,24 @@ static int render_lead(float *o, uint32_t n)
             vib = lead.vdepth * fm_sin_turns(lead.vib);
         lead.vib = wrap(lead.vib + 4.5f * INV_SR);
         if (lead.inst == INST_REED) {            /* 7.3: the free reed */
-            float d = 0.62f - 0.18f * env * (0.4f + 0.6f * lead.vel) / lead.bright, dt, air;
-            if (d < 0.25f)
-                d = 0.25f;
-            if (d > 0.9f)
-                d = 0.9f;
+            float hard = env * (0.4f + 0.6f * lead.vel), dt, air;   /* (how hard it's blown: the puff's width) */
+            uint32_t oc;
             f *= fm_exp2f(vib + 0.003f * (1.0f - env));   /* (sharp as the breath falls: ~2 Hz at A4) */
             dt = f * INV_SR;
+            oc = reed_oct(f * (1.0f + lead.spread));
             lead.pc = wrap(lead.pc + dt);
             lead.pc2 = wrap(lead.pc2 + dt * (1.0f + lead.spread));   /* a second reed a few cents up (DETUNE) */
-            s = 0.6f * (reed_flow(lead.pc, dt, d) + reed_flow(lead.pc2, dt * (1.0f + lead.spread), d));
+            s = (1.0f - hard) * (reed_read(reed_tab[0][oc], lead.pc) + reed_read(reed_tab[0][oc], lead.pc2))
+                + hard * (reed_read(reed_tab[1][oc], lead.pc) + reed_read(reed_tab[1][oc], lead.pc2));
+            s *= 0.3f;
             reed_rng ^= reed_rng << 13;
             reed_rng ^= reed_rng >> 17;
             reed_rng ^= reed_rng << 5;
             air = (float)(int32_t)reed_rng * (1.0f / 2147483648.0f);
             reed_air += (air - reed_air) * 0.3f;  /* the breath past the reed, faint */
             s += 0.012f * reed_air * env;
-            s = bq_run(&reed_bq[2], bq_run(&reed_bq[1], bq_run(&reed_bq[0], s)));
-            s *= 0.5f;                           /* (the fitted body's gain: the FM melodica's loudness) */
+            s = bq_run(&reed_bq[1], bq_run(&reed_bq[0], s));
+            s *= REED_GAIN;                      /* (the FM melodica's loudness) */
         } else if (lead.inst == INST_BRASS) {    /* brass: a scoop up into the note, the index with the loudness */
             lead.scoop *= 0.9994f;               /* ~40 ms */
             f *= fm_exp2f(vib - lead.scoop * (1.0f / 12.0f));

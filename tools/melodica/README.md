@@ -22,3 +22,14 @@ python3 -I tools/melodica/fit2.py                                            # t
 Result: peak 1,455 Hz (Q 0.69, +15 dB), peak 2,929 Hz (Q 1.04, +12.7 dB), low-pass 5,965 Hz (Q 0.40); the fit's
 error 1.83 dB RMS. REED rendered across F3–C6 now sits 3.1 dB RMS from the recordings' envelope over 550 Hz–7.4 kHz
 (the estimated body before: 9.6 dB).
+
+## Refit by ear (2026-11-10, the same day)
+
+Played side by side, the real melodica was much brighter and buzzier than either REED. Two mistakes in the first fit:
+pooling every note into one curve let the many high urlande copies outweigh the low notes, and REED's reed was kept
+as built (open half the cycle) with only the body fitted. Looked at note by note, a real one's first ten or so
+harmonics are near level, then a cliff by the 12th, at every pitch: a property of the reed, a short puff (open ~10 %
+of the cycle). `fit_puff.py` fits the puff and the body together, per note: a half-sine puff 10 % wide, a resonant
+low-pass at 1,992 Hz (Q 2.6) and a peak at 3,749 Hz (Q 1.37, +11.4 dB). REED now plays the puff from band-limited
+tables (8 % wide blown hard, 15 % soft). Brightness centres, real against REED: C4 1,943 / 1,672 Hz, G4 1,866 /
+1,883, C5 2,026 / 1,978 (the first REED: 464 Hz at C4; the first fit: 983).
