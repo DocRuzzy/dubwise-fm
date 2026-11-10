@@ -1,7 +1,7 @@
 # Plan: roadmap 6.7, trig conditions and FILL (a step format change)
 
-Status: **waiting for the owner's OK.** No code until then. (CLAUDE.md: any change to a stored format needs a plan
-first.)
+Status: **approved 2026-11-10.** The owner took all five decisions as recommended: one CONDITION field with
+CHANCE in it; the 16 values; the note's top bit; FILL on OCT+ held (and learnable); PRE counts skipped steps.
 
 Sources (read, not built):
 - fizz `cond_ok` (MPL-2.0);
