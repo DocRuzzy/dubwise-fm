@@ -1,0 +1,80 @@
+# 9.5 (the prerelease assessment's findings 4, 5): CPU as ratios, the same verdict on any machine. The default desk
+# playing is the reference (perfref); each scene's cost is bounded as a % of it in the same run. The x80 device
+# figures stay in the log for 9.H (the device's own reading replaces them).
+wait 600
+tap PLAY
+wait 1000
+perf reset
+wait 4000
+perf
+perfref
+# (the reference against itself: a sanity check of the measure)
+expect perf_ratio >90
+expect perf_ratio <110
+# the heavy scene (the assessment's): the B-3 with the FULL Leslie, the 808 models, the MCI desk, the cascaded phaser
+# on the mix, ping-pong, the 3T head, wow, the mix through the tape, cross-sends, a long spring, EQ and pan on every
+# strip, a siren and two throws
+param v6.model 1
+param v6.rotary 2
+param v6.leslie 1
+param v1.model 3
+param v2.model 3
+param v3.model 2
+param desk 1
+param ph.on 4
+param ph.mode 1
+param echo.pp 1
+param echo.head3 90
+param echo.wow 60
+param drive.on 2
+param xs.e2s 60
+param spring.decay 127
+param ch1.lo 20
+param ch1.mid 20
+param ch1.hi -20
+param ch1.pan -30
+param ch2.lo 20
+param ch2.mid 20
+param ch2.hi -20
+param ch2.pan 30
+param ch3.lo 20
+param ch3.mid 20
+param ch3.hi -20
+param ch3.pan -30
+param ch4.lo 20
+param ch4.mid 20
+param ch4.hi -20
+param ch4.pan 30
+param ch5.lo 20
+param ch5.mid 20
+param ch5.hi -20
+param ch5.pan -30
+param ch6.lo 20
+param ch6.mid 20
+param ch6.hi -20
+param ch6.pan 30
+param ch7.lo 20
+param ch7.mid 20
+param ch7.hi -20
+param ch7.pan -30
+param ch8.lo 20
+param ch8.mid 20
+param ch8.hi -20
+param ch8.pan 30
+param ch2.echo 90
+param ch5.spring 90
+param ch2.throw 1
+param ch5.throw 1
+key b6 down 100
+wait 500
+perf reset
+wait 4000
+perf
+expect tier 0
+# the assessment measured ~3.2x the default desk: a bound with room, to catch a regression
+expect perf_ratio <400
+key b6 up
+param ch2.throw 0
+param ch5.throw 0
+tap PLAY
+wait 300

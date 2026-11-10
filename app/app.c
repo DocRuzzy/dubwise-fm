@@ -528,6 +528,7 @@ void app_redraw(void)                    /* (APP_REDRAW: the screen mirror lost 
  * touched for 4 s, stopped, the sound died away (a flash write stops the sound for a moment) and nothing being
  * loaded. Quiet: SAVE's light going out says it. A failed one waits 30 s before the next try */
 static uint32_t hits_mark;                       /* (6.7 tests: hitsmark, hits) */
+static uint32_t perf_ref;                        /* (9.5 tests: perfref, perf_ratio) */
 static uint32_t as_fail_t;
 static void autosave_tick(void)
 {
@@ -682,6 +683,13 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     }
     if (!strcmp(cmd, "oldmotion")) {     /* the motion as saved before 4,096 moves: 5,000 (motion.c) */
         mot_oldsave();
+        return 1;
+    }
+    if (!strcmp(cmd, "perfref")) {       /* 9.5: this moment's cost the reference for perf_ratio (the same run) */
+        uint32_t i;
+        perf_ref = 0;
+        for (i = 0; i < NPARTS; i++)
+            perf_ref += eng_prof(i).avg;
         return 1;
     }
     if (!strcmp(cmd, "oldscenes2")) {    /* the scenes as saved before 8.1 (SCN2: no EQ) */
@@ -952,6 +960,12 @@ int app_expect(const char *what, int *got)
         *got = (int)(eng_seq_hits() - hits_mark);
     else if (!strncmp(what, "perf_ch", 7))  /* perf_chN: channel N's average cost, tenths of a % of the device's block */
         *got = (int)(eng_prof((uint32_t)atoi(what + 7)).avg / 16.0 * 80.0 * 1000.0 / ENG_BLOCK_TICKS + 0.5);
+    else if (!strcmp(what, "perf_ratio")) {   /* 9.5: the engine's cost now against perfref's, %: the same on any machine */
+        uint32_t i, tot = 0;
+        for (i = 0; i < NPARTS; i++)
+            tot += eng_prof(i).avg;
+        *got = perf_ref ? (int)((uint64_t)tot * 100u / perf_ref) : -1;
+    }
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */
         uint32_t i, tot = 0;
         for (i = 0; i < NPARTS; i++)
