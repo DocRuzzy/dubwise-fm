@@ -5,6 +5,9 @@ set -e
 cd "$(dirname "$0")/.."
 python3 base/tools/build.py app --host
 OUT=app/build/host
+for g in app/tests/fixtures/*.bin.gz; do        # 9.13: the real saves of past releases, unpacked for flash_load
+    gunzip -c "$g" > "$OUT/$(basename "$g" .gz)"
+done
 for t in app/tests/*.txt; do
     [ "$(basename "$t")" = screens.txt ] && continue
     echo "== $t"

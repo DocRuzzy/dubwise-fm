@@ -1,0 +1,43 @@
+# 9.13 (the DUB-1 comparison §8.5): a real save from a released firmware, not a scripted old one. v0.3's simulator
+# (the tag, built in its own worktree) loaded RIGHTEOUS DUB, set the tempo to 74.0, the bass's decay to 30 and the hats'
+# level to 60, stored scene 3, saved, and saved slot 2; its whole flash is app/tests/fixtures/v0.3-flash.bin.gz. This
+# firmware boots from it: the project as it was (v0.3 kept no desk, so the hats' level is back at its default; the
+# scenes' and slots' EQ flat, SCN2 and DSL4 converted), and slot 2 loads.
+wait 600
+flash_load out:v0.3-flash.bin
+reboot
+wait 900
+listen
+expect ui.tempo 740
+expect ui.v4.decay 30
+expect ui.song.len 41
+expect mot_total 111
+expect scene_used3 1
+expect scene_used1 1
+expect ui.ch3.level 100
+expect ui.ch4.mid 0
+# scene 3 recalls (stopped: at once), its EQ flat
+tap HOME
+wait 30
+expect page 5
+tapkey w2
+wait 50
+expect eng.ch4.mid 0
+expect eng.ch3.level 60
+# slot 2, saved by v0.3 (DSL4), loads
+tap GLO
+wait 30
+turn K1 -5
+wait 30
+said LOAD SLOT
+turn K2 1
+wait 30
+said LOAD SLOT SLOT 2 (SAVED)
+tap SAVE
+wait 30
+tap SAVE
+wait 300
+said SLOT 2 LOADED
+wait 300
+expect ui.tempo 740
+expect mot_total 111

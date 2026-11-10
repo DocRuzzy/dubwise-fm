@@ -27,6 +27,7 @@
 
 ## Then
 
+- Make this release's save fixture (roadmap 9.13; `app/tests/fixtures/README.md`): its simulator, from the tag, saves a project and a slot; the flash gzipped in `app/tests/fixtures/`, and a `fixture_vX.Y.txt` that loads it.
 - Tag a release (`v0.3`: blocks 6 and 7, the demo tour and the 8.x plan) once the PR is merged, on `main`; the workflow publishes it. (`v0.1-beta` was the first; `v0.2` the 5.x block, PR 10.)
 - Email zven@thefirmwarehub.com:
   - the name (Dubwise FM) and the author (DocRuzzy, SpIllt Beats)
