@@ -2,7 +2,6 @@
  * Copyright (C) 2026 Dubwise FM contributors */
 /* motion.h. Compiled on its own (fm1.toml o2). */
 #include "motion.h"
-#include <string.h>
 #include "plat.h"
 
 /* the moves: a pool of chunks of MOT_CHUNK, each bar a chain of them (most bars have none); a bar's moves in order,
@@ -392,7 +391,11 @@ void mot_oldsave(void)                           /* (tests) a save from before 4
             m.tick = (uint16_t)(i * 3u);
             m.id = (uint16_t)P_ECHO_FB;
             m.v = (int16_t)(b * 1000u + i);
-            memcpy(buf + o, &m, sizeof m);
+            {
+                uint32_t k;
+                for (k = 0; k < sizeof m; k++)
+                    buf[o + k] = ((const uint8_t *)&m)[k];
+            }
         }
     h.magic = MOT_MAGIC;
     h.len = o;

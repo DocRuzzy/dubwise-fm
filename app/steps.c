@@ -903,24 +903,25 @@ static uint32_t steps_sig(void)          /* changes whenever the grid would */
 static void steps_draw_grid(void)        /* in the strips' place: every channel's page of 16 */
 {
     uint32_t ch, i;
-    cv_begin(240, STRIP_H, C_BLACK);
-    for (ch = 0; ch < NCH; ch++) {
-        int32_t y = (int32_t)ch * 12, len = pat_len((int32_t)ch), at = pat_at((int32_t)ch);
-        char l[2] = {PAT_L[pat_now((int32_t)ch)], 0};
-        cv_text(2, y, &FONT_T, CH_SHORT[ch], (int32_t)ch == st.ch ? C_WHITE : C_GRAY);
-        cv_text(24, y, &FONT_T, l, eng_pat(ch) == pat_now((int32_t)ch) ? C_HI : C_AMB);   /* (amber: launched, to come) */
-        for (i = 0; i < 16u; i++) {
-            int32_t idx = (int32_t)(st.page * 16u + i), x = 34 + (int32_t)i * 13;
-            step_t s = ctl_get_step(ch, (uint32_t)idx);
-            uint16_t c = LVL(s) == LVL_ACCENT ? C_HI : LVL(s) == LVL_NORMAL ? C_AMB : LVL(s) == LVL_GHOST ? C_GRAY : C_LINE;
-            if (idx >= len)
-                continue;
-            cv_rect(x, y + 2, 11, 8, c);
-            if (idx == at)
-                cv_rect(x, y + 10, 11, 1, C_WHITE);
+    CV_BANDS(STRIP_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        for (ch = 0; ch < NCH; ch++) {
+            int32_t y = (int32_t)ch * 12, len = pat_len((int32_t)ch), at = pat_at((int32_t)ch);
+            char l[2] = {PAT_L[pat_now((int32_t)ch)], 0};
+            cv_text(2, y, &FONT_T, CH_SHORT[ch], (int32_t)ch == st.ch ? C_WHITE : C_GRAY);
+            cv_text(24, y, &FONT_T, l, eng_pat(ch) == pat_now((int32_t)ch) ? C_HI : C_AMB);   /* (amber: launched, to come) */
+            for (i = 0; i < 16u; i++) {
+                int32_t idx = (int32_t)(st.page * 16u + i), x = 34 + (int32_t)i * 13;
+                step_t s = ctl_get_step(ch, (uint32_t)idx);
+                uint16_t c = LVL(s) == LVL_ACCENT ? C_HI : LVL(s) == LVL_NORMAL ? C_AMB : LVL(s) == LVL_GHOST ? C_GRAY : C_LINE;
+                if (idx >= len)
+                    continue;
+                cv_rect(x, y + 2, 11, 8, c);
+                if (idx == at)
+                    cv_rect(x, y + 10, 11, 1, C_WHITE);
+            }
         }
+        CV_BAND_BLIT(STRIP_Y);
     }
-    cv_blit(0, STRIP_Y);
 }
 
 static void steps_draw_centre(void)      /* the channel's page, bigger, with its notes */

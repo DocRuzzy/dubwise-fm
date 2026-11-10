@@ -30,30 +30,31 @@ static void perf_draw(int all)
     if (!all && plat_ms() - perf_t < 250u)       /* 4 times a second */
         return;
     perf_t = plat_ms();
-    cv_begin(240, PAGE_H, C_BLACK);
-    cv_text(6, 2, &FONT_XS, "PERF", C_GRAY);
-    cv_text(234 - text_w(&FONT_T, PERF_NOTE), 4, &FONT_T, PERF_NOTE, C_DIM);
-    for (i = 0; i < NPARTS; i++)
-        tot += part_pct10(i);
-    for (i = 0; i < sizeof SHOW; i++) {          /* a bar a part, 25 % full width */
-        uint32_t p = part_pct10(SHOW[i]);
-        int32_t y = 18 + (int32_t)i * 10, w = (int32_t)(p * 150u / 250u);
-        cv_text(6, y - 2, &FONT_T, NAME[i], C_GRAY);
-        cv_rect(56, y, w > 150 ? 150 : w, 7, C_HI);
-        int_text((int32_t)(p / 10u), t);
-        text_cat(t, ".");
-        int_text((int32_t)(p % 10u), n);
-        text_cat(t, n);
-        cv_text(212, y - 2, &FONT_T, t, C_AMB);
+    CV_BANDS(PAGE_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        cv_text(6, 2, &FONT_XS, "PERF", C_GRAY);
+        cv_text(234 - text_w(&FONT_T, PERF_NOTE), 4, &FONT_T, PERF_NOTE, C_DIM);
+        for (i = 0; i < NPARTS; i++)
+            tot += part_pct10(i);
+        for (i = 0; i < sizeof SHOW; i++) {          /* a bar a part, 25 % full width */
+            uint32_t p = part_pct10(SHOW[i]);
+            int32_t y = 18 + (int32_t)i * 10, w = (int32_t)(p * 150u / 250u);
+            cv_text(6, y - 2, &FONT_T, NAME[i], C_GRAY);
+            cv_rect(56, y, w > 150 ? 150 : w, 7, C_HI);
+            int_text((int32_t)(p / 10u), t);
+            text_cat(t, ".");
+            int_text((int32_t)(p % 10u), n);
+            text_cat(t, n);
+            cv_text(212, y - 2, &FONT_T, t, C_AMB);
+        }
+        {                                            /* the total, the guard's lines, the tier */
+            int32_t y = 124, w = (int32_t)(tot * 220u / 1000u);
+            cv_rect(6, y, 220, 10, C_LINE);
+            cv_rect(6, y, w > 220 ? 220 : w, 10, tot > 750u ? C_RED : tot > 450u ? C_AMB : C_HI);
+            cv_rect(6 + 220 * 45 / 100, y - 2, 1, 14, C_GRAY);
+            cv_rect(6 + 220 * 75 / 100, y - 2, 1, 14, C_RED);
+        }
+        CV_BAND_BLIT(STRIP_Y);
     }
-    {                                            /* the total, the guard's lines, the tier */
-        int32_t y = 124, w = (int32_t)(tot * 220u / 1000u);
-        cv_rect(6, y, 220, 10, C_LINE);
-        cv_rect(6, y, w > 220 ? 220 : w, 10, tot > 750u ? C_RED : tot > 450u ? C_AMB : C_HI);
-        cv_rect(6 + 220 * 45 / 100, y - 2, 1, 14, C_GRAY);
-        cv_rect(6 + 220 * 75 / 100, y - 2, 1, 14, C_RED);
-    }
-    cv_blit(0, STRIP_Y);
     lcd_fill(0, STRIP_Y + PAGE_H, 240, FOOT_Y - STRIP_Y - PAGE_H, C_BLACK);
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);

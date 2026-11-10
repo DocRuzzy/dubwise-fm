@@ -191,25 +191,26 @@ static void setup_draw(int all)          /* the list in the strips' and centre's
     if (!all && sig == su_sig)
         return;
     su_sig = sig;
-    cv_begin(240, PAGE_H, C_BLACK);      /* (a canvas holds 144 rows: the rest of the area below, cleared) */
-    cv_text(6, 2, &FONT_XS, "SETUP", C_GRAY);
-    {                                    /* where in the list: the rows scroll with the cursor */
-        char a[8], b[8];
-        int_text(su_cur + 1, a);
-        int_text(SU_N, b);
-        text_cat(a, "/");
-        text_cat(a, b);
-        cv_text(234 - text_w(&FONT_XS, a), 2, &FONT_XS, a, C_DIM);
+    CV_BANDS(PAGE_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        cv_text(6, 2, &FONT_XS, "SETUP", C_GRAY);
+        {                                    /* where in the list: the rows scroll with the cursor */
+            char a[8], b[8];
+            int_text(su_cur + 1, a);
+            int_text(SU_N, b);
+            text_cat(a, "/");
+            text_cat(a, b);
+            cv_text(234 - text_w(&FONT_XS, a), 2, &FONT_XS, a, C_DIM);
+        }
+        for (i = su_top(); i < SU_N && i < su_top() + SU_ROWS; i++) {
+            int32_t y = 16 + (int32_t)(i - su_top()) * 10, cur = (int32_t)i == su_cur;
+            if (cur)
+                cv_rect(0, y - 1, 240, 10, C_LINE);
+            cv_text(10, y, &FONT_T, SU_NAME[i], cur ? C_WHITE : C_GRAY);
+            su_value(i, t);
+            cv_text(232 - text_w(&FONT_T, t), y, &FONT_T, t, cur ? C_HI : C_AMB);
+        }
+        CV_BAND_BLIT(STRIP_Y);
     }
-    for (i = su_top(); i < SU_N && i < su_top() + SU_ROWS; i++) {
-        int32_t y = 16 + (int32_t)(i - su_top()) * 10, cur = (int32_t)i == su_cur;
-        if (cur)
-            cv_rect(0, y - 1, 240, 10, C_LINE);
-        cv_text(10, y, &FONT_T, SU_NAME[i], cur ? C_WHITE : C_GRAY);
-        su_value(i, t);
-        cv_text(232 - text_w(&FONT_T, t), y, &FONT_T, t, cur ? C_HI : C_AMB);
-    }
-    cv_blit(0, STRIP_Y);
     lcd_fill(0, STRIP_Y + PAGE_H, 240, FOOT_Y - STRIP_Y - PAGE_H, C_BLACK);
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);

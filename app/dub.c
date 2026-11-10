@@ -38,7 +38,16 @@
 #define CENTRE_H 76
 #define FOOT_Y 202
 #define FOOT_H 38
-#define PAGE_H 144                       /* a full page's canvas (the most a canvas holds), from STRIP_Y */
+#define PAGE_H 144                       /* a full page, from STRIP_Y */
+/* The canvas holds 76 rows (app.h, APP_CANVAS_PX; 144 until 2026-11-10: 32.6 KB of the pool back). A full page or the
+ * strips are drawn in two halves: the same drawing twice, each pass offset by its half (gfx.c's cv_oy) and clipped to
+ * it, then blitted. A body run twice must only draw: whatever it reads that can change (a meter) is read before */
+#define CV_ROWS 76
+#define CV_BANDS(h, bg)                                                                                                  \
+    for (int32_t cvb_ = 0, cvh_ = ((int32_t)(h) + 1) / 2; cvb_ < 2; cvb_++)                                             \
+        if ((cv_begin(240u, (uint32_t)cvh_, (bg)), cv_oy = -cvb_ * cvh_, cv_y0 = 0, cv_y1 = cvh_, 1))
+#define CV_BAND_BLIT(y) cv_blit(0, (uint32_t)((y) + cvb_ * cvh_))
+typedef char cv_bands_fit[(PAGE_H + 1) / 2 <= CV_ROWS && (STRIP_H + 1) / 2 <= CV_ROWS && CENTRE_H <= CV_ROWS ? 1 : -1];
 
 #define TAP_MS 300u                      /* shorter than this, a tap; two within it, a double tap */
 #define BLINK_MS 250u                    /* slow blink: cued */
@@ -1285,43 +1294,47 @@ static int32_t meter_px(float pk, int32_t h)     /* -48 .. 0 dBFS over the box's
 static void draw_strips(void)
 {
     uint32_t ch;
-    int solo_any = any_solo(1);
-    cv_begin(240, STRIP_H, C_BLACK);
-    for (ch = 0; ch < NCH; ch++) {
-        int32_t x = 1 + (int32_t)ch * 30, bx = x + 5, by = 30, bw = 18, bh = 46;
-        int on = audible(ch), soloed = eng_param(P_CH(ch, CHF_SOLO)) != 0;
-        int thrown = eng_param(P_CH(ch, CHF_THROW)) != 0;
-        char num[2] = {(char)('1' + ch), 0};
-        const char *dg = DEST_NAME[eng_param(P_CH(ch, CHF_THROW_DEST))];
-        if (thrown)                      /* a throw flashes its channel (spec 5.2) */
-            cv_rect(x + 4, 0, 20, 17, C_HI);
-        cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, thrown ? C_BLACK : on ? C_WHITE : C_GRAY);
-        cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
-        {                                /* its pattern (4.8): amber while one launched waits for its line */
-            uint32_t pw = (uint32_t)ctl_get(P_CH(ch, CHF_PAT)) & 3u;
-            char l[2] = {(char)('A' + pw), 0};
-            cv_text(x + 21, 3, &FONT_T, l, eng_pat(ch) != pw ? C_AMB : pw ? C_GRAY : C_DIM);
+    int solo_any = any_solo(1), blink = blink_on();
+    float pk[NCH];                       /* (read once: both halves draw the same meters) */
+    for (ch = 0; ch < NCH; ch++)
+        pk[ch] = eng_ch_peak(ch);
+    CV_BANDS(STRIP_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        for (ch = 0; ch < NCH; ch++) {
+            int32_t x = 1 + (int32_t)ch * 30, bx = x + 5, by = 30, bw = 18, bh = 46;
+            int on = audible(ch), soloed = eng_param(P_CH(ch, CHF_SOLO)) != 0;
+            int thrown = eng_param(P_CH(ch, CHF_THROW)) != 0;
+            char num[2] = {(char)('1' + ch), 0};
+            const char *dg = DEST_NAME[eng_param(P_CH(ch, CHF_THROW_DEST))];
+            if (thrown)                      /* a throw flashes its channel (spec 5.2) */
+                cv_rect(x + 4, 0, 20, 17, C_HI);
+            cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, thrown ? C_BLACK : on ? C_WHITE : C_GRAY);
+            cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
+            {                                /* its pattern (4.8): amber while one launched waits for its line */
+                uint32_t pw = (uint32_t)ctl_get(P_CH(ch, CHF_PAT)) & 3u;
+                char l[2] = {(char)('A' + pw), 0};
+                cv_text(x + 21, 3, &FONT_T, l, eng_pat(ch) != pw ? C_AMB : pw ? C_GRAY : C_DIM);
+            }
+            if (on) {                        /* filled = playing; the meter brighter over it */
+                int32_t m = meter_px(pk[ch], bh);
+                cv_rect(bx, by, bw, bh, C_LINE);
+                if (m > 0)
+                    cv_rect(bx, by + bh - (m > bh ? bh : m), bw, m > bh ? bh : m, C_HI);
+            } else if (solo_any && !soloed && !eng_param(P_CH(ch, CHF_MUTE))) {
+                hatch(bx, by, bw, bh, C_DIM);    /* hatched = solo-muted */
+                outline(bx, by, bw, bh, C_DIM);
+            } else {
+                outline(bx, by, bw, bh, C_GRAY);   /* outlined = muted */
+            }
+            if (cued(ch) && blink)
+                outline(bx - 2, by - 2, bw + 4, bh + 4, C_WHITE);
+            cv_text(x + 3, by + bh + 3, &FONT_T, dg, thrown ? C_HI : C_DIM);   /* the throw's destination */
+            if (soloed)
+                cv_text(x + 19, by + bh + 3, &FONT_T, "S", C_AMB);
+            if ((int32_t)ch == dub.focus)
+                cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
         }
-        if (on) {                        /* filled = playing; the meter brighter over it */
-            int32_t m = meter_px(eng_ch_peak(ch), bh);
-            cv_rect(bx, by, bw, bh, C_LINE);
-            if (m > 0)
-                cv_rect(bx, by + bh - (m > bh ? bh : m), bw, m > bh ? bh : m, C_HI);
-        } else if (solo_any && !soloed && !eng_param(P_CH(ch, CHF_MUTE))) {
-            hatch(bx, by, bw, bh, C_DIM);    /* hatched = solo-muted */
-            outline(bx, by, bw, bh, C_DIM);
-        } else {
-            outline(bx, by, bw, bh, C_GRAY);   /* outlined = muted */
-        }
-        if (cued(ch) && blink_on())
-            outline(bx - 2, by - 2, bw + 4, bh + 4, C_WHITE);
-        cv_text(x + 3, by + bh + 3, &FONT_T, dg, thrown ? C_HI : C_DIM);   /* the throw's destination */
-        if (soloed)
-            cv_text(x + 19, by + bh + 3, &FONT_T, "S", C_AMB);
-        if ((int32_t)ch == dub.focus)
-            cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
+        CV_BAND_BLIT(STRIP_Y);
     }
-    cv_blit(0, STRIP_Y);
 }
 
 static void draw_echo(void)              /* the left half: the repeats as they fall (amber near unity, red past) */

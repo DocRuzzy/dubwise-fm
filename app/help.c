@@ -216,13 +216,14 @@ static void help_draw(void)              /* in the page's place (the header stay
     if (help.drawn)
         return;
     help.drawn = 1;
-    cv_begin(240, PAGE_H, C_BLACK);
-    cv_rect(0, 0, 240, 1, C_LINE);
-    cv_text(6, 4, &FONT_XS, "HELP", C_GRAY);
-    cv_text(6, 18, &FONT_B, c->title, C_HI);
-    for (i = 0; i < HELP_LINES && c->line[i]; i++)
-        cv_text(8, 42 + (int32_t)i * 11, &FONT_T, c->line[i], C_WHITE);
-    cv_blit(0, STRIP_Y);
+    CV_BANDS(PAGE_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        cv_rect(0, 0, 240, 1, C_LINE);
+        cv_text(6, 4, &FONT_XS, "HELP", C_GRAY);
+        cv_text(6, 18, &FONT_B, c->title, C_HI);
+        for (i = 0; i < HELP_LINES && c->line[i]; i++)
+            cv_text(8, 42 + (int32_t)i * 11, &FONT_T, c->line[i], C_WHITE);
+        CV_BAND_BLIT(STRIP_Y);
+    }
     lcd_fill(0, STRIP_Y + PAGE_H, 240, FOOT_Y - STRIP_Y - PAGE_H, C_BLACK);
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);
