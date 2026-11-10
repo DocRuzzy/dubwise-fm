@@ -136,6 +136,19 @@ static int32_t bk_step = -1, bk_lp, bk_res;      /* its step set; 7.5: a low-pas
 static volatile float out_peak;                  /* the output's, before MASTER (tests, meters) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
+/* 9.4 (the prerelease assessment's finding 6): the last stage's safety. The returns are limited, the dry sum isn't:
+ * everything up could pass full scale. Below -3 dBFS nothing changes (bit for bit: the replays, the tests); above it
+ * a soft knee (tanh) bends towards full scale and never reaches it. 24-bit units, after MASTER */
+#define OUT_FS 8388607.0f
+#define OUT_KNEE (0.70794578f * OUT_FS)          /* -3 dBFS */
+static inline float out_safe(float o)
+{
+    float a = fm_fabsf(o);
+    if (a <= OUT_KNEE)
+        return o;
+    a = OUT_KNEE + (OUT_FS - OUT_KNEE) * fm_tanhf((a - OUT_KNEE) * (1.0f / (OUT_FS - OUT_KNEE)));
+    return o < 0.0f ? -a : a;
+}
 
 /* the transport: an exact integer clock. Position = t_beat + t_phase / BEAT_UNITS beats; each sample adds the tempo
  * (BPM x 10) to t_phase, so a beat is BEAT_UNITS / tempo samples, with no rounding that adds up (no drift) */
@@ -1730,8 +1743,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
                 tick_ph = tick_ph + tick_inc >= 1.0f ? tick_ph + tick_inc - 1.0f : tick_ph + tick_inc;
                 tick_amp *= 0.9985f;             /* ~15 ms */
             }
-            lr[2 * i] = (int32_t)(y * gain_now);
-            lr[2 * i + 1] = (int32_t)(yr * gain_now);
+            lr[2 * i] = (int32_t)out_safe(y * gain_now);   /* 9.4: never past full scale */
+            lr[2 * i + 1] = (int32_t)out_safe(yr * gain_now);
         }
         echo_ret_peak = rp;
         out_peak = op;
