@@ -5,6 +5,7 @@
 wait 600
 listen
 # MAIN on the kick: PUNCH (K2) moves SWEEP, PTIME and CLICK together
+# (the banks: MAIN, raw .., DICE, STRIP since 8.1; then closed)
 tap EDIT
 wait 30
 expect sound_bank 1
@@ -44,6 +45,7 @@ expect ui.v1.ptime 30
 expect ui.v1.click 40
 expect eng.v1.sweep 40
 # the ends: every kick macro at +63, then -64; the curves stay inside the raw ranges
+tap EDIT
 tap EDIT
 tap EDIT
 tap EDIT
@@ -100,6 +102,7 @@ wait 100
 wavstop
 #wav bass-cap.wav fund55>-3 peak<-1 dc<-40
 # MIDI learn on a macro: the controller's CC moves the macro and its targets
+tap EDIT
 tap EDIT
 tap EDIT
 tap EDIT

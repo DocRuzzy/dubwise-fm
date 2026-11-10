@@ -22,6 +22,10 @@ scenes, or save them as versions.
 - **The desk.** Quantised mutes and solos, throws to the echo or the spring (as hard as you hit), drum-and-bass and
   drop-to-wet on one key each, the Big Knob (a stepped high-pass, or pressed, a stepped low-pass), cross-sends, and a
   DESK setting that colours every strip like a 1970s console (MCI) or leaves it clean.
+- **Every channel its own filter and EQ.** Hold a channel's key and turn the Big Knob: that channel alone steps
+  through the filter while the band plays on. Hold the kick, snare and hats keys and the drums filter as one; press
+  the knob and they snap back. Each strip also has a low and high shelf and a mid you sweep: Scientist's EQ moves.
+  The song records every click and sweep, and scenes and SAVE keep the whole desk.
 - **The effects.** A tape echo with push, freeze, a tape dive, wow and flutter, a 2T and a 3T head, ping-pong and
   width, and a second echo type (a bucket brigade, darker as it gets longer); a two-spring reverb you can crash; a dual
   phaser; tape drive; a snare-keyed spring gate.
@@ -76,6 +80,7 @@ by any of the artists, studios or labels named here.
 | **Ping-pong echo and echo width.** Stereo only on the returns. The bass and kick stay centred and mono. | Mad Professor: "I took dub into the world of stereo". Many 1970s dubs were mono for sound systems and 7-inch singles, and later dub kept stereo mostly in the effect returns. |
 | **Tape drive.** The bass or the whole mix pushed into tape saturation. | Daniel Boyle's tape-saturated passes ("slam it really hard") on the bass. |
 | **DESK: MCI.** Each strip softly saturates after its fader, so a busy mix thickens the way an overdriven board did. Or set it to CLEAN. | Tubby's MCI board, after the Airwindows console models (MIT). It keeps the fader-before-drive order Airwindows gives for MCI consoles ("which overdrives easily"). |
+| **Each channel's own Big Knob and EQ.** Hold a channel's key and turn the Big Knob: only that channel steps through the filter (up: high-pass, down: low-pass). Several keys held move together, the drums as one; press the knob to snap them back. Hold a key and press EDIT for its EQ: blunt low and high shelves and a mid you sweep. | Tubby filtering one instrument "into a faint squeal, then gone" while the riddim held, and Scientist's EQ sweeps: "sometimes you can hear the frequency changin'". The mastery guide's drill: the stepped filter on the drum bus, and "3-band shelving or peaking plus one stepped HPF per channel". |
 | **The Big Knob as a low-pass.** Press the knob: the same steps, now taking the top off instead. | The Altec 9068B, the 9069B's stepped low-pass sibling: the pair sold together. |
 | **The 3T head and the BBD.** A third playback head at three times the delay, and a bucket-brigade echo type that darkens as the delay gets longer. | The RE-201's three heads (1 : 2 : 3), and the bucket-brigade delays that came after tape. |
 | **Snare-keyed spring gate.** Every snare opens the spring briefly, so a long reverb is chopped into a rhythmic tail. | Gates on reverb returns, as at Mad Professor's Ariwa studio (DS201 gates) and in *Sound On Sound*'s "skatter" gate. |

@@ -1,4 +1,4 @@
-# Plan 8.1: each channel's own EQ and stepped filter (for the owner's OK)
+# Plan 8.1: each channel's own EQ and stepped filter (approved 2026-11-10; built)
 
 Roadmap 8.1. The decisions it builds on (the owner, 2026-11-10): the EQ is saved in scenes; the second core is coming,
 but until it does the work fits one core; no overclocking. CLAUDE.md asks for a plan before any stored format changes:
@@ -19,15 +19,19 @@ Each of the eight strips gets, before its fader and sends:
 0 is flat or off for every stage, and a flat stage is skipped entirely. The bass, skank and organ, which render at half
 rate, are EQ'd at that rate before upsampling.
 
-**Playing it:**
-- **The STRIP bank.** The SOUND view gets a STRIP bank for the focused channel (ALGORITHM picks the channel): KNOB 1 LO,
-  KNOB 2 MID, KNOB 3 FREQ, KNOB 4 HI. It is the first bank after MAIN; channel 8 has no MAIN, so there it comes first.
-- **The channel's filter: press and turn the Big Knob.** That steps the focused channel's own filter, and the screen
-  says "BASS FILTER 500 HZ" (or "LP 2.5K"). A press released without a turn still toggles the main Big Knob's high-pass
-  and low-pass, as it does now. Holding a channel's key was considered instead, but pressing a key mutes the channel.
-- **Recording and recall.** The song's motion records every one of these, so a sweep is a move like any other. Undo
-  covers turns, as it does for the other knobs.
-- **The strip on screen.** A strip shows a small mark while its EQ or filter is in.
+**Playing it (as built; it changed from the first draft, see below):**
+- **Hold a channel's key + KNOB 4, or + turn the Big Knob:** that channel's filter steps. Several keys held move
+  together (the drums as one).
+- **Hold a channel's key + press the Big Knob:** those filters OFF at once. A press with no key held still toggles the
+  main Big Knob's high-pass and low-pass.
+- **Hold a channel's key + EDIT:** the SOUND view straight on its STRIP bank (LO, MID, FREQ, HI). On STRIP, ALGORITHM
+  moves to the next channel's STRIP. STRIP is the last bank, after DICE, so the banks before it keep their places.
+- **Why not "press and turn" (the first draft):** the interface spec already gave a held mute key the knobs
+  (hold-to-focus, 4.1.1: turning cancels the key's mute flip) and reserved KNOB 4 for the channel filter. A held key
+  is one gesture for every channel move, and it makes holding several keys (the drum section) possible.
+- **Recording and recall:** the song's motion records every field, so a sweep is a move like any other. Undo covers
+  turns, as for the other knobs.
+- **On screen:** a strip whose EQ or filter is in shows its name in amber, underlined.
 
 **IDs:** five of each strip's six spare fields, appended (`CHF_LO, CHF_MID, CHF_MID_F, CHF_HI, CHF_FILT`), neutral at 0.
 

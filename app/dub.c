@@ -278,7 +278,57 @@ static void upper(const char *a, char *t, uint32_t n)   /* a parameter's name as
 static uint32_t sound_banks(int32_t ch)
 {
     uint32_t nf = voice_fields(ch);
-    return nf ? (uint32_t)has_main(ch) + (nf + 3u) / 4u + 1u : 0u;   /* (+ DICE, the last: 5.6) */
+    return nf ? (uint32_t)has_main(ch) + (nf + 3u) / 4u + 2u : 0u;   /* (+ DICE (5.6), then STRIP, the last: 8.1) */
+}
+static int strip_bank(void)              /* 8.1: the SOUND view on the STRIP bank (the channel's EQ), the last */
+{
+    return dub.sound && voice_fields(dub.focus) && dub.sound == sound_banks(dub.focus);
+}
+static const uint8_t STRIP_F[4] = {CHF_LO, CHF_MID, CHF_MID_F, CHF_HI};
+static int strip_id(uint32_t id)         /* 1: a channel's EQ field (8.1) */
+{
+    uint32_t f = (id - P_CH_BASE) % CH_STRIDE;
+    return id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && f >= CHF_LO && f <= CHF_FILT;
+}
+static const char *chfilt_name(int32_t v)   /* a channel's filter: "OFF", "HP 500 HZ", "LP 2.5K" */
+{
+    static char t[16];
+    t[0] = 0;
+    if (!v) {
+        text_cat(t, "OFF");
+        return t;
+    }
+    text_cat(t, v > 0 ? "HP " : "LP ");
+    text_cat(t, hz_name(v > 0 ? hpf_hz(v) : lpf_hz(-v)));
+    return t;
+}
+static void strip_value(uint32_t id, char *t)   /* an EQ field as the screen says it: "+7 DB", "1.3K", "HP 500 HZ" */
+{
+    uint32_t f = (id - P_CH_BASE) % CH_STRIDE;
+    int32_t v = ctl_get(id);
+    t[0] = 0;
+    if (f == CHF_FILT)
+        text_cat(t, chfilt_name(v));
+    else if (f == CHF_MID_F)
+        text_cat(t, hz_name(chaneq_mid_hz(v)));
+    else {
+        char b[8];
+        int32_t d = (v * 150 + (v >= 0 ? 32 : -32)) / 64, a = d < 0 ? -d : d;   /* (tenths of a dB, rounded) */
+        if (!v) {
+            text_cat(t, "FLAT");
+            return;
+        }
+        text_cat(t, d > 0 ? "+" : "-");
+        int_text(a / 10, b);
+        text_cat(t, b);
+        if (a < 100) {                   /* (under 10 dB: a tenth too) */
+            b[0] = '.';
+            b[1] = (char)('0' + a % 10);
+            b[2] = 0;
+            text_cat(t, b);
+        }
+        text_cat(t, " DB");
+    }
 }
 
 static int32_t sound_id(uint32_t i)      /* the SOUND view's knob i: its parameter, -1 none */
@@ -288,6 +338,8 @@ static int32_t sound_id(uint32_t i)      /* the SOUND view's knob i: its paramet
         return -1;
     if (has_main(dub.focus) && dub.sound == 1u)
         return (int32_t)P_VOICE(dub.focus, VM_BASE + i);
+    if (strip_bank())                    /* 8.1: LO, MID, FREQ, HI */
+        return (int32_t)P_CH(dub.focus, STRIP_F[i & 3u]);
     f = ((uint32_t)dub.sound - 1u - (uint32_t)has_main(dub.focus)) * 4u + i;
     return f < voice_fields(dub.focus) ? (int32_t)P_VOICE(dub.focus, f) : -1;   /* (the DICE bank: none) */
 }
@@ -496,6 +548,9 @@ static const char *bk_name(int32_t step)          /* the Big Knob's step as it s
 }
 
 static int32_t held_mute(void);          /* (below: the mute key held, -1 none) */
+static uint32_t held_mutes(void);        /* (below, 8.1: every mute key held, a bit a channel) */
+static void hold_edits(uint32_t m);      /* (the held keys for editing: their mutes as they were) */
+static void chfilt_off(uint32_t m);      /* (8.1: the held channels' filters out) */
 static void button_press(uint32_t k)
 {
     if ((k == B_OCTDN || k == B_OCTUP) && dub.page == PAGE_STEPS)
@@ -580,7 +635,20 @@ static void button_press(uint32_t k)
         steps_reseed();
     } else if (k == B_ENV)               /* (released: Dice fires; held + a knob: a hold; on STEPS + a white: REPEAT) */
         dc.env_used = 0;
-    else if (k == B_EDIT) {              /* the SOUND view, a bank at a time, then back */
+    else if (k == B_EDIT && dub.page == PAGE_DUB && held_mute() >= 0 && voice_fields(held_mute())) {
+        hold_edits(held_mutes());        /* 8.1: a channel's key held + EDIT: its STRIP at once (no banks to step
+                                          * through); KNOB 3 then sweeps the mid */
+        dub.focus = held_mute();
+        dub.sound = (uint8_t)sound_banks(dub.focus);
+        dub.dirty_foot = dub.dirty_centre = dub.dirty_strips = 1;
+        {
+            char t[20];
+            t[0] = 0;
+            text_cat(t, CH_NAME[dub.focus]);
+            text_cat(t, " STRIP");
+            app_say("SOUND", t);
+        }
+    } else if (k == B_EDIT) {              /* the SOUND view, a bank at a time, then back */
         uint32_t nf = voice_fields(dub.focus);
         dub.sound = (uint8_t)(dub.sound + 1u);
         if (dub.sound > sound_banks(dub.focus))
@@ -594,6 +662,8 @@ static void button_press(uint32_t k)
                 text_cat(t, " MAIN");
             else if (dice_bank())
                 text_cat(t, " DICE");
+            else if (strip_bank())
+                text_cat(t, " STRIP");   /* (8.1) */
             else {
                 int_text((int32_t)dub.sound - has_main(dub.focus), b);
                 text_cat(t, " ");
@@ -616,6 +686,12 @@ static void button_release(uint32_t k)
         ctl_set(P_SPIN, 0);
     if (k == B_OCTUP)
         fill_release();                  /* (never a help card: held, OCT+ is FILL) */
+    if (k == B_SEL && dub.page == PAGE_DUB && held_mute() >= 0) {   /* 8.1: with channel keys held: their filters
+                                                                      * out at once (the snap back to bypass) */
+        hold_edits(held_mutes());
+        chfilt_off(held_mutes());
+        return;
+    }
     if (k == B_SEL) {                    /* 7.5: the Big Knob pressed: high-pass or low-pass (the 9068B) */
         ctl_set(P_HPF_LP, !ctl_get(P_HPF_LP));
         set_dirty = 1;
@@ -728,7 +804,9 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
     }
     if (dub.sound && tc < 0 && ch < 0) { /* the SOUND view */
         int32_t id = sound_id(i);
-        if (id >= 0 && model_name((uint32_t)id, ctl_get((uint32_t)id)))
+        if (id >= 0 && strip_id((uint32_t)id))
+            strip_value((uint32_t)id, t);   /* (8.1) */
+        else if (id >= 0 && model_name((uint32_t)id, ctl_get((uint32_t)id)))
             text_cat(t, model_name((uint32_t)id, ctl_get((uint32_t)id)));   /* (a model by its name: 5.7) */
         else if (id >= 0 && organ_bar((uint32_t)id, ctl_get((uint32_t)id), t))
             ;                                    /* (a drawbar as the bar, 0..8: 5.15) */
@@ -745,7 +823,7 @@ static void knob_value(uint32_t i, int32_t ch, char *t)   /* knob i's value as t
         if (i < 3u)
             int_text(ctl_get(P_CH(ch, F[i])), t);
         else
-            text_cat(t, "--");           /* the channel filter: to come */
+            text_cat(t, chfilt_name(ctl_get(P_CH(ch, CHF_FILT))));   /* 8.1: the channel's filter */
     } else if (i == 0u)
         text_cat(t, echo_div_name(echo_div_ui()));
     else if (i == 1u)
@@ -777,6 +855,8 @@ static void sound_title(char *t2)        /* the SOUND view's title: the patch sh
         text_cat(t2, "  MAIN");
     else if (dice_bank())
         text_cat(t2, "  DICE");
+    else if (strip_bank())
+        text_cat(t2, "  STRIP");
     else {
         char b[4];
         int_text((int32_t)dub.sound - has_main(dub.focus), b);
@@ -787,6 +867,68 @@ static void sound_title(char *t2)        /* the SOUND view's title: the patch sh
 #include "undo.c"                        /* undo and redo (GPL-3.0-only) */
 #include "help.c"                        /* help cards and tap tempo (GPL-3.0-only) */
 #include "midilearn.c"                   /* MIDI learn and the USB MIDI host (GPL-3.0-only) */
+
+static uint32_t held_mutes(void)          /* 8.1: every mute key held, a bit a channel */
+{
+    uint32_t ch, m = 0;
+    for (ch = 0; ch < NCH; ch++)
+        if (dub.keys >> WK[ch] & 1u)
+            m |= 1u << ch;
+    return m;
+}
+static void hold_edits(uint32_t m)       /* the held keys are for editing: their mutes stay as they were */
+{
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++)
+        if ((m >> ch & 1u) && !dub.dbl[ch]) {
+            dub.dbl[ch] = 1;
+            ctl_cue(P_CH(ch, CHF_MUTE), dub.m0[ch], act_beats());
+        }
+}
+static void chfilt_say(uint32_t m)       /* "BASS FILTER" / "3 FILTERS", then the first one's setting */
+{
+    uint32_t ch, n = 0, first = 0;
+    char t[24], b[4];
+    for (ch = NCH; ch-- > 0;)
+        if (m >> ch & 1u) {
+            n++;
+            first = ch;
+        }
+    t[0] = 0;
+    if (n == 1u)
+        text_cat(t, CH_NAME[first]);
+    else {
+        int_text((int32_t)n, b);
+        text_cat(t, b);
+    }
+    text_cat(t, n == 1u ? " FILTER" : " FILTERS");
+    app_say(t, chfilt_name(ctl_get(P_CH(first, CHF_FILT))));
+    dub.dirty_foot = 1;
+    dub.dirty_centre = 1;
+}
+static void chfilt_step(uint32_t m, int32_t e)   /* 8.1: the held channels' filters a detent: up the high-pass, down
+                                                 * through off into the low-pass (closing as it goes down). Held
+                                                 * together (the kick, rim and hats): the drums' filter, as one */
+{
+    int32_t s = hpf_detent(ctl_get(P_HPF_RES));
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++)
+        if (m >> ch & 1u) {
+            int32_t v = ctl_get(P_CH(ch, CHF_FILT));
+            v = e > 0 ? (v >= 0 ? (v / s + e) * s : -(((-v) + s - 1) / s - e) * s)
+                      : (v > 0 ? ((v + s - 1) / s + e) * s : -((-v) / s - e) * s);
+            ctl_set(P_CH(ch, CHF_FILT), v);
+        }
+    chfilt_say(m);
+}
+static void chfilt_off(uint32_t m)       /* 8.1: the held channels' filters out at once (the Big Knob pressed) */
+{
+    uint32_t ch;
+    for (ch = 0; ch < NCH; ch++)
+        if (m >> ch & 1u)
+            ctl_set(P_CH(ch, CHF_FILT), 0);
+    chfilt_say(m);
+}
 
 static void knob(uint32_t i, int32_t e)  /* K1-K4 */
 {
@@ -834,6 +976,8 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
         label_of((uint32_t)sid, l, sizeof l);
         int_text(ctl_get((uint32_t)sid), t);
         organ_bar((uint32_t)sid, ctl_get((uint32_t)sid), t);
+        if (strip_id((uint32_t)sid))
+            strip_value((uint32_t)sid, t);   /* (8.1) */
         app_say(l, model_name((uint32_t)sid, ctl_get((uint32_t)sid)) ? model_name((uint32_t)sid, ctl_get((uint32_t)sid)) : t);
         dub.dirty_foot = 1;
         return;
@@ -846,8 +990,9 @@ static void knob(uint32_t i, int32_t e)  /* K1-K4 */
         }
         if (i < 3u)
             id = P_CH(ch, F[i]);
-        else {
-            app_say("FILTER", "TO COME");
+        else {                           /* 8.1: KNOB 4, the channel's own filter (every key held: theirs) */
+            hold_edits(held_mutes());
+            chfilt_step(held_mutes(), e);
             return;
         }
         step = i == 0u ? 1 : 2;
@@ -875,6 +1020,10 @@ static void encoder(uint32_t k, int32_t e)
         dub.dirty_hdr = 1;
         tempo_text(t);
         app_say("TEMPO", t);
+    } else if (k == EN_SELECT && dub.page == PAGE_DUB && held_mute() >= 0) {   /* 8.1: channel keys held: their own
+                                                                               * filters, on the Big Knob's steps */
+        hold_edits(held_mutes());        /* (the hold is for editing: the mutes stay as they were) */
+        chfilt_step(held_mutes(), e);    /* (several held: their filters together, the drums' as one) */
     } else if (k == EN_SELECT && dub.page != PAGE_SETUP) {   /* the Big Knob: a detent a step, at once */
         int32_t s = hpf_detent(ctl_get(P_HPF_RES)), v = ctl_get(P_HPF_STEP);
         v = e > 0 ? (v / s + e) * s : ((v + s - 1) / s + e) * s;   /* (off the setting's grid: to it first) */
@@ -882,9 +1031,10 @@ static void encoder(uint32_t k, int32_t e)
         dub.dirty_centre = 1;
         app_say(roots_name("BIG KNOB"), bk_name(ctl_get(P_HPF_STEP)));
     } else if (k == EN_ALGO) {
+        int strip = strip_bank();        /* (8.1: on STRIP, the next channel's STRIP: EQ across the desk) */
         dub.focus = (dub.focus + e % (int32_t)NCH + (int32_t)NCH) % (int32_t)NCH;
         if (dub.sound)
-            dub.sound = voice_fields(dub.focus) ? 1u : 0u;
+            dub.sound = !voice_fields(dub.focus) ? 0u : strip ? (uint8_t)sound_banks(dub.focus) : 1u;
         dub.dirty_strips = 1;
         app_say("FOCUS", CH_NAME[dub.focus]);
     } else if (dub.page == PAGE_ARRANGE && k >= EN_K1 && k <= EN_K4) {
@@ -1308,7 +1458,16 @@ static void draw_strips(void)
             if (thrown)                      /* a throw flashes its channel (spec 5.2) */
                 cv_rect(x + 4, 0, 20, 17, C_HI);
             cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, thrown ? C_BLACK : on ? C_WHITE : C_GRAY);
-            cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
+            {                            /* 8.1: the strip's EQ or filter in: its name amber, underlined */
+                uint32_t f;
+                int32_t nw = text_w(&FONT_T, CH_SHORT[ch]);
+                for (f = CHF_LO; f <= CHF_FILT; f++)
+                    if (eng_param(P_CH(ch, f)))
+                        break;
+                cv_text(x + (28 - nw) / 2, 17, &FONT_T, CH_SHORT[ch], f <= CHF_FILT ? C_AMB : on ? C_GRAY : C_DIM);
+                if (f <= CHF_FILT)
+                    cv_rect(x + (28 - nw) / 2, 26, nw, 1, C_AMB);
+            }
             {                                /* its pattern (4.8): amber while one launched waits for its line */
                 uint32_t pw = (uint32_t)ctl_get(P_CH(ch, CHF_PAT)) & 3u;
                 char l[2] = {(char)('A' + pw), 0};
@@ -1330,6 +1489,7 @@ static void draw_strips(void)
             cv_text(x + 3, by + bh + 3, &FONT_T, dg, thrown ? C_HI : C_DIM);   /* the throw's destination */
             if (soloed)
                 cv_text(x + 19, by + bh + 3, &FONT_T, "S", C_AMB);
+
             if ((int32_t)ch == dub.focus)
                 cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
         }

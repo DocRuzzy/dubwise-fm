@@ -71,7 +71,7 @@ static uint32_t dice_rand(void)                  /* xorshift32 */
 
 static int dice_bank(void)                       /* 1: the SOUND view is on its DICE bank */
 {
-    return dub.sound && voice_fields(dub.focus) && dub.sound == sound_banks(dub.focus);
+    return dub.sound && voice_fields(dub.focus) && dub.sound + 1u == sound_banks(dub.focus);   /* (STRIP after it: 8.1) */
 }
 
 static void dice_set(uint32_t ch, uint32_t f, int32_t v)   /* at once, or on the line (SETUP: DICE ON LINE) */

@@ -13,6 +13,7 @@
 #include "engine/fxv.h"
 #include "engine/motion.h"
 #include "engine/chordv.h"                  /* (the B-3's tables, built in the main loop: 5.15) */
+#include "engine/chaneq.h"                  /* (8.1: the STRIP bank's frequency in Hz) */
 #include "engine/lpc.h"                     /* (the deejay voice's names: 6.6) */
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
@@ -265,7 +266,8 @@ typedef struct {
     uint32_t magic;
     int16_t v[NCH * CH_STRIDE];
 } desk_store_t;
-static desk_store_t dsk;
+typedef char desk_fits_pbuf[sizeof(desk_store_t) <= sizeof pbuf ? 1 : -1];
+#define dsk (*(desk_store_t *)(void *)&pbuf)     /* (patstore.c's buffer: one object at a time, no RAM of its own) */
 static uint32_t desk_sig;                        /* the desk as last saved or loaded (desk_tick: SAVE lit on a change) */
 static int project_param(uint32_t id);          /* (slots.c) */
 static int desk_keeps(uint32_t id)

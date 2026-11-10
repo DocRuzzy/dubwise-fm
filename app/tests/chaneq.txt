@@ -63,3 +63,105 @@ wavstop
 perf reset
 wait 2000
 perf
+# the controls: the kick's STRIP bank (EDIT: MAIN, raw 1, raw 2, DICE, STRIP), its knobs in dB and Hz
+param ch3.lo 0
+param ch5.mid 0
+param ch6.hi 0
+param ch7.filt 0
+param ch8.filt 0
+listen
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+tap EDIT
+wait 30
+said SOUND KICK STRIP
+turn K1 8
+wait 30
+said LO +1.9 DB
+expect ui.ch1.lo 8
+turn K3 -20
+wait 30
+said FREQ
+expect ui.ch1.midf -20
+tap EDIT
+wait 30
+expect sound_bank 0
+# a channel's key held: KNOB 4 steps its filter on the Big Knob's detents (up the high-pass, down into the low-pass);
+# the hold is for editing, so the mute stays as it was
+key w3 down 80
+wait 30
+turn K4 2
+wait 30
+said BASS FILTER HP 100 HZ
+expect ui.ch4.filt 8
+turn K4 -3
+wait 30
+said BASS FILTER LP
+expect ui.ch4.filt -4
+key w3 up
+wait 400
+expect eng.ch4.mute 0
+# the Big Knob with the key held: the same filter; the Big Knob itself untouched
+key w1 down 80
+wait 30
+spin SELECT 5
+wait 30
+said SNARE FILTER HP 500 HZ
+expect ui.ch2.filt 20
+expect ui.hpf 0
+key w1 up
+wait 400
+expect eng.ch2.mute 0
+expect eng.ch2.filt 20
+# the drums' filter as one (mastery guide C3, drill (c)): the kick, rim and hats keys held, the Big Knob turned
+param ch2.filt 0
+param ch4.filt 0
+key w0 down 80
+key w1 down 80
+key w2 down 80
+wait 30
+spin SELECT 4
+wait 30
+said 3 FILTERS HP 250 HZ
+expect ui.ch1.filt 16
+expect ui.ch2.filt 16
+expect ui.ch3.filt 16
+expect ui.ch4.filt 0
+# and the snap back to bypass: the Big Knob pressed with the keys still held (the Big Knob's own LP left as it was)
+tap SEL
+wait 30
+said 3 FILTERS OFF
+expect ui.ch1.filt 0
+expect ui.ch3.filt 0
+expect ui.hpf.lp 0
+key w0 up
+key w1 up
+key w2 up
+wait 400
+expect eng.ch1.mute 0
+expect eng.ch2.mute 0
+expect eng.ch3.mute 0
+# a channel's key held + EDIT: its STRIP at once; FOCUS then moves to the next channel's STRIP
+key w3 down 80
+wait 30
+tap EDIT
+wait 30
+said SOUND BASS STRIP
+key w3 up
+wait 400
+expect eng.ch4.mute 0
+turn K3 10
+wait 30
+said FREQ
+expect ui.ch4.midf 50
+turn ALGO 1
+wait 30
+said FOCUS SKANK
+turn K2 12
+wait 30
+expect ui.ch5.mid 12
+tap EDIT
+wait 30
+expect sound_bank 0

@@ -37,6 +37,7 @@ expect dice_bank 1
 expect env_view 1
 # the bass: held and let go (400 ms drawn held, the 60 ms release)
 tap EDIT
+tap EDIT
 wait 30
 turn ALGO 3
 wait 30

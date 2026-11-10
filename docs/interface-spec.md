@@ -82,7 +82,7 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 - **Tempo** on HOME + SELECT (1 BPM a click), as in 4.6. **GLO** toggles test tones on every channel until SETUP and the voices exist.
 - Throws (P0.2) are immediate, not quantised (a throw catches a word). Destination on hold + KNOB 1 until MIXER bank 3 exists.
 - Hold-to-focus (P0.3): a held mute key turns KNOB 1–3 into level / echo send / spring send; turning one cancels the key's momentary mute flip.
-- Not yet: the channel filter, the other black-key effects, the Big Knob in the centre.
+- Not yet: the channel filter, the other black-key effects, the Big Knob in the centre. (The channel filter: built in 8.1, below.)
 
 #### 4.1.2 As built in P0.6
 - Quantise gains **CYCLE** (after 32 bars): the next "one" of the cycle. Templates (STEPS) land on the bar line itself, not early.
@@ -270,3 +270,22 @@ The roundup review docked firmwares for unreadable pages and waits between menus
 1. Physical black-key grouping (2+3): regroup effects vs voices if needed.
 2. Velocity-scaled throws (P2.9, built; SETUP: THROW VELOCITY, on by default): confirm velocity is even across the throw keys on the device.
 3. Prototype the DUB page and runway in the browser emulator; run a usability pass (C1, C4, C3, and a first-timer runway test).
+
+#### 4.1.x As built in 8.1 (2026-11-10): each channel's filter and EQ
+- **A white key 1–8 held + KNOB 4:** that channel's own filter on the Big Knob's steps: turning up is the high-pass
+  (the 9069B's steps), down past OFF the low-pass (the 9068B's), closing as it goes. Several keys held: every held
+  channel's filter moves together, so the kick, snare and hats keys held make the drums' filter one move (mastery
+  guide C3, drill (c)).
+- **A white key 1–8 held + the Big Knob turned:** the same as KNOB 4. It's Tubby's knob, switched across channels,
+  and the hand on the key can't miss.
+- **A white key 1–8 held + the Big Knob pressed:** those filters straight back OFF, the snap back to bypass. With no
+  key held, the press still toggles the Big Knob's own high-pass and low-pass.
+- **A white key 1–8 held + EDIT:** the SOUND view straight on that channel's STRIP bank (KNOB 1 LO, 2 MID, 3 FREQ,
+  4 HI): no banks to step through mid-performance. ALGORITHM on STRIP goes to the next channel's STRIP, so you can EQ
+  across the desk.
+- **Every gesture with a held key is an edit:** the key's mute flip is cancelled as soon as anything turns or presses
+  with it, as hold-to-focus already did.
+- **STRIP is the SOUND view's last bank,** after DICE: the banks before it keep their places.
+- **On screen:** a strip whose EQ or filter is in shows its name in amber, underlined. The footer says the filter as
+  "HP 500 HZ" or "LP 2.5K", and the gains in dB to a tenth.
+- **Saved and recalled:** motion records every field. Scenes (SCN3), slots (DSL5) and SAVE (the desk, DSK1) keep them.
