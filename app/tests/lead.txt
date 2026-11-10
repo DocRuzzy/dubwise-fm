@@ -36,6 +36,34 @@ wait 900
 midi 81 54 00
 wait 800
 wavstop
+# 7.7: HORN (a trumpet fitted to recordings: soft and loud), its SAX, and FM+HORN layered; each ends, no click or DC
+param v7.inst 3
+wait 30
+wav horn-tpt.wav
+midi 91 3C 7F
+wait 900
+midi 81 3C 00
+wait 800
+expect ch7_db <-80
+wavstop
+param v7.horn 1
+wait 30
+wav horn-sax.wav
+midi 91 3C 64
+wait 900
+midi 81 3C 00
+wait 800
+wavstop
+param v7.horn 0
+param v7.inst 4
+wait 30
+wav horn-layer.wav
+midi 91 48 64
+wait 900
+midi 81 48 00
+wait 800
+expect ch7_db <-80
+wavstop
 param v7.inst 0
 # the keyboard on the lead (REC on its STEPS page), two octaves over the bass's: key 4 is A3
 tap SEQ
@@ -64,3 +92,6 @@ tap PLAY
 #wav brass.wav peak<-1 dc<-50 zc_hz>380 click<-30
 #wav reed.wav peak<-1 dc<-60 click<-35
 #wav reed-hi.wav peak<-1 dc<-60 click<-28
+#wav horn-tpt.wav peak<-1 dc<-60 click<-30
+#wav horn-sax.wav peak<-1 dc<-60 click<-30
+#wav horn-layer.wav peak<-1 dc<-60 click<-30

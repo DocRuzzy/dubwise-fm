@@ -7,6 +7,7 @@
 #include "dsp.h"
 #include "d808.h"                                /* 7.6: the 808 models, after Plaits */
 #include "plat.h"                                /* PLAT_POOL (7.3: the reed's tables) */
+#include "horn_data.h"                           /* 7.7: HORN's bell and horns, fitted (tools/brass/) */
 
 #define SR 44100.0f
 #define INV_SR (1.0f / 44100.0f)
@@ -103,7 +104,9 @@ static struct {
 static struct {
     float pc, pc2, pm, mprev, f, amp, vel, vib, scoop, t;
     float bright, att, rel, vdepth, spread;
-    int inst;                                    /* INST_MELODICA, INST_BRASS, INST_REED (7.3) */
+    int inst;                                    /* INST_MELODICA, INST_BRASS, INST_REED (7.3), HORN, LAYER (7.7) */
+    int horn;                                    /* (7.7) HORN_TRUMPET, HORN_SAX */
+    float blend;                                 /* (7.7) FM+HORN: HORN's share, 0.5 .. 1 */
     int32_t note;                                /* held, -1 none */
     int on;
 } lead;
@@ -117,6 +120,8 @@ typedef struct { float b0, b1, b2, a1, a2, z1, z2; } bq_t;
 static bq_t reed_bq[3];
 static void bq_peak(bq_t *q, float hz, float qf, float db);
 static void reed_tables(void);
+static void horn_tables(void);
+static void horn_config(void);
 static void bq_lpf(bq_t *q, float hz, float qf);
 static float reed_air;                           /* the breath's noise, low-passed */
 static uint32_t reed_rng = 0x2545F491u;
@@ -132,6 +137,7 @@ void voices_init(void)
 {
     d808_init();
     reed_tables();
+    horn_tables();
     lead.on = 0;
     lead.note = -1;
     lead.amp = 0.0f;
@@ -257,6 +263,9 @@ void voices_config(const int16_t *ev, int tier)
                                                                          * 0.001f * SR * 0.5f * 0.25f))
                                              : 1.0f;            /* (a one-pole a half-rate sample, ~T/4: there in T) */
     lead.inst = ev[P_VOICE(CH_LEAD, VL_INST)];
+    lead.horn = ev[P_VOICE(CH_LEAD, VL_HORN)] == HORN_SAX ? HORN_SAX : HORN_TRUMPET;
+    lead.blend = 0.5f + 0.5f * (float)ev[P_VOICE(CH_LEAD, VL_BLEND)] * (1.0f / 127.0f);
+    horn_config();
     lead.bright = lin(ev[P_VOICE(CH_LEAD, VL_BRIGHT)], 0.3f, 3.0f);
     lead.att = 1.0f / (lin(ev[P_VOICE(CH_LEAD, VL_ATTACK)], 10.0f, 150.0f) * 0.001f * SR);
     lead.rel = t60k(lin(ev[P_VOICE(CH_LEAD, VL_RELEASE)], 30.0f, 600.0f));
@@ -573,6 +582,24 @@ static void bq_lpf(bq_t *q, float hz, float qf)   /* RBJ's low-pass (7.3's fitte
     q->a1 = -2.0f * c * a0;
     q->a2 = (1.0f - al) * a0;
 }
+static void bq_hpf(bq_t *q, float hz, float qf)   /* RBJ's high-pass (7.7's bell) */
+{
+    float w = 6.2831853f * hz * INV_SR, al = fm_sinf(w) / (2.0f * qf), c = fm_cosf(w), a0 = 1.0f / (1.0f + al);
+    q->b0 = 0.5f * (1.0f + c) * a0;
+    q->b1 = -(1.0f + c) * a0;
+    q->b2 = q->b0;
+    q->a1 = -2.0f * c * a0;
+    q->a2 = (1.0f - al) * a0;
+}
+static void bq_bpf(bq_t *q, float hz, float qf)   /* RBJ's band-pass, 0 dB peak (7.7's breath) */
+{
+    float w = 6.2831853f * hz * INV_SR, al = fm_sinf(w) / (2.0f * qf), c = fm_cosf(w), a0 = 1.0f / (1.0f + al);
+    q->b0 = al * a0;
+    q->b1 = 0.0f;
+    q->b2 = -al * a0;
+    q->a1 = -2.0f * c * a0;
+    q->a2 = (1.0f - al) * a0;
+}
 static inline float bq_run(bq_t *q, float x)    /* transposed direct form II */
 {
     float y = q->b0 * x + q->z1;
@@ -585,6 +612,7 @@ static inline float bq_run(bq_t *q, float x)    /* transposed direct form II */
  * buzz; the first REED's flow, open half the cycle, was dull). The puff band-limited exactly: its Fourier series, in a
  * table an octave of notes (the top note's harmonics under 20 kHz), two widths, built at boot into the pool */
 #define REED_GAIN 2.8f
+#define HORN_GAIN 1.0f                           /* (7.7: BRASS's loudness; set from measurements) */
 #define RT_N 1024u
 #define RT_OCT 6u                                /* tables for notes up to 130, 260 .. 4,160 Hz */
 static PLAT_POOL int16_t reed_tab[2][RT_OCT][RT_N];
@@ -641,6 +669,115 @@ static inline uint32_t reed_oct(float f)         /* the table whose top note is 
     return o;
 }
 
+/* 7.7: HORN, a horn fitted to recordings of real trumpets and saxophones (Freesound; tools/brass/): a source whose
+ * harmonics fall off less steeply the harder it is blown (two tables, soft and loud, crossfaded by the breath: the
+ * blare), each horn's own uneven pattern of harmonics, into a bell (a high-pass, a resonance, a low-pass, fitted on 17
+ * notes); and what makes a held note alive, at the amounts measured on them: the pitch wandering ~3.5 cents (2 Hz) and
+ * jittering ~1.2 (30 Hz), the level ~0.9 dB, and breath noise pulsed once a cycle. Tables an octave apart, band-limited,
+ * built at boot into the pool. FM+HORN layers it with BRASS (BLEND: 0 half each, 127 all HORN) */
+#define HT_N 512u
+#define HT_OCT 5u                                /* notes up to 130 .. 2,080 Hz (the lead's top: C7 shares the last) */
+static PLAT_POOL int16_t horn_tab[HORN_N][2][HT_OCT][HT_N];
+static float horn_rms[HORN_N][2][HT_OCT];
+static void horn_tables(void)                    /* (boot) */
+{
+    uint32_t h, d, o, n, k;
+    for (h = 0; h < HORN_N; h++)
+        for (d = 0; d < 2u; d++)
+            for (o = 0; o < HT_OCT; o++) {
+                float top = 65.0f * (float)(2u << o), pk = 0.0f, ms = 0.0f, sc;
+                uint32_t K = (uint32_t)(18000.0f / top);
+                for (n = 0; n < HT_N; n++) {     /* (a first pass for the peak, a second to write: no scratch) */
+                    float v = 0.0f;
+                    for (k = 1; k <= K; k++) {
+                        float db = -HORN_SLOPE[h][d] * fm_log2f((float)k)
+                                   + (float)(k <= HORN_NK ? HORN_RES[2u * h + d][k - 1u] : -15);
+                        v += fm_exp2f(db * 0.16609640f) * fm_sin_turns((float)(k * n % HT_N) * (1.0f / (float)HT_N) + 0.25f
+                                                                      - (float)((k * n % HT_N) * 4u >= 3u * HT_N));
+                    }
+                    pk = fm_maxf(pk, fm_fabsf(v));
+                }
+                sc = 27000.0f / pk;
+                for (n = 0; n < HT_N; n++) {
+                    float v = 0.0f;
+                    for (k = 1; k <= K; k++) {
+                        float db = -HORN_SLOPE[h][d] * fm_log2f((float)k)
+                                   + (float)(k <= HORN_NK ? HORN_RES[2u * h + d][k - 1u] : -15);
+                        v += fm_exp2f(db * 0.16609640f) * fm_sin_turns((float)(k * n % HT_N) * (1.0f / (float)HT_N) + 0.25f
+                                                                      - (float)((k * n % HT_N) * 4u >= 3u * HT_N));
+                    }
+                    v *= sc;
+                    horn_tab[h][d][o][n] = (int16_t)v;
+                    ms += (v * (1.0f / 27000.0f)) * (v * (1.0f / 27000.0f));
+                }
+                horn_rms[h][d][o] = fm_sqrtf(ms / (float)HT_N);
+            }
+}
+static struct {
+    float ph, ws, wf, ls, nz;                    /* phase; the wander, the jitter, the level's wander (one-poles) */
+    uint32_t rng;
+    bq_t hp, pk, lp, nbp;                        /* the bell; the breath's band */
+    int set;
+} horn = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0x7F4A7C15u, {0}, {0}, {0}, {0}, 0};
+static void bq_hpf(bq_t *q, float hz, float qf);
+static void bq_bpf(bq_t *q, float hz, float qf);
+static void horn_config(void)                    /* (7.7: the bell's, fixed; the breath's band) */
+{
+    if (horn.set)
+        return;
+    bq_hpf(&horn.hp, HORN_HP_HZ, HORN_HP_Q);
+    bq_peak(&horn.pk, HORN_PK_HZ, HORN_PK_Q, HORN_PK_DB);
+    bq_lpf(&horn.lp, HORN_LP_HZ, HORN_LP_Q);
+    bq_bpf(&horn.nbp, 2500.0f, 0.7f);
+    horn.set = 1;
+}
+static inline float horn_rnd(void)
+{
+    horn.rng ^= horn.rng << 13;
+    horn.rng ^= horn.rng >> 17;
+    horn.rng ^= horn.rng << 5;
+    return (float)(int32_t)horn.rng * (1.0f / 2147483648.0f);
+}
+static inline uint32_t horn_oct(float f)
+{
+    uint32_t o = 0;
+    float top = 130.0f;
+    while (o + 1u < HT_OCT && f > top) {
+        top *= 2.0f;
+        o++;
+    }
+    return o;
+}
+static float horn_tick(float f, float hard, uint32_t type)   /* one sample of the horn at f (its own movement on top) */
+{
+    /* white noise through one-poles; (1 - a) / (1 + a)'s root, its spread, divided out: 2 Hz 0.0185, 30 Hz 0.0718, 1.5 Hz
+     * 0.0164 (at 44.1 kHz) */
+    float cents, lev, x, s, t;
+    uint32_t o;
+    horn.ws += (horn_rnd() - horn.ws) * 0.000285f;
+    horn.wf += (horn_rnd() - horn.wf) * 0.00427f;
+    horn.ls += (horn_rnd() - horn.ls) * 0.000214f;
+    cents = 3.5f * horn.ws * (1.0f / 0.0119f) + 1.2f * horn.wf * (1.0f / 0.0462f);
+    lev = 1.0f + 0.25f * horn.ls * (1.0f / 0.0103f);
+    f *= 1.0f + cents * 0.000577623f;            /* (cents to a ratio: ln 2 / 1200) */
+    horn.ph = wrap(horn.ph + f * INV_SR);
+    o = horn_oct(f);
+    x = horn.ph * (float)HT_N;
+    {
+        uint32_t i = (uint32_t)x;
+        float fr = x - (float)i;
+        const int16_t *a = horn_tab[type][0][o], *b = horn_tab[type][1][o];
+        float sa = (float)a[i & (HT_N - 1u)] + fr * (float)(a[(i + 1u) & (HT_N - 1u)] - a[i & (HT_N - 1u)]);
+        float sb = (float)b[i & (HT_N - 1u)] + fr * (float)(b[(i + 1u) & (HT_N - 1u)] - b[i & (HT_N - 1u)]);
+        s = ((1.0f - hard) * sa + hard * sb) * (1.0f / 27000.0f);
+    }
+    t = 0.5f + 0.5f * fm_sin_turns(horn.ph + 0.25f >= 1.0f ? horn.ph - 0.75f : horn.ph + 0.25f);
+    horn.nz = horn_rnd() * t * t;                /* the breath, pulsed as the lips (the reed) open each cycle */
+    s += bq_run(&horn.nbp, horn.nz) * horn_rms[type][1][o] * fm_exp2f(HORN_NOISE_DB[type] * 0.16609640f) * 2.5f;
+    s = bq_run(&horn.lp, bq_run(&horn.pk, bq_run(&horn.hp, s)));
+    return s * lev;
+}
+
 static int render_lead(float *o, uint32_t n)
 {
     uint32_t i;
@@ -677,12 +814,22 @@ static int render_lead(float *o, uint32_t n)
             s += 0.012f * reed_air * env;
             s = bq_run(&reed_bq[1], bq_run(&reed_bq[0], s));
             s *= REED_GAIN;                      /* (the FM melodica's loudness) */
-        } else if (lead.inst == INST_BRASS) {    /* brass: a scoop up into the note, the index with the loudness */
+        } else if (lead.inst == INST_BRASS || lead.inst == INST_HORN || lead.inst == INST_LAYER) {
+            /* brass: a scoop up into the note, the index with the loudness (7.7: HORN, or both layered) */
             lead.scoop *= 0.9994f;               /* ~40 ms */
             f *= fm_exp2f(vib - lead.scoop * (1.0f / 12.0f));
-            lead.pc = wrap(lead.pc + f * INV_SR);
-            idx = lead.bright * env * (0.4f + 0.6f * lead.vel);
-            s = fm_sin_turns(lead.pc + idx * 0.15915494f * fm_sin_turns(lead.pc));
+            if (lead.inst != INST_HORN) {
+                lead.pc = wrap(lead.pc + f * INV_SR);
+                idx = lead.bright * env * (0.4f + 0.6f * lead.vel);
+                s = fm_sin_turns(lead.pc + idx * 0.15915494f * fm_sin_turns(lead.pc));
+            } else
+                s = 0.0f;
+            if (lead.inst != INST_BRASS) {       /* the horn: blown as hard as the breath and the velocity */
+                float h = horn_tick(f, fm_minf(1.0f, env * (0.3f + 0.7f * lead.vel) * lead.bright * (1.0f / 1.66f)),
+                                    (uint32_t)lead.horn) * HORN_GAIN;
+                s = lead.inst == INST_HORN ? h : 1.4f * ((1.0f - lead.blend) * s + lead.blend * h);   /* (the layer's
+                                                  * two only partly alike: 1.4 back to one's loudness) */
+            }
             {                                    /* the doubling: a second player, 12 ms behind */
                 float d = dbl[dbl_pos];
                 dbl[dbl_pos] = s;

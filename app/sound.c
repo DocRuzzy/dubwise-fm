@@ -217,11 +217,13 @@ static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value
     if (id == P_VOICE(CH_VOX, VX_SAY))           /* (6.6: the shout's name; OFF: black 8 is BIM) */
         return v ? lpc_name(v - 1) : "OFF";
     if (id == P_VOICE(CH_LEAD, VL_INST) && v < INST_N) {   /* (7.3: REED) */
-        static const char *const I[INST_N] = {"MELODICA", "BRASS", "REED"};
+        static const char *const I[INST_N] = {"MELODICA", "BRASS", "REED", "HORN", "FM+HORN"};
         return I[v];
     }
     if (id == P_VOICE(CH_SKANK, VS_MODEL))       /* (7.8) */
         return v ? "PLUCK" : "FM";
+    if (id == P_VOICE(CH_LEAD, VL_HORN) && v < HORN_N)   /* (7.7) */
+        return v ? "SAX" : "TRUMPET";
     if (id == P_VOICE(CH_VOX, VX_SHAPE))         /* (7.1) */
         return v ? "NJD" : "CLASSIC";
     if (id == P_VOICE(CH_BASS, VB_SUBTONE))      /* (6.1) */

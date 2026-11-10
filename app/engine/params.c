@@ -113,6 +113,8 @@ static const pdesc_t LEAD_F[VL_N] = {
     [VL_RELEASE] = {"release", 0, 127, 40},         /* 30 .. 600 ms */
     [VL_VIBRATO] = {"vibrato", 0, 127, 40},         /* 0 .. 40 cents at 4.5 Hz, after 300 ms */
     [VL_DETUNE] = {"detune", -64, 63, 0},           /* 5.3: the melodica's reeds apart, 6 cents at 0, 1.5 .. 23 */
+    [VL_HORN] = {"horn", 0, HORN_N - 1, HORN_TRUMPET},   /* 7.7: HORN's horn: TRUMPET, SAX */
+    [VL_BLEND] = {"blend", 0, 127, 0},             /* 7.7: FM+HORN: 0 half each .. 127 all HORN; below 0 not used */
 };
 /* the MAIN macros (5.3; sound.c turns them into their raw targets), named "m." apart from the raw fields */
 static const pdesc_t MACRO_F[NCH][VM_N] = {

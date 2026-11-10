@@ -31,7 +31,7 @@ enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_MODEL, VS_N };   /* 
 enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_MODEL, VO_DB0, VO_DB1, VO_DB2, VO_DB3, VO_DB4, VO_DB5, VO_DB6,
        VO_DB7, VO_DB8, VO_PERC, VO_PFAST, VO_VIBCH, VO_ROTARY, VO_ODRIVE, VO_LESLIE, VO_N };      /* organ: bubble, B-3 (5.15) */
 enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_SAY, VX_SAYPITCH, VX_STUTTER, VX_CRUSH, VX_SHAPE, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */
-enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };        /* lead: melodica / brass (P2.2) */
+enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_HORN, VL_BLEND, VL_N };   /* 7.7: HORN's horn, FM+HORN's blend */        /* lead: melodica / brass (P2.2) */
 /* the MAIN macros (roadmap 5.3, spec 4.9): four a channel (not the vox: its MAIN is the siren's own four), stored as
  * the voice's last four fields; -64..63, 0 every target at its default. The engine never reads them: turning one
  * rewrites its raw targets (sound.c) */
@@ -55,7 +55,8 @@ enum { OUT_LINE, OUT_SPEAKER, OUT_N };          /* 6.2 */
 enum { SUB_SINE, SUB_CLASSIC, SUB_N };          /* 6.1: the bass's sub: a sine, or sine + 1/3 3rd + 1/5 5th */            /* the rotary: ours, or setBfree's whirl (Studio only; v0.3) */
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
-enum { INST_MELODICA, INST_BRASS, INST_REED, INST_N };   /* 7.3: REED, the free-reed melodica */
+enum { INST_MELODICA, INST_BRASS, INST_REED, INST_HORN, INST_LAYER, INST_N };   /* 7.3 REED; 7.7 HORN, FM+HORN layered */
+enum { HORN_TRUMPET, HORN_SAX, HORN_N };
 /* the chord channels' steps hold a voicing, not a note: the notes are the chord lane's (P_CHORD0..) */
 enum { VOICING_LO, VOICING_MID, VOICING_HI, VOICING_N };
 /* a chord code (root x 8 + quality) voiced: three notes from base up (MIDI), the root's octave by the voicing */
