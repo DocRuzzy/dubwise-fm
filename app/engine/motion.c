@@ -85,7 +85,7 @@ int mot_recordable(uint32_t id)                  /* (not the spin-back: a song t
 {
     return id >= P_CH_BASE && id < P_NIDS && id != P_SPIN && param_desc(id) != 0
            && !(id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE == CHF_PAT) && id != P_TAILS
-           && id != P_BK_RES;                    /* (8.10: a SETUP preference, not the song's) */
+           && id != P_BK_RES && id != P_JACK;    /* (8.10: a SETUP preference, not the song's; 9.8: the jack) */
 }
 
 int mot_momentary(uint32_t id)
@@ -96,13 +96,15 @@ int mot_momentary(uint32_t id)
             return (int)ch;
     return id == P_ECHO_FREEZE ? (int)NCH : id == P_ECHO_PUSH ? (int)NCH + 1 : id == P_ECHO_DIVE ? (int)NCH + 2
            : id == P_SPRING_KICK ? (int)NCH + 3 : id == P_WET ? (int)NCH + 4 : id == P_DNB ? (int)NCH + 5
-           : id == P_SIREN ? (int)NCH + 6 : id == P_FILL ? (int)NCH + 7 : -1;
+           : id == P_SIREN ? (int)NCH + 6 : id == P_FILL ? (int)NCH + 7 : id == P_THROW_SPR ? (int)NCH + 8
+           : id >= P_LEAN_PUSH && id <= P_LEAN_SIREN ? (int)NCH + 9 + (int)(id - P_LEAN_PUSH) : -1;
 }
 
 uint32_t mot_mom_id(uint32_t k)
 {
-    static const uint16_t X[8] = {P_ECHO_FREEZE, P_ECHO_PUSH, P_ECHO_DIVE, P_SPRING_KICK, P_WET, P_DNB, P_SIREN, P_FILL};
-    return k < NCH ? P_CH(k, CHF_THROW) : X[(k - NCH) % 8u];
+    static const uint16_t X[13] = {P_ECHO_FREEZE, P_ECHO_PUSH, P_ECHO_DIVE, P_SPRING_KICK, P_WET, P_DNB, P_SIREN, P_FILL,
+                                   P_THROW_SPR, P_LEAN_PUSH, P_LEAN_DIVE, P_LEAN_WET, P_LEAN_SIREN};
+    return k < NCH ? P_CH(k, CHF_THROW) : X[(k - NCH) % 13u];
 }
 
 static int keeps_all(uint32_t id)                /* every press and release kept (no thinning) */

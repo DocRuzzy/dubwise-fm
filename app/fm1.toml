@@ -7,12 +7,15 @@ o2 = ["engine/engine.c", "engine/echo.c", "engine/voices.c", "engine/riddim.c", 
 words = "words.tsv"
 ble = false                    # no radio (roadmap P0.0): its RAM goes to the dub bus
 ble_central = false
+headphones = true             # 9.8: the headphone jack read (plat_headphones): OUTPUT AUTO's BASS+ with nothing in it
 backup = true                  # backup and restore over USB (base/tools/fm1_backup.py): the saved project and settings
 backup_ext = "dwb"
 mirror = true                  # the screen and panel on a computer over USB (base/web/mirror/, tools/fm1_mirror.py; QoL review 5)
 usb_audio_channels = 10        # the USB recording: the master on 1-2, the stems on 3-10 (SETUP: USB STEMS; QoL review 4)
 usb_host = true                # SETUP USB PORT: KEYBOARD, a USB-MIDI keyboard into the FM-1 (QoL review 6)
 midi_stamp = true              # MIDI in stamped where it lands (to 0.05 ms): MIDI CLOCK IN follows it tighter (QoL review 5)
+crash_history = true           # 9.17: the stacks painted at each start (plat_stack_left, plat_stack_least_ever: the PERF page's
+                               # STACK) and a crash's record kept in flash for a beta report (base/tools/fm1_remote.py crashes)
 usb_audio_out_app = true       # the live input (P2.8): the computer's audio to channel 8. Needs fm1-base's proposed option
                                # (docs/upstream/usb-audio-to-app.md); until then ignored: the audio is mixed in after the render
 # the site (tools/make_site.py, tools/publish_site.sh)

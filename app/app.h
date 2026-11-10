@@ -11,6 +11,7 @@
                                              * (dub.c, CV_BANDS), the saver in four bands. 144 rows until 2026-11-10 */
 #define APP_SPLASH_RGB RGB(242, 120, 72)
 #define APP_SPLASH                         /* app_splash (saver.c): the echo rings, drawn at boot */
+#define APP_CPU_KHZ                        /* 9.11: plat_cpu_khz, the clock on the PERF page */
 #define APP_TICK                           /* app_tick: the MIDI clock's sends, on time */
 /* backup and restore over USB (fm1.toml backup = true; base/tools/fm1_backup.py): the saved project and settings */
 #define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SOUND, OBJ_PATTERN, OBJ_SCENES, OBJ_SCNPAT0, OBJ_SCNPAT0 + 1, OBJ_SCNPAT0 + 2, \

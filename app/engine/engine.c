@@ -67,11 +67,11 @@ static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], e
 static float dryr[ENG_BLOCK], eretr[ENG_BLOCK], sretr[ENG_BLOCK];   /* the right side (returns are stereo: P1.5) */
 static volatile float echo_peak, spring_peak, echo_ret_peak, spring_ret_peak;
 static ramp_t echo_ret, spring_ret;              /* the returns' levels */
-static int16_t kick_last;
-static float bus_echo_g;
-static int dive_back;
-static int ph_on, ph_mode;
-static int drive_on;
+static int16_t kick_last;                        /* P_SPRING_KICK as it was: a strike on 0 -> 1 */
+static float bus_echo_g;                         /* the echo's loop gain this block (the cross-sends' cap) */
+static int dive_back;                            /* the dive let go: gliding back at its own pace */
+static int ph_on, ph_mode;                       /* where the phaser is this block (PH_OFF when the tier says) */
+static int drive_on;                             /* where the tape drive is */
 /* the snare-keyed spring gate (P2.5; C13): a snare opens it for HOLD, then it closes over RELEASE */
 static float sg_env;                             /* 0 closed .. 1 open */
 static uint32_t sg_hold, sg_hold_n;              /* samples left open; HOLD in samples */
@@ -123,19 +123,32 @@ static void trig(uint32_t ch, int32_t note, uint32_t vel)   /* a voice struck: a
     voice_trig(ch, note, vel);
     if (ch == CH_SNARE)
         sgate_key();
-}                             /* where the tape drive is                                /* where the phaser is this block (PH_OFF when the tier says)                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
+}
 static float sret_last[ENG_BLOCK];               /* the spring's return a block ago: into the echo (cross-send) */
 static uint32_t sret_last_n;
 static ramp_t xs_e2s, xs_s2e;                    /* the cross-sends' levels (P1.3) */
-#define XS_LOOP_CAP 0.5f                         /* echo -> spring -> echo: their product at most this */                        /* P_SPRING_KICK as it was: a strike on 0 -> 1 */
+#define XS_LOOP_CAP 0.5f                         /* echo -> spring -> echo: their product at most this */
 static volatile uint32_t crashes;
-static volatile int32_t echo_div_now;
-static volatile uint32_t lock_now = 0xFFFu;
+static volatile int32_t echo_div_now;            /* the division in use (the longest that fits, at this tempo) */
+static volatile uint32_t lock_now = 0xFFFu;      /* the key lock's allowed pitch classes (P0.8), this block's */
 static bigknob_t bk, bkr;                        /* the Big Knob (P1.1), left and right */
 static int32_t bk_step = -1, bk_lp, bk_res;      /* its step set; 7.5: a low-pass; 8.10: its resonance */
-static volatile float out_peak;                  /* the output's, before MASTER (tests, meters)      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
+static volatile float out_peak;                  /* the output's, before MASTER (tests, meters) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
+/* 9.4 (the prerelease assessment's finding 6): the last stage's safety. The returns are limited, the dry sum isn't:
+ * everything up could pass full scale. Below -3 dBFS nothing changes (bit for bit: the replays, the tests); above it
+ * a soft knee (tanh) bends towards full scale and never reaches it. 24-bit units, after MASTER */
+#define OUT_FS 8388607.0f
+#define OUT_KNEE (0.70794578f * OUT_FS)          /* -3 dBFS */
+static inline float out_safe(float o)
+{
+    float a = fm_fabsf(o);
+    if (a <= OUT_KNEE)
+        return o;
+    a = OUT_KNEE + (OUT_FS - OUT_KNEE) * fm_tanhf((a - OUT_KNEE) * (1.0f / (OUT_FS - OUT_KNEE)));
+    return o < 0.0f ? -a : a;
+}
 
 /* the transport: an exact integer clock. Position = t_beat + t_phase / BEAT_UNITS beats; each sample adds the tempo
  * (BPM x 10) to t_phase, so a beat is BEAT_UNITS / tempo samples, with no rounding that adds up (no drift) */
@@ -199,7 +212,7 @@ static volatile uint32_t seq_hits;               /* steps played since boot (tes
 static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */
 static volatile int32_t chord_last[NCH];         /* the chord a chord channel last played (tests) */
 static int32_t scene_fired = -1;                 /* the scene recalled at this line (the song's capture) */
-static volatile uint32_t song_bar_now;           /* the song's bar playing
+static volatile uint32_t song_bar_now;           /* the song's bar playing */
 
 /* the runway's audible tick (P_TICK, P0.6): a short sine blip on each of its beats, higher on a bar's first */
 static float tick_ph, tick_inc, tick_amp;
@@ -234,26 +247,41 @@ static inline void prof_mark(uint32_t part)      /* the time since the last mark
     prof_t = t;
 }
 static void tier_track(uint32_t total16);
+static volatile uint32_t blk_peak;               /* 9.11: the costliest block's ticks since eng_block_peak_take */
+static volatile uint32_t blk_sum, blk_n;         /* 9.5: the blocks' ticks and count since eng_prof_reset */
 static void prof_block(void)                     /* the block done: averages and maxima */
 {
-    uint32_t i, total = 0;
+    uint32_t i, total = 0, blk = 0;
     for (i = 0; i < NPARTS; i++) {
         uint32_t a = prof_acc[i];
+        blk += a;                                /* (9.11: this block's whole cost, for its peak) */
         prof[i].avg = prof[i].avg - (prof[i].avg >> 4) + a;   /* (x16: 1/16-tick resolution) */
         if (a > prof[i].max)
             prof[i].max = a;
         prof_acc[i] = 0;
         total += prof[i].avg;
     }
+    if (blk > blk_peak)
+        blk_peak = blk;
+    blk_sum += blk;                              /* (9.5: the mean since eng_prof_reset, for ratios that hold still) */
+    blk_n++;
     tier_track(total);
 }
 eng_prof_t eng_prof(uint32_t part) { return part < NPARTS ? prof[part] : prof[0]; }
+uint32_t eng_block_peak_take(void)               /* 9.11: the costliest block since the last call, ticks; then from 0 */
+{
+    uint32_t p = blk_peak;
+    blk_peak = 0;
+    return p;
+}
 void eng_prof_reset(void)
 {
     uint32_t i;
     for (i = 0; i < NPARTS; i++)
         prof[i].max = 0;
+    blk_sum = blk_n = 0;
 }
+uint32_t eng_prof_mean(void) { return blk_n ? blk_sum / blk_n : 0; }   /* 9.5: a block's mean ticks since the reset */
 const char *eng_part_name(uint32_t part)
 {
     static const char *const N[NPARTS] = {"cmd", "ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8", "mix",
@@ -589,7 +617,11 @@ static void strips_update(void)                  /* the targets from the applied
         int thr = ev[P_CH(ch, CHF_THROW)] != 0, dest = ev[P_CH(ch, CHF_THROW_DEST)];
         float a = (float)ev[P_CH(ch, CHF_THROW_AMT)] * (1.0f / 127.0f);   /* (P2.9: as hard as it was hit) */
         float te = thr && dest != DEST_SPRING ? a : 0.0f, ts = thr && dest != DEST_ECHO ? a : 0.0f;
-        ramp_to(&s->dry, ev[P_WET] ? 0.0f : g); /* drop to wet: the dry out, its sends kept */
+        if (thr && ev[P_THROW_SPR] && (uint32_t)(ev[P_THROW_SPR] >> 7) == ch + 1u)   /* 9.15: black 1's pressure: */
+            ts = fm_maxf(ts, a * (float)(ev[P_THROW_SPR] & 127) * (1.0f / 127.0f));   /* this much to the spring too,
+                                                  * on top of the throw's own destination */
+        ramp_to(&s->dry, ev[P_WET] ? (ev[P_LEAN_WET] ? g * (1.0f - (float)ev[P_LEAN_WET] * (1.0f / 127.0f)) : 0.0f)
+                                   : g); /* drop to wet: the dry out, its sends kept; 9.16: as much as black 5 is leaned on */
         ramp_to(&s->echo, g * send(ev[P_CH(ch, CHF_ECHO_SEND)]) + te);
         ramp_to(&s->spring, g * send(ev[P_CH(ch, CHF_SPRING_SEND)]) + ts);
     }
@@ -673,7 +705,8 @@ static void bus_update(void)                     /* the echo's and the voices' s
         float secs = 0.1f + 2.9f * (float)ev[P_DIVE_TIME] * (1.0f / 127.0f);
         c.slew = 1.0f - fm_expf(-1.0f / (secs * 0.33f * ECHO_RATE));   /* ~95 % of the way in secs */
         if (ev[P_ECHO_DIVE])
-            c.t = fm_minf(t * (1.0f + (float)ev[P_DIVE_DEPTH] * (1.0f / 127.0f)), ECHO_T_MAX);
+            c.t = fm_minf(t * (1.0f + (float)ev[P_DIVE_DEPTH] * (1.0f / 127.0f)   /* 9.16: as much of DEPTH as black 4 */
+                                   * (ev[P_LEAN_DIVE] ? (float)ev[P_LEAN_DIVE] * (1.0f / 127.0f) : 1.0f)), ECHO_T_MAX);   /* is leaned on */
         dive_back = ev[P_ECHO_DIVE] || fm_fabsf(echo_t_now() - t) > 2.0f;
     }
     t60 = echo_t60(ev[P_ECHO_FB]);
@@ -686,8 +719,9 @@ static void bus_update(void)                     /* the echo's and the voices' s
     c.freeze = ev[P_ECHO_FREEZE] != 0;
     if (c.freeze)
         c.g = 1.0f;
-    if (ev[P_ECHO_PUSH])
-        c.g = 1.15f;                             /* past unity (the loop's filters lose ~5 % at best), capped */
+    if (ev[P_ECHO_PUSH])                         /* past unity (the loop's filters lose ~5 % at best), capped; 9.16: as far
+                                                  * as black 3 is leaned on (0: as before, all the way) */
+        c.g = ev[P_LEAN_PUSH] ? 1.0f + 0.15f * (float)ev[P_LEAN_PUSH] * (1.0f / 127.0f) : 1.15f;
     tone_hz = 800.0f * fm_exp2f((float)ev[P_ECHO_TONE] * (2.64f / 127.0f));
     c.tone = 1.0f - fm_expf(-6.2831853f * tone_hz / ECHO_RATE);
     c.head2 = send(ev[P_ECHO_HEAD2]);
@@ -702,6 +736,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     c.wow = (float)ev[P_ECHO_WOW] * (1.0f / 127.0f);   /* 6.3 */
     c.head3 = send(ev[P_ECHO_HEAD3]);           /* 7.1 */
     c.bbd = ev[P_ECHO_TYPE] == ECHO_BBD;         /* 7.9 */
+    c.aa = ev[P_DEV_ECHO_AA] != 0;               /* 9.7 (the A/B) */
     desk_mci = ev[P_DESK] == DESK_MCI && tier_now == TIER_STUDIO;   /* 7.4 (Studio only) */
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
@@ -1717,7 +1752,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             bigknob_run(&bk, dry, n);
             bigknob_run(&bkr, dryr, n);
         }
-        if (ev[P_SPEAKER] == OUT_SPEAKER)       /* 6.2: BASS+ for the FM-1's own speaker */
+        if (ev[P_SPEAKER] == OUT_SPEAKER || (ev[P_SPEAKER] == OUT_AUTO && ev[P_JACK]))   /* 6.2: BASS+ for the FM-1's
+                                                  * own speaker; 9.8: AUTO, when nothing is in the headphone jack */
             speaker_run(dry, dryr, n);
         for (i = 0; i < n; i++) {
             float y = dry[i], yr = dryr[i];
@@ -1730,8 +1766,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
                 tick_ph = tick_ph + tick_inc >= 1.0f ? tick_ph + tick_inc - 1.0f : tick_ph + tick_inc;
                 tick_amp *= 0.9985f;             /* ~15 ms */
             }
-            lr[2 * i] = (int32_t)(y * gain_now);
-            lr[2 * i + 1] = (int32_t)(yr * gain_now);
+            lr[2 * i] = (int32_t)out_safe(y * gain_now);   /* 9.4: never past full scale */
+            lr[2 * i + 1] = (int32_t)out_safe(yr * gain_now);
         }
         echo_ret_peak = rp;
         out_peak = op;
@@ -1892,7 +1928,7 @@ float eng_echo_g(void)
 {
     float t = echo_line_t(echo_div_now) - 1.0f;
     if (ev[P_ECHO_PUSH])
-        return 1.15f;
+        return ev[P_LEAN_PUSH] ? 1.0f + 0.15f * (float)ev[P_LEAN_PUSH] * (1.0f / 127.0f) : 1.15f;
     if (ev[P_ECHO_FREEZE])
         return 1.0f;
     {

@@ -528,6 +528,7 @@ void app_redraw(void)                    /* (APP_REDRAW: the screen mirror lost 
  * touched for 4 s, stopped, the sound died away (a flash write stops the sound for a moment) and nothing being
  * loaded. Quiet: SAVE's light going out says it. A failed one waits 30 s before the next try */
 static uint32_t hits_mark;                       /* (6.7 tests: hitsmark, hits) */
+static uint32_t perf_ref;                        /* (9.5 tests: perfref, perf_ratio) */
 static uint32_t as_fail_t;
 static void autosave_tick(void)
 {
@@ -682,6 +683,10 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     }
     if (!strcmp(cmd, "oldmotion")) {     /* the motion as saved before 4,096 moves: 5,000 (motion.c) */
         mot_oldsave();
+        return 1;
+    }
+    if (!strcmp(cmd, "perfref")) {       /* 9.5: this moment's cost the reference for perf_ratio (the same run) */
+        perf_ref = eng_prof_mean();      /* (the mean since the last perf reset) */
         return 1;
     }
     if (!strcmp(cmd, "oldscenes2")) {    /* the scenes as saved before 8.1 (SCN2: no EQ) */
@@ -894,6 +899,8 @@ int app_expect(const char *what, int *got)
         *got = peak_db(pk);
     } else if (!strcmp(what, "out_db"))        /* the mix, before MASTER */
         *got = peak_db(eng_out_peak());
+    else if (!strcmp(what, "echo_idle"))    /* 9.1: the echo idle (its tape empty, nothing in) */
+        *got = echo_idle();
     else if (!strcmp(what, "echo_db"))
         *got = peak_db(eng_echo_peak());
     else if (!strcmp(what, "echo_ret_db"))   /* the echo's return, after its level */
@@ -950,6 +957,9 @@ int app_expect(const char *what, int *got)
         *got = (int)(eng_seq_hits() - hits_mark);
     else if (!strncmp(what, "perf_ch", 7))  /* perf_chN: channel N's average cost, tenths of a % of the device's block */
         *got = (int)(eng_prof((uint32_t)atoi(what + 7)).avg / 16.0 * 80.0 * 1000.0 / ENG_BLOCK_TICKS + 0.5);
+    else if (!strcmp(what, "perf_ratio"))   /* 9.5: the mean cost since the last perf reset against perfref's, %: the same
+                                             * on any machine */
+        *got = perf_ref ? (int)((uint64_t)eng_prof_mean() * 100u / perf_ref) : -1;
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */
         uint32_t i, tot = 0;
         for (i = 0; i < NPARTS; i++)

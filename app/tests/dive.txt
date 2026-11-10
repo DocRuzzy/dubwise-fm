@@ -9,7 +9,8 @@ param echo.fb 80
 wait 2000
 expect echo_t 6614
 wav dive.wav
-key b3 down
+key b3 down 127 100
+# (9.16: leaned on all the way, the whole of DEPTH; a light touch sags less, pressure.txt)
 wait 50
 said TAPE DIVE
 expect ui.echo.dive 1

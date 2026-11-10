@@ -5,6 +5,9 @@ set -e
 cd "$(dirname "$0")/.."
 python3 base/tools/build.py app --host
 OUT=app/build/host
+for g in app/tests/fixtures/*.bin.gz; do        # 9.13: the real saves of past releases, unpacked for flash_load
+    gunzip -c "$g" > "$OUT/$(basename "$g" .gz)"
+done
 for t in app/tests/*.txt; do
     [ "$(basename "$t")" = screens.txt ] && continue
     echo "== $t"
@@ -13,6 +16,8 @@ for t in app/tests/*.txt; do
         python3 -I tests/wavstat.py "$OUT/$f" $checks
     done
 done
+echo "== tests/warnings.sh (the engine with warnings on: 9.2)"
+sh tests/warnings.sh || exit 1
 echo "== tests/slot_transfer_test.py"
 python3 tests/slot_transfer_test.py >/dev/null || { echo "FAIL slot transfer (run tests/slot_transfer_test.py)"; exit 1; }
 echo "== tools/site/editor/fields.js (the web editor's table, from the firmware)"

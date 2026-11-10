@@ -721,7 +721,7 @@ static struct {
     bq_t hp, pk, lp, nbp;                        /* the bell; the breath's band */
     int set;
     float tongue;                                /* the tongue's burst, this sample (render_lead) */
-    bq_t blare;                                  /* the brass's blare: a broad lift at 2.5 kHz from BRIGHT (7.7) */
+    bq_t blare;                                  /* the brass's blare: a broad lift at 4 kHz from BRIGHT (7.7) */
     int32_t blare_b;                             /* the BRIGHT it was set for (-1: none yet) */
 } horn = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0x7F4A7C15u, {0}, {0}, {0}, {0}, 0, 0.0f, {0}, -1};
 #define HORN_TILT_DB(b) (((float)(b) - 64.0f) * (6.0f / 64.0f) + HORN_TILT0)   /* BRIGHT 0..127: -6 .. +6 dB about

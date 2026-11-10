@@ -60,12 +60,12 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 |---|---|
 | White 1–8 | Mute ch 1–8. Tap toggles; hold inverts momentarily and focuses the strip. **Double-tap = solo** (additive; double-tap again to un-solo; quantised). HOME + white = solo, as an alternative |
 | White 9–16 | **Throw** ch 1–8 to the channel's destination (Echo / Spring / Both, set in MIXER bank 3). Held: send to max and loop gain lifted. Double-tap latches. With velocity, amount follows velocity |
-| Black 1 | Spring crash. Held while a throw is held, it adds the spring to that throw |
+| Black 1 | Spring crash. Held while a throw is held, it adds the spring to that throw, as much as it's leaned on (9.15) |
 | Black 2 | Echo hold/freeze |
-| Black 3 | Dub push (feedback past unity, capped) |
-| Black 4 | Tape dive |
-| Black 5 | Drop to wet |
-| Black 6–7 | Siren A / B |
+| Black 3 | Dub push (feedback past unity, capped); pressure: how far past (9.16) |
+| Black 4 | Tape dive; pressure: how deep |
+| Black 5 | Drop to wet; pressure: how much drops |
+| Black 6–7 | Siren A / B; pressure: the pitch rises (an octave at most) |
 | Black 8–10 | Vox/FX one-shots 1–3 |
 | Black 11 | Drum & bass only |
 | KNOB 1–4 | Echo time · Feedback · Echo return · Spring return |

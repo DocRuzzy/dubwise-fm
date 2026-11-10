@@ -1,0 +1,79 @@
+# 9.16: leaning on blacks 3-7. The push, the dive and drop to wet start at half the velocity, and leaning adds the
+# rest; the sirens strike at their pitch and bend up as you lean (an octave at the most). Let go: back to 0 ("as
+# before": the song's old moves, with no lean, play all of it).
+wait 600
+listen
+expect eng.lean.push 0
+# black 3, the push: a light touch, a little past the edge
+key b2 down 40 0
+wait 50
+expect eng.lean.push 20
+expect echo_g >1000
+expect echo_g <1030
+# leaning in: the scream, capped at 1.15
+key b2 down 40 100
+wait 400
+expect eng.lean.push 127
+expect echo_g 1150
+key b2 up
+wait 50
+expect eng.lean.push 0
+# black 4, the dive: a slight sag, then a deep one
+key b3 down 60 0
+wait 50
+expect eng.lean.dive 30
+key b3 down 60 100
+wait 400
+expect eng.lean.dive 127
+key b3 up
+wait 50
+expect eng.lean.dive 0
+# black 5, drop to wet: a partial drop, then all of it
+key b4 down 80 0
+wait 50
+expect eng.lean.wet 40
+key b4 down 80 100
+wait 400
+expect eng.lean.wet 127
+key b4 up
+wait 50
+expect eng.lean.wet 0
+# black 6, the siren: struck at its pitch, bending up as you lean
+key b5 down 100 0
+wait 50
+expect eng.lean.siren 0
+key b5 down 100 60
+wait 400
+expect eng.lean.siren >40
+# the other siren takes over: its own lean (none yet); letting go of the first leaves it
+key b6 down 100 0
+wait 400
+expect eng.lean.siren 0
+key b5 up
+wait 50
+key b6 down 100 100
+wait 400
+expect eng.lean.siren 127
+key b6 up
+wait 50
+expect eng.lean.siren 0
+expect eng.siren 0
+# the sound of drop to wet: a light touch keeps some of the band under the effects, a firm one drops all of it
+tap PLAY
+wait 600
+key b4 down 40 0
+wait 200
+wav wet-part.wav
+wait 2000
+wavstop
+key b4 up
+wait 200
+key b4 down 127 100
+wait 500
+wav wet-full.wav
+wait 2000
+wavstop
+key b4 up
+tap PLAY
+#wav wet-part.wav rms>-40
+#wav wet-full.wav rms<-60

@@ -15,8 +15,8 @@ key b10 up
 wait 400
 expect eng.dnb 0
 # drop to wet: every channel's dry out, the echo still sounding
-key b4 down
-wait 300
+key b4 down 127 100
+wait 500
 said DROP TO WET
 expect ch1_db -120
 expect ch4_db -120

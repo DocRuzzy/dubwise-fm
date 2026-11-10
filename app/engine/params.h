@@ -52,7 +52,7 @@ enum { PERC_OFF, PERC_2ND, PERC_3RD, PERC_N };
 enum { VIB_OFF, VIB_V1, VIB_V2, VIB_V3, VIB_C1, VIB_C2, VIB_C3, VIB_N };
 enum { ROT_OFF, ROT_SLOW, ROT_FAST, ROT_BRAKE, ROT_N };
 enum { LES_LIGHT, LES_FULL, LES_N };
-enum { OUT_LINE, OUT_SPEAKER, OUT_N };          /* 6.2 */
+enum { OUT_LINE, OUT_SPEAKER, OUT_AUTO, OUT_N };   /* 6.2; 9.8: AUTO, SPEAKER with nothing in the headphone jack */
 enum { SUB_SINE, SUB_CLASSIC, SUB_N };          /* 6.1: the bass's sub: a sine, or sine + 1/3 3rd + 1/5 5th */            /* the rotary: ours, or setBfree's whirl (Studio only; v0.3) */
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
@@ -123,6 +123,8 @@ enum {
                                * only; saved in the settings' spare bytes) */
     P_SPEAKER = 0x034,        /* 6.2: OUT_LINE, OUT_SPEAKER (BASS+: the lows heard through their harmonics on the
                                * FM-1's own speaker; saved as the FX bytes, an older save's 0: LINE) */
+    P_DEV_ECHO_AA = 0x03D,    /* 9.7 (an A/B for the owner's ear): 1, the echo's input through two half-band FIRs (as
+                               * the spring's) instead of two one-poles: less fold-back on hat and snare throws */
     P_DEV_LOAD = 0x03E,       /* development: this much % added to the measured load (the guard's host tests) */
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
@@ -179,6 +181,16 @@ enum {
     P_SPRING_END,
     P_BK_RES = 0x0D8,         /* 8.10: the Big Knob's resonance, BKRES_OFF (the Altec's, Q 1), BKRES_LOW, BKRES_HIGH (as the
                                * AudioThing Dub Filter's "impedance": each step rings as it clicks). A SETUP preference */
+    P_JACK,                   /* 9.8: 1 the headphone jack known empty, so the speaker plays (the main loop's
+                               * plat_headphones; not read yet: 0, as a line); not saved, not recorded */
+    P_THROW_SPR,              /* 9.15: black 1 held with a throw: how much of that throw goes to the spring too, by the
+                               * key's pressure. 0 none; else (channel + 1) << 7 | amount 0..127. A momentary (the song
+                               * records it, a stop lets it go); not saved */
+    P_LEAN_PUSH,              /* 9.16: the black keys' pressure, 0..127, momentaries (the song records them, a stop lets
+                               * them go), not saved; 0: as before. The push: how far past unity (1.0 .. 1.15, the cap) */
+    P_LEAN_DIVE,              /* the dive: how much of the TAPE bank's DIVE depth */
+    P_LEAN_WET,               /* drop to wet: how much of the band drops (127: all of it) */
+    P_LEAN_SIREN,             /* the sirens: their pitch rising, up to an octave */
     P_BK_END,
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..40 = HPF_HZ (the Altec's on 4, 8 .. 40) */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */

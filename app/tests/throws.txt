@@ -1,0 +1,107 @@
+# 9.14 (the DUB-1 comparison §8.10: DUB-1 found its bass throw almost silent): each channel played alone, dry, then
+# muted and thrown so only its echo is heard. Every throw comes back within a few dB of the part (the simulator is
+# deterministic: each level held to +-2 dB of its measure) but the hats', ~24 dB under: their energy is above 7 kHz,
+# over the echo's 11 kHz line's 5.5 kHz (by design: the dark tape). The roadmap's 9.H notes it.
+wait 600
+param echo.fb 30
+tap PLAY
+wait 500
+param ch1.mute 1
+param ch2.mute 1
+param ch3.mute 1
+param ch4.mute 1
+param ch5.mute 1
+param ch6.mute 1
+param ch7.mute 1
+param ch8.mute 1
+param ch1.mute 0
+wav dry1.wav
+wait 3400
+wavstop
+param ch1.mute 1
+wait 2500
+param ch1.dest 0
+param ch1.throw 1
+wav thr1.wav
+wait 3400
+wavstop
+param ch1.throw 0
+wait 3500
+#wav dry1.wav rms>-41.0 rms<-37.0
+#wav thr1.wav rms>-44.9 rms<-40.9 peak<-1
+param ch2.mute 0
+wav dry2.wav
+wait 3400
+wavstop
+param ch2.mute 1
+wait 2500
+param ch2.dest 0
+param ch2.throw 1
+wav thr2.wav
+wait 3400
+wavstop
+param ch2.throw 0
+wait 3500
+#wav dry2.wav rms>-54.1 rms<-50.1
+#wav thr2.wav rms>-57.5 rms<-53.5 peak<-1
+param ch3.mute 0
+wav dry3.wav
+wait 3400
+wavstop
+param ch3.mute 1
+wait 2500
+param ch3.dest 0
+param ch3.throw 1
+wav thr3.wav
+wait 3400
+wavstop
+param ch3.throw 0
+wait 3500
+#wav dry3.wav rms>-55.0 rms<-51.0
+#wav thr3.wav rms>-78.7 rms<-74.7 peak<-1
+# (the hats: 24 dB under, the echo's line)
+param ch4.mute 0
+wav dry4.wav
+wait 3400
+wavstop
+param ch4.mute 1
+wait 2500
+param ch4.dest 0
+param ch4.throw 1
+wav thr4.wav
+wait 3400
+wavstop
+param ch4.throw 0
+wait 3500
+#wav dry4.wav rms>-36.9 rms<-32.9
+#wav thr4.wav rms>-41.6 rms<-37.6 peak<-1
+param ch5.mute 0
+wav dry5.wav
+wait 3400
+wavstop
+param ch5.mute 1
+wait 2500
+param ch5.dest 0
+param ch5.throw 1
+wav thr5.wav
+wait 3400
+wavstop
+param ch5.throw 0
+wait 3500
+#wav dry5.wav rms>-57.2 rms<-53.2
+#wav thr5.wav rms>-62.2 rms<-58.2 peak<-1
+param ch6.mute 0
+wav dry6.wav
+wait 3400
+wavstop
+param ch6.mute 1
+wait 2500
+param ch6.dest 0
+param ch6.throw 1
+wav thr6.wav
+wait 3400
+wavstop
+param ch6.throw 0
+wait 3500
+#wav dry6.wav rms>-50.4 rms<-46.4
+#wav thr6.wav rms>-53.6 rms<-49.6 peak<-1

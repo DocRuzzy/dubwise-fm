@@ -20,13 +20,15 @@
 4. From another firmware (e.g. a Felucca one): install Dubwise again, and check step 1's identity.
 5. From two or three popular alternative firmwares besides Felucca (e.g. SLOOP, LOOM-8, X0X), install Dubwise and remove it again (`roundup-review-2026-11.md`: one firmware reviewed there blocked every later install). Note any that refuse.
 6. The recovery path, in the README: if an install fails, plug the FM-1 straight into the computer (no hub), restore stock with the web installer (or M-VAVE's FM1 Open), then install again.
-7. **Every device session, not just the release:** the PERF page with the UK STEPPERS desk and every effect up, and
-   then with the demo song. Note the average, the peak, the tier the guard settles on, and `plat_stack_least_ever`,
+7. **Beta testers:** the README's call and [`hardware-test-list.md`](hardware-test-list.md); reports come in as "Beta test report" issues.
+8. **Every device session, not just the release:** the PERF page with the UK STEPPERS desk and every effect up, and
+   then with the demo song. Note the average, the peak, the tier the guard settles on, and the STACK readings (bottom right: M and I, bytes never used since switch-on),
    in the project's Practice log ("Device measurements"). The roadmap's CPU figures are host estimates (×80) until
    these readings replace them.
 
 ## Then
 
+- Make this release's save fixture (roadmap 9.13; `app/tests/fixtures/README.md`): its simulator, from the tag, saves a project and a slot; the flash gzipped in `app/tests/fixtures/`, and a `fixture_vX.Y.txt` that loads it.
 - Tag a release (`v0.3`: blocks 6 and 7, the demo tour and the 8.x plan) once the PR is merged, on `main`; the workflow publishes it. (`v0.1-beta` was the first; `v0.2` the 5.x block, PR 10.)
 - Email zven@thefirmwarehub.com:
   - the name (Dubwise FM) and the author (DocRuzzy, SpIllt Beats)

@@ -1,32 +1,16 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Dubwise FM contributors */
-/* The DUB page, the home of the live desk (docs/interface-spec.md 4.1, 5.1): first version, P0.1 (quantised mutes
- * and solo). Part of the unity build: app.c includes it, after its settings, messages and helpers.
+/* The DUB page, the home of the live desk (docs/interface-spec.md 4.1, 5.1), and the input that every page shares
+ * (the buttons, the keys, the knobs). Part of the unity build: app.c includes it, after its settings, messages and
+ * helpers; it includes the other pages.
  *
- *   White 1-8      mute channel 1-8: a tap toggles, a hold flips it until released, a double tap solos (additive)
- *   HOME + white   solo, as an alternative
- *   OCT- / OCT+    launch quantise: BEAT, 1, 2, 4, 8, 16, 32 bars
- *   PLAY           start / stop (on release). Held with a white key: that key acts now, not on the line
- *   HOME + SELECT  tempo, 1 BPM a detent
- *   ALGORITHM      the focused channel (its strip underlined; the knobs follow it later)
- *   EDIT           the SOUND view: KNOB 1-4 edit the focused channel's voice, four parameters a bank; EDIT again
- *                  for the next bank, then back to the echo's knobs (P0.5)
- *   SAVE           tempo, quantise, the echo's knobs and the sounds
- *   GLO            the SETUP page (setup.c): cycle, runway, cue tick, reduced motion, cue lead, test tones
- *   ARP            the KEY & CHORDS page (keys.c); HOME + ARP: the key lock on / off from any page
- *   FX             the FX page (fx.c): the echo's and the spring's settings, a bank at a time
- *   HOME again     the ARRANGE page (arrange.c): scenes; PRESET on the DUB page cues the next stored scene
- *   black 1        the spring crash (the tank struck); held with a throw key, that throw goes to the spring too
- *   black 4        the tape dive, while held: the echo's time glides longer (FX page, TAPE: depth, glide)
- *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
- *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
- *                  a knob keeps the key from flipping the mute
- *   black 2 / 3    echo freeze / dub push, while held
- *   White 9-16     throw channel 1-8 to its destination (P0.2): while held, in full, pre-fader and pre-mute (a muted
- *                  channel can be thrown); the echo's loop lifted. A double tap latches it; a tap unlatches
- *   white 9-16 held + K1   the destination: E (echo), S (spring), ES (both); the throw is cancelled
- * Quantised actions blink their key until they land, and the centre says when. Not here yet: the other black
- * keys' effects (P1.x, P2.x), the channel filter, the runway (P0.6), velocity-scaled throws (P2.9). */
+ * The controls, as built, are in app/docs/MANUAL.md section 3 (and 3f for the channel EQ and pan), and their history in
+ * docs/interface-spec.md 4.1.x. In short: white 1-8 mute (tap), flip (hold), solo (double tap); white 9-16 throw;
+ * the black keys the gestures (crash, freeze, push, dive, wet, sirens, shots, drum and bass); OCT-/OCT+ quantise and
+ * FILL; KNOB 1-4 the echo's TIME, FB and return and the spring's return, or with a white key 1-8 held that channel's
+ * level, filter, echo send and spring send (8.8); the Big Knob the stepped filter (with keys held: theirs); ALGORITHM
+ * the focus (with keys held: their pan). (Before 2026-11-10 this header listed the P0.1 page and went stale; the
+ * manual is the one place to keep current.) */
 
 /* four regions, each drawn only when it changes (spec 5.3): header 0-23, strips 26-121, centre 124-199, footer
  * 202-239 */
@@ -155,7 +139,9 @@ static struct {
     uint32_t pulses, key_flashes;        /* counted (tests) */
     int tier_seen;                       /* the guard tier last shown */
     int32_t spring_add;                  /* the throw black 1 added the spring to, -1 none */
-    int8_t dest_was;                     /* its destination before */
+    uint8_t spr_vel, spr_amt;            /* 9.15: black 1's velocity; the spring's share last sent (255: none yet) */
+    int8_t lean_k[4];                    /* 9.16: the black key leaned on for the push, dive, wet, siren (-1 none) */
+    uint8_t lean_vel[4], lean_amt[4];    /* (its velocity; the amount last sent, 255 none yet) */
     int32_t turns[NE];                   /* detents since boot, per encoder */
     uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
     uint32_t foot_sig, centre_t;         /* what the footer shows (redrawn when it changes); the centre's last draw */
@@ -574,6 +560,7 @@ static const char *bk_name(int32_t step)          /* the Big Knob's step as it s
 }
 
 static int32_t held_mute(void);          /* (below: the mute key held, -1 none) */
+static void spring_add_tick(void);       /* (below, 9.15: black 1's pressure to the throw's spring) */
 static uint32_t held_mutes(void);        /* (below, 8.1: every mute key held, a bit a channel) */
 static void hold_edits(uint32_t m);      /* (the held keys for editing: their mutes as they were) */
 static void chfilt_off(uint32_t m);      /* (8.1: the held channels' filters out) */
@@ -779,6 +766,62 @@ static int32_t held_mute(void)          /* the mute key held (the lowest), -1 no
         if (dub.keys >> WK[ch] & 1u)
             return (int32_t)ch;
     return -1;
+}
+
+/* 9.15: black 1 held with a throw: how much of the throw goes to the spring too. Its velocity sets where it starts
+ * (half of it), leaning on it adds the rest: a light touch a little spring, a firm press all of it. Sent when it moves
+ * by 8 or more (the song's motion keeps each; 16 steps are plenty for a lean) */
+static void spring_add_tick(void)
+{
+    int32_t a;
+    if (dub.spring_add < 0)
+        return;
+    a = dub.spr_vel / 2 + (int32_t)touch_pressure(BK[0]);
+    a = a > 127 ? 127 : a;
+    if (dub.spr_amt != 255 && (a == dub.spr_amt || (a - dub.spr_amt < 8 && dub.spr_amt - a < 8 && a != 127 && a != 0)))
+        return;                              /* (the ends always reached) */
+    dub.spr_amt = (uint8_t)a;
+    ctl_set(P_THROW_SPR, ((dub.spring_add + 1) << 7) | a);
+}
+
+/* 9.16: the same lean on blacks 3-7. The push, the dive and drop to wet start at half the velocity and leaning adds the
+ * rest (a light touch: a little past the edge, a slight sag, a partial drop; a firm press: all of it). The sirens
+ * strike at their pitch and bend up as you lean, an octave at the most. Sent as black 1's (by 8, the ends always) */
+static void lean_send(uint32_t i)
+{
+    int32_t k = dub.lean_k[i], a;
+    if (k < 0)
+        return;
+    a = (i == 3u ? 0 : dub.lean_vel[i] / 2) + (int32_t)touch_pressure(BK[k]);
+    a = a > 127 ? 127 : a < (i == 3u ? 0 : 1) ? (i == 3u ? 0 : 1) : a;   /* (0 would be "all of it": 1 at least) */
+    if (dub.lean_amt[i] != 255 && (a == dub.lean_amt[i] || (a - dub.lean_amt[i] < 8 && dub.lean_amt[i] - a < 8
+                                                             && a != 127 && a != (i == 3u ? 0 : 1))))
+        return;
+    dub.lean_amt[i] = (uint8_t)a;
+    ctl_set(P_LEAN_PUSH + i, a);
+}
+
+static void lean_start(uint32_t i, uint32_t k)
+{
+    dub.lean_k[i] = (int8_t)k;
+    dub.lean_vel[i] = (uint8_t)(touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
+    dub.lean_amt[i] = 255;
+    lean_send(i);
+}
+
+static void lean_stop(uint32_t i, uint32_t k)
+{
+    if (dub.lean_k[i] != (int8_t)k)
+        return;                          /* (the other siren took over: its bend plays on) */
+    dub.lean_k[i] = -1;
+    ctl_set(P_LEAN_PUSH + i, 0);
+}
+
+static void lean_tick(void)
+{
+    uint32_t i;
+    for (i = 0; i < 4u; i++)
+        lean_send(i);
 }
 
 static int32_t held_throw(void)         /* the throw key held (the lowest), -1 none */
@@ -1226,6 +1269,8 @@ static void dub_input_hands(void)
                 app_say(rev ? "REVERSE" : "ONE SHOT", fxv_shot_name(k - 7u));
                 continue;
             }
+            if (k >= 2u && k <= 6u)      /* 9.16: the lean first, so the engine has it with the move */
+                lean_start(k >= 5u ? 3u : k - 2u, k);
             if (k == 5u || k == 6u)      /* the sirens A, B, while held (P2.1): a parameter, captured (5.1) */
                 ctl_set(P_SIREN, (k == 5u ? SIREN_A : SIREN_B) + 1
                                      + (int32_t)(((touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u) & 127u) << 4));
@@ -1243,10 +1288,11 @@ static void dub_input_hands(void)
             }
             if (k == 0u) {               /* the crash; with a throw held, the spring added to that throw */
                 int32_t tc = held_throw();
-                if (tc >= 0) {
+                if (tc >= 0) {           /* 9.15: how much spring by black 1's velocity, then its pressure */
                     dub.spring_add = tc;
-                    dub.dest_was = (int8_t)ctl_get(P_CH(tc, CHF_THROW_DEST));
-                    ctl_set(P_CH(tc, CHF_THROW_DEST), DEST_BOTH);
+                    dub.spr_vel = (uint8_t)(touch_vel(BK[0]) ? touch_vel(BK[0]) : 100u);
+                    dub.spr_amt = 255;
+                    spring_add_tick();
                     app_say("THROW", "PLUS SPRING");
                     continue;
                 }
@@ -1256,17 +1302,23 @@ static void dub_input_hands(void)
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 5u || k == 6u)) {
             if ((ctl_get(P_SIREN) & 15) == (k == 5u ? SIREN_A : SIREN_B) + 1)
                 ctl_set(P_SIREN, 0);             /* (the other siren, if it took over, plays on) */
+            lean_stop(3u, k);
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 4u || k == 10u)) {
             ctl_set(k == 4u ? P_WET : P_DNB, 0);
+            if (k == 4u)
+                lean_stop(2u, k);
             dub.dirty_centre = 1;
         } else if (!(keys & bit) && (dub.keys & bit) && k == 3u) {
             ctl_set(P_ECHO_DIVE, 0);
+            lean_stop(1u, k);
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 1u || k == 2u)) {
             ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 0);
+            if (k == 2u)
+                lean_stop(0u, k);
             dub.dirty_foot = dub.dirty_centre = 1;
         } else if (!(keys & bit) && (dub.keys & bit) && k == 0u) {
-            if (dub.spring_add >= 0) {   /* the throw's destination as it was */
-                ctl_set(P_CH(dub.spring_add, CHF_THROW_DEST), dub.dest_was);
+            if (dub.spring_add >= 0) {   /* 9.15: the spring's share let go */
+                ctl_set(P_THROW_SPR, 0);
                 dub.spring_add = -1;
             }
             ctl_set(P_SPRING_KICK, 0);
@@ -1759,6 +1811,13 @@ void dub_draw(void)
     int drew = 0;
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     desk_tick();                         /* (8.1: a desk move since the save lights SAVE) */
+    spring_add_tick();                   /* (9.15: black 1's pressure, while it adds the spring to a throw) */
+    lean_tick();                         /* (9.16: blacks 3-7's) */
+    {                                    /* 9.8: the headphone jack to the engine (OUTPUT AUTO), when it changes */
+        int spk = plat_headphones() == 0;   /* (known empty only: not read yet is a line) */
+        if (spk != ctl_get(P_JACK))
+            ctl_set(P_JACK, spk);
+    }
     slot_tick();                         /* (a loaded slot's, the same way) */
     slot_sx_tick();                      /* (a slot going to a computer) */
     sh_sx_tick();                        /* (the one-shots going to one: 5.14) */
@@ -1908,6 +1967,7 @@ void dub_init(void)
     dub.dirty_hdr = dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 1;
     dub.last_lands = -1;
     dub.spring_add = -1;
+    dub.lean_k[0] = dub.lean_k[1] = dub.lean_k[2] = dub.lean_k[3] = -1;
 }
 
 /* a screen reader that has just started listening (or asks) hears the whole page */

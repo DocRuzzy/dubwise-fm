@@ -1,0 +1,41 @@
+wait 600
+listen
+tap GLO
+wait 30
+turn K1 -3
+wait 30
+turn K2 1
+wait 30
+turn K2 1
+wait 300
+said RIGHTEOUS DUB LOADED
+param tempo 740
+param v4.decay 30
+param ch3.level 60
+wait 100
+tap HOME
+wait 30
+tap HOME
+wait 30
+press SAVE
+tapkey w2
+wait 30
+release SAVE
+wait 30
+said SCENE 3 STORED
+tap HOME
+wait 30
+tap SAVE
+wait 1500
+said SAVED
+tap GLO
+wait 30
+turn K1 -3
+wait 30
+turn K2 1
+wait 30
+said SAVE TO SLOT TO 2
+tap SAVE
+wait 500
+said SLOT 2 SAVED
+flash_dump app/tests/fixtures/v0.3-flash.bin

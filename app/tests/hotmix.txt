@@ -1,0 +1,35 @@
+# 9.4 (the prerelease assessment's finding 6): everything up at once never passes full scale. Every fader at 127, the
+# demo riddim with its echo and spring, a dub push, a crash, a siren, MASTER full: a soft knee above -3 dBFS holds the
+# last stage under 0 dBFS, with no hard clip.
+wait 600
+master 4096
+param ch1.level 127
+param ch2.level 127
+param ch3.level 127
+param ch4.level 127
+param ch5.level 127
+param ch6.level 127
+param ch7.level 127
+param ch8.level 127
+param ch2.echo 127
+param ch5.spring 127
+param echo.ret 127
+param spring.ret 127
+param dev.tones 1
+wav hotmix.wav
+tap PLAY
+wait 1500
+key b3 down 127 100
+key b1 down 127
+wait 100
+key b1 up
+key b6 down 127
+wait 2500
+key b6 up
+key b3 up
+wait 1500
+tap PLAY
+wait 500
+wavstop
+#wav hotmix.wav peak<0
+# (without the knee: 6 samples at full scale, peak 0.0; with it: none, the highest 99.997 %)

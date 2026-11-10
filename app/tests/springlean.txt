@@ -1,0 +1,51 @@
+# 9.15: black 1 held with a throw adds the spring to that throw, by how hard: its velocity sets where it starts (half
+# of it), leaning on it adds the rest. The throw's own destination is left alone (the snare's: BOTH by default, so the
+# hats here, echo only), and the spring crash doesn't fire while a throw is held.
+wait 600
+listen
+expect ui.ch3.dest 0
+key w10 down 100
+wait 50
+expect eng.ch3.throw 1
+key b0 down 40 0
+wait 50
+said THROW PLUS SPRING
+expect eng.thrspr 404
+expect crashes 0
+# leaning in: up to all of it
+key b0 down 40 100
+wait 400
+expect eng.thrspr >480
+expect ui.ch3.dest 0
+# let go of black 1: the throw goes on, echo only again
+key b0 up
+wait 50
+expect eng.thrspr 0
+expect eng.ch3.throw 1
+key w10 up
+wait 50
+expect eng.ch3.throw 0
+expect ui.ch3.dest 0
+# the sound: the hats muted and thrown, echo only, then with black 1 leaned on all the way: the spring brings the
+# throw ~9 dB up and brighter (9.14's measure: -76 to -67 dB)
+param ch3.solo 1
+param ch3.mute 1
+tap PLAY
+wait 300
+key w10 down 100
+wav lean-off.wav
+wait 3400
+wavstop
+key w10 up
+wait 3500
+key w10 down 100
+key b0 down 127 100
+wait 300
+wav lean-on.wav
+wait 3400
+wavstop
+key b0 up
+key w10 up
+tap PLAY
+#wav lean-off.wav rms<-72
+#wav lean-on.wav rms>-70
