@@ -665,7 +665,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
         float hz = 2000.0f + 5000.0f * (float)ev[P_SPRING_TONE] * (1.0f / 127.0f);
         sc.g = fm_exp2f(-9.966f * 0.04f / t60);
         sc.damp = 1.0f - fm_expf(-6.2831853f * hz / 22050.0f);
-        sc.naps = tier_now >= TIER_FOUR ? 6 : 12;
+        sc.naps = tier_now >= TIER_SEVEN ? 6 : tier_now >= TIER_FOUR ? 12 : 24;   /* (7.2) */
         sc.mono = tier_now >= TIER_FOUR;
         spring_config(&sc);
         ramp_to(&spring_ret, send(ev[P_SPRING_RET]));

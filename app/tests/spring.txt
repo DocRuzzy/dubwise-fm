@@ -9,7 +9,9 @@ param ch2.spring 127
 wav spring-shot.wav
 midi 99 25 64
 wait 300
-expect spring_ret_db >-40
+# (7.2: the chirp twice as long spreads the same energy wider, its peak at 300 ms ~5 dB lower; the whole's RMS the
+# same)
+expect spring_ret_db >-50
 wait 4500
 expect spring_ret_db <-60
 wavstop
@@ -66,5 +68,5 @@ reboot
 wait 600
 expect ui.spring.decay 107
 #wav spring-shot.wav peak<-1 dc<-50 growth<-30
-#wav spring-crash.wav peak<-1 dc<-40 hf>-30 growth<-20
+#wav spring-crash.wav peak<-1 dc<-40 hf>-30 growth<-20 click<-25
 #wav spring-long.wav peak<-1 dc<-50 growth<-6
