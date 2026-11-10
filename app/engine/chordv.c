@@ -25,7 +25,21 @@ static struct {                                  /* the skank */
     cv_t v[NV];
     float vel, index, ik, ak, ratio, hp_a, lp_a, hx, hy, ly, aenv, arate;   /* aenv: ATTACK's swell (5.3) */
     int on;
+    int pluck;                                   /* 7.8: MODEL PLUCK */
+    uint32_t mute_at, t;                         /* (PLUCK: the half-rate sample its strings are damped, this one) */
 } sk;
+/* 7.8: PLUCK, Karplus-Strong strings after the STK's Plucked (Perry R. Cook and Gary P. Scavone, MIT-style; its pluck
+ * and loop, in C): a string a note of the chord, filled at the pluck with noise through a one-pole (pole 0.999 - 0.15
+ * x the velocity: harder, brighter), 0.6 of its own output fed back as it fills; then its loop: a two-point average at
+ * 0.995 + f x 5e-6 a pass. DECAY is how long they ring before the fretting hand mutes them (the loop's gain to 0.6):
+ * the chop. Half rate, as the FM skank; the strings int16 in the pool (a pluck starts loud: no tiny values to lose) */
+#define KS_N 256u                                /* 22,050 / 256: down to 86 Hz */
+static PLAT_POOL int16_t ks_line[NV][KS_N];
+static struct {
+    uint32_t w;
+    float d, g, x1;
+} ks[NV];
+static uint32_t ks_rng = 0x1F123BB5u;
 
 static struct {                                  /* the organ */
     cv_t v[NV];
@@ -140,6 +154,8 @@ void chordv_config(const int16_t *ev, int tier)
     sk.ik = t60k(30.0f);
     sk.ak = t60k(lin(ev[P_VOICE(CH_SKANK, VS_DECAY)], 60.0f, 200.0f));
     sk.ratio = ev[P_VOICE(CH_SKANK, VS_RATIO)] ? 3.0f : 1.0f;
+    sk.pluck = ev[P_VOICE(CH_SKANK, VS_MODEL)] != 0;   /* 7.8 */
+    sk.mute_at = (uint32_t)(lin(ev[P_VOICE(CH_SKANK, VS_DECAY)], 60.0f, 200.0f) * 0.001f * SR * 0.5f);
     sk.arate = ev[P_VOICE(CH_SKANK, VS_ATTACK)]   /* 5.3: 0 a chop (at once) .. 30 ms in, a half-rate sample's step */
                    ? 2.0f / (lin(ev[P_VOICE(CH_SKANK, VS_ATTACK)], 0.5f, 30.0f) * 0.001f * SR)
                    : 1.0f;
@@ -218,6 +234,33 @@ void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
         sk.vel = v;
         sk.aenv = sk.arate >= 1.0f ? 1.0f : 0.0f;   /* (ATTACK 0: at once, as built) */
         sk.on = 1;
+        if (sk.pluck) {                          /* 7.8: each string plucked: filled with the pick's noise */
+            float pole = 0.999f - v * 0.15f, gain = v * 0.5f;
+            sk.t = 0;
+            for (i = 0; i < NV; i++) {
+                float f = sk.v[i].f, len = 22050.0f / f - 0.5f, y = 0.0f, last = 0.0f;
+                uint32_t k, n;
+                if (len > (float)(KS_N - 2u))
+                    len = (float)(KS_N - 2u);
+                ks[i].d = len;
+                ks[i].g = fm_minf(0.995f + f * 0.000005f, 0.99999f);
+                ks[i].x1 = 0.0f;
+                n = (uint32_t)len;
+                for (k = 0; k < KS_N; k++)
+                    ks_line[i][k] = 0;
+                for (k = 0; k < n; k++) {        /* (as the STK: the line run once round, the pick's noise in) */
+                    float nz;
+                    ks_rng ^= ks_rng << 13;
+                    ks_rng ^= ks_rng >> 17;
+                    ks_rng ^= ks_rng << 5;
+                    nz = (float)(int32_t)ks_rng * (1.0f / 2147483648.0f);
+                    y = gain * (1.0f - pole) * nz + pole * y;
+                    last = fm_clampf(0.6f * last + y, -1.99f, 1.99f);
+                    ks_line[i][k] = (int16_t)(last * 16384.0f);
+                }
+                ks[i].w = n % KS_N;
+            }
+        }
     } else if (ch == CH_ORGAN) {
         if (b3.model == ORG_B3 && b3.perc && (!og.on || og.v[0].amp < 0.05f))
             b3.penv = 1.0f, b3.pn++;             /* (percussion single-triggered: not over a chord still sounding) */
@@ -291,6 +334,27 @@ static int render_skank(float *o, uint32_t n)
             continue;
         }
         sk_odd = 0;
+        if (sk.pluck) {                          /* 7.8: the strings */
+            float g_mute = sk.t >= sk.mute_at ? 0.6f : 1.0f;
+            sk.t++;
+            for (k = 0; k < nv_skank; k++) {
+                float d = ks[k].d, fr, x, y2;
+                int32_t di = (int32_t)d;
+                uint32_t a, b;
+                fr = d - (float)di;
+                a = (ks[k].w + KS_N - (uint32_t)di) % KS_N;
+                b = a == 0u ? KS_N - 1u : a - 1u;
+                x = ((float)ks_line[k][a] + fr * (float)(ks_line[k][b] - ks_line[k][a])) * (1.0f / 16384.0f);
+                s += x;
+                x *= ks[k].g * g_mute;
+                y2 = 0.5f * (x + ks[k].x1);       /* the loop's two-point average */
+                ks[k].x1 = x;
+                ks_line[k][ks[k].w] = (int16_t)(fm_clampf(y2, -1.99f, 1.99f) * 16384.0f);
+                ks[k].w = ks[k].w + 1u == KS_N ? 0u : ks[k].w + 1u;
+            }
+            s *= 6.4f;                           /* (FM's loudness) */
+            sk.v[0].amp = sk.t >= sk.mute_at + 2205u ? 0.0f : 1.0f;   /* (over 0.1 s after the mute: done) */
+        } else
         for (k = 0; k < nv_skank; k++) {
             cv_t *v = &sk.v[k];
             v->pm = wrap(v->pm + v->f * sk.ratio * inv2);

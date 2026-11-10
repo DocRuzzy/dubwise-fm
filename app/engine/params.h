@@ -27,7 +27,7 @@ enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_DROP, VR_HPF, VR_MODEL, VR_N };
 enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_HPF, VH_MODEL, VH_N };                           /* hats */
 enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_FEEDBACK, VB_DRIVE, VB_GLIDE,
        VB_MODEL, VB_SUBTONE, VB_N };                                                                          /* bass */
-enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_N };                        /* skank (P1.6) */
+enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_MODEL, VS_N };   /* 7.8: MODEL FM (0) or PLUCK */                        /* skank (P1.6) */
 enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_MODEL, VO_DB0, VO_DB1, VO_DB2, VO_DB3, VO_DB4, VO_DB5, VO_DB6,
        VO_DB7, VO_DB8, VO_PERC, VO_PFAST, VO_VIBCH, VO_ROTARY, VO_ODRIVE, VO_LESLIE, VO_N };      /* organ: bubble, B-3 (5.15) */
 enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_SAY, VX_SAYPITCH, VX_STUTTER, VX_CRUSH, VX_SHAPE, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */

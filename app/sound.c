@@ -220,6 +220,8 @@ static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value
         static const char *const I[INST_N] = {"MELODICA", "BRASS", "REED"};
         return I[v];
     }
+    if (id == P_VOICE(CH_SKANK, VS_MODEL))       /* (7.8) */
+        return v ? "PLUCK" : "FM";
     if (id == P_VOICE(CH_VOX, VX_SHAPE))         /* (7.1) */
         return v ? "NJD" : "CLASSIC";
     if (id == P_VOICE(CH_BASS, VB_SUBTONE))      /* (6.1) */

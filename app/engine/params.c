@@ -70,6 +70,7 @@ static const pdesc_t SKANK_F[VS_N] = {
     [VS_TONE] = {"tone", 0, 127, 60},               /* the band-pass's centre */
     [VS_RATIO] = {"ratio", 0, 1, 1},                /* 1:1, 1:3 (nasal) */
     [VS_ATTACK] = {"attack", 0, 127, 0},            /* 5.3: 0 a chop .. 30 ms in */
+    [VS_MODEL] = {"model", 0, 1, 0},                /* 7.8: FM (as built), PLUCK (Karplus-Strong strings, after the STK) */
 };
 static const pdesc_t ORGAN_F[VO_N] = {
     [VO_DRAWBAR] = {"drawbar", 0, 127, 60},         /* how much of the upper partials */
