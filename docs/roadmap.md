@@ -269,8 +269,14 @@ else. Vocal fragments are left out: they wait on the live input's upstream chang
 - **8.2: synthesised first.** The kit is fitted to recordings:
   - VSCO 2 Community Edition (CC0; fetched into `samples/perc/`, see its readme): conga, quinto, tumba, bongos, a large
     hand drum, bass drum, cowbell, claves, woodblock, tambourine, maracas, shaker;
-  - real nyabinghi drums (bass, funde, repeater) from the owner, still to come. Until then the bass drum and the hand
-    drums stand in.
+  - the owner's Native Instruments Black Arc one-shots (licensed: measurements only, never the audio): the reggae
+    session's own congas, bongos, cowbells, woodblocks, tambourines, shakers, afuche, guiro and triangle.
+  - Neither has a nyabinghi set, so the three drums are matched by role (`samples/perc/README.md`):
+    - the funde (slack head) is a low, dull conga (221 Hz, short);
+    - the repeater (tight head) is a bongo that rings (652 Hz);
+    - the bass drum is a floor tom or kick from Black Arc (the owner will send them).
+
+    Real takes replace them if any turn up.
 - **Channel 8 shared:** the percussion, the sirens, the one-shots and the deejay on one strip.
 - **The EQ saved in scenes: yes.** A change to the scene format (a stored format), so 8.1 starts with its plan (what
   changes, the version, the converter for older scenes and slots, the test that loads an old one), for the owner's OK
