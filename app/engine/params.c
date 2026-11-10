@@ -26,6 +26,7 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_MID_F] = {"midf", -64, 63, 0},            /* its frequency, 1.26 kHz x 40^(v/127): 200 Hz .. 7.9 kHz */
     [CHF_HI] = {"hi", -64, 63, 0},                 /* the high shelf (5 kHz) */
     [CHF_FILT] = {"filt", -40, 40, 0},             /* the Big Knob's steps on this channel: + high-pass, - low-pass */
+    [CHF_PAN] = {"pan", -64, 63, 0},               /* 8.9: left -64 .. right 63, above ~150 Hz only (the lows stay mono) */
 };
 /* the voices' parameters, 0..127 unless said (voices.c maps them) */
 static const pdesc_t KICK_F[VK_N] = {

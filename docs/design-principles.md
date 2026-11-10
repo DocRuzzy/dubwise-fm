@@ -8,7 +8,7 @@ Set by Kirk on 2026-11-08. These govern every architecture and roadmap decision.
 3. **Structure quantisation.** Launch quantise at beat (fired slightly early), 1, 2, 4, 8, 16 or 32 bars. A phrase counter is always visible. The song is a per-bar list that can capture a live dub pass.
 4. **Own the instrument, reuse the platform.** Write our own engine, sequencer and UI on fm1-base / felucca-bsp. Learn from DUB-1 and X0X; don't inherit their priorities.
 5. **Functionality over fidelity, and pay for it in style.** Hi-fi is preferred but negotiable. If the full set of critical functions only fits by lowering fidelity, lower it. Do it where the dub idiom already sounds that way: 1970s Kingston was 4-track, tape, mono and 7-inch.
-6. **Mono core, stereo as a bonus.** The dry path is mono. Stereo lives only on effect returns: first an echo Width offset (P1), then ping-pong (wishlist, P3). The echo is built from the start as one line with two read heads sized for 2T, so ping-pong is a routing change, not a rewrite. Everything must sum to mono cleanly.
+6. **Mono core, stereo as a bonus.** The low end is mono: below ~150 Hz every channel sits in the middle. Above it, each channel has a pan (8.9, the owner's decision of 2026-11-10, after the studies found the records 4-15 dB wider than us above 125 Hz: their instruments were panned in the stereo mixes). Stereo also lives on the effect returns: an echo Width offset (P1), ping-pong (P3). The echo is one line with two read heads sized for 2T, so ping-pong is a routing change, not a rewrite. Everything must sum to mono cleanly, and the Seven-inch tier is mono. (Before 8.9 the dry path was mono throughout.)
 7. **Open source from day one** (GPL-3.0-only, public repo).
 
 ## Fidelity policy (principle 5 in practice)
@@ -22,7 +22,7 @@ Set by Kirk on 2026-11-08. These govern every architecture and roadmap decision.
 ### Fidelity we can spend (with the stylistic rationale)
 | Lever | Saving | Why it still sounds like dub |
 |---|---|---|
-| Mono dry path (stereo only on effect returns) | ~½ of voice and FX cost on the dry path | Most 70s Jamaican dub was mono or near-mono for 7-inch and sound system |
+| Mono dry path below ~150 Hz (8.9: each channel pans above it; returns stereo) | ~½ of voice and FX cost on the dry path (a pan: ~1.5 % a panned channel, the voices stay mono) | Most 70s Jamaican dub was mono or near-mono for 7-inch and sound system |
 | Tape echo at 11 kHz, int16, with saturation in the loop | RAM ÷4, CPU ÷4 | Tape and RE-201 repeats are band-limited and darker on every pass |
 | Spring at 11–22 kHz | CPU ÷2–4 | Real spring tanks roll off around 4–5 kHz |
 | Tonal voices (bass, organ, skank, melodica, brass) at 22.05 kHz | Voice CPU ÷2 | Little musical content above 10 kHz. Mild FM aliasing reads as grit (keep the index bounded) |

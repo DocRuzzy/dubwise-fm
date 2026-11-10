@@ -290,6 +290,20 @@ static int strip_id(uint32_t id)         /* 1: a channel's EQ field (8.1) */
     uint32_t f = (id - P_CH_BASE) % CH_STRIDE;
     return id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && f >= CHF_LO && f <= CHF_FILT;
 }
+static const char *pan_name(int32_t v)   /* 8.9: "CENTRE", "L 20", "R 63" */
+{
+    static char t[12];
+    char b[6];
+    t[0] = 0;
+    if (!v) {
+        text_cat(t, "CENTRE");
+        return t;
+    }
+    text_cat(t, v < 0 ? "L " : "R ");
+    int_text(v < 0 ? -v : v, b);
+    text_cat(t, b);
+    return t;
+}
 static const char *chfilt_name(int32_t v)   /* a channel's filter: "OFF", "HP 500 HZ", "LP 2.5K" */
 {
     static char t[16];
@@ -1030,6 +1044,22 @@ static void encoder(uint32_t k, int32_t e)
         ctl_set(P_HPF_STEP, v);
         dub.dirty_centre = 1;
         app_say(roots_name("BIG KNOB"), bk_name(ctl_get(P_HPF_STEP)));
+    } else if (k == EN_ALGO && dub.page == PAGE_DUB && held_mute() >= 0) {   /* 8.9: a channel's key held + FOCUS:
+                                                                            * its pan (every key held: theirs) */
+        uint32_t m = held_mutes(), ch, first = NCH;
+        char t[24];
+        hold_edits(m);
+        for (ch = 0; ch < NCH; ch++)
+            if (m >> ch & 1u) {
+                ctl_set(P_CH(ch, CHF_PAN), ctl_get(P_CH(ch, CHF_PAN)) + 2 * e);
+                if (first == NCH)
+                    first = ch;
+            }
+        t[0] = 0;
+        text_cat(t, CH_NAME[first]);
+        text_cat(t, " PAN");
+        app_say(t, pan_name(ctl_get(P_CH(first, CHF_PAN))));
+        dub.dirty_strips = 1;
     } else if (k == EN_ALGO) {
         int strip = strip_bank();        /* (8.1: on STRIP, the next channel's STRIP: EQ across the desk) */
         dub.focus = (dub.focus + e % (int32_t)NCH + (int32_t)NCH) % (int32_t)NCH;
@@ -1492,6 +1522,11 @@ static void draw_strips(void)
 
             if ((int32_t)ch == dub.focus)
                 cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
+            {                            /* 8.9: the pan, a tick along the strip's foot (none at centre) */
+                int32_t pn = eng_param(P_CH(ch, CHF_PAN));
+                if (pn)
+                    cv_rect(x + 3 + (pn + 64) * 19 / 127, STRIP_H - 2, 3, 2, C_AMB);
+            }
         }
         CV_BAND_BLIT(STRIP_Y);
     }

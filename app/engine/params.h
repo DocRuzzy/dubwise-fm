@@ -17,7 +17,8 @@ enum { CH_KICK, CH_SNARE, CH_HATS, CH_BASS, CH_SKANK, CH_ORGAN, CH_LEAD, CH_VOX,
 
 /* channel strip fields (append only, at most CH_STRIDE) */
 enum { CHF_LEVEL, CHF_MUTE, CHF_SOLO, CHF_ECHO_SEND, CHF_SPRING_SEND, CHF_THROW, CHF_THROW_DEST, CHF_LEN, CHF_THROW_AMT,
-       CHF_PAT, CHF_LO, CHF_MID, CHF_MID_F, CHF_HI, CHF_FILT, CHF_N };   /* 8.1: the strip's EQ and filter (0: flat) */   /* (CHF_LEN: retired in the session, 4.8; a pattern's length is its own, riddim.h pmeta_t) */
+       CHF_PAT, CHF_LO, CHF_MID, CHF_MID_F, CHF_HI, CHF_FILT, CHF_PAN, CHF_N };   /* 8.1: the strip's EQ and filter (0: flat);
+                                                    * 8.9: its pan (0: centre) */   /* (CHF_LEN: retired in the session, 4.8; a pattern's length is its own, riddim.h pmeta_t) */
 enum { DEST_ECHO, DEST_SPRING, DEST_BOTH, DEST_N };   /* a throw's destination (spec 3) */
 /* voice fields, each channel its own (append only, at most VOICE_STRIDE; voices.h) */
 /* (roadmap 5.3 appended fields after each voice's own: 0 is the voice as before, so a save from before loads as it

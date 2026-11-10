@@ -289,3 +289,6 @@ The roundup review docked firmwares for unreadable pages and waits between menus
 - **On screen:** a strip whose EQ or filter is in shows its name in amber, underlined. The footer says the filter as
   "HP 500 HZ" or "LP 2.5K", and the gains in dB to a tenth.
 - **Saved and recalled:** motion records every field. Scenes (SCN3), slots (DSL5) and SAVE (the desk, DSK1) keep them.
+- **8.9: a white key 1–8 held + ALGORITHM:** that channel's pan, 2 a detent (every key held: theirs), "SKANK PAN R 10".
+  The focus stays. A small amber tick along the strip's foot shows where it sits; none at centre. Only the highs move
+  (a 4th-order split at 150 Hz), and the Seven-inch tier is mono.

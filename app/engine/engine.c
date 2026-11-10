@@ -78,8 +78,42 @@ static uint32_t sg_hold, sg_hold_n;              /* samples left open; HOLD in s
 static float sg_rel = 0.999f;                    /* the closing's factor a sample */
 static void sgate_key(void) { sg_hold = sg_hold_n; }
 static void evlog_ev(uint32_t kind, uint32_t id, int32_t v);   /* (tests: the event log, host only) */
-static PLAT_POOL float org_side[ENG_BLOCK];                /* the B-3's horn side, at the organ strip's level (5.15) */
+static PLAT_POOL float org_side[ENG_BLOCK];                /* the side bus: the B-3's horn side, at the organ strip's
+                                                  * level (5.15); 8.9: the panned strips' sides too */
 static uint32_t org_side_n;
+/* 8.9: each strip's pan, above ~150 Hz only: the strip's highs (a 2nd-order high-pass at 150 Hz) are moved between the
+ * sides, constant power, and its lows stay in the middle, so the low end stays mono. Mid/side: the highs' share of the
+ * middle is corrected in the dry bus, their side goes into the side bus (org_side, the B-3 horn's too). The
+ * Seven-inch tier is mono: no pan */
+typedef struct {
+    float z1, z2, z3, z4;                        /* the high-pass's state (two stages: 4th order, Linkwitz-Riley) */
+    float m0, s0, m1, s1;                        /* the mid and side gains: the block's start and its end (a glide) */
+} pan_t;
+static pan_t pan[NCH];
+static float pan_b0, pan_b1, pan_b2, pan_a1, pan_a2;   /* the 150 Hz high-pass (Butterworth) */
+static void pan_init(void)
+{
+    float w = 6.2831853f * 150.0f / 44100.0f, c = fm_cosf(w), al = fm_sinf(w) * 0.70710678f, a0 = 1.0f / (1.0f + al);
+    uint32_t ch;
+    pan_b0 = 0.5f * (1.0f + c) * a0;
+    pan_b1 = -(1.0f + c) * a0;
+    pan_b2 = pan_b0;
+    pan_a1 = -2.0f * c * a0;
+    pan_a2 = (1.0f - al) * a0;
+    for (ch = 0; ch < NCH; ch++) {
+        pan[ch].z1 = pan[ch].z2 = pan[ch].z3 = pan[ch].z4 = 0.0f;
+        pan[ch].m0 = pan[ch].s0 = pan[ch].m1 = pan[ch].s1 = 0.0f;
+    }
+}
+static void side_need(uint32_t n)                /* the side bus in use this block: cleared at its first use */
+{
+    uint32_t i;
+    if (org_side_n)
+        return;
+    for (i = 0; i < n; i++)
+        org_side[i] = 0.0f;
+    org_side_n = n;
+}
 static volatile uint32_t trig_n[NCH];            /* each channel's hits so far (the envelope view's playhead, 5.10) */
 static void trig(uint32_t ch, int32_t note, uint32_t vel)   /* a voice struck: and a snare keys the gate */
 {
@@ -736,6 +770,14 @@ static void bus_update(void)                     /* the echo's and the voices' s
         for (ch = 0; ch < NCH; ch++)
             chaneq_config(&cheq[ch], ev[P_CH(ch, CHF_LO)], ev[P_CH(ch, CHF_MID)], ev[P_CH(ch, CHF_MID_F)],
                           ev[P_CH(ch, CHF_HI)], ev[P_CH(ch, CHF_FILT)], 44100.0f);
+        for (ch = 0; ch < NCH; ch++) {           /* 8.9: the pan's gains, to glide to over the next block */
+            int32_t p = tier_now == TIER_SEVEN ? 0 : ev[P_CH(ch, CHF_PAN)];
+            float th = ((float)p + 64.0f) * (1.5707963f / 128.0f), gl, gr;
+            gl = 1.41421356f * fm_cosf(th);
+            gr = 1.41421356f * fm_sinf(th);
+            pan[ch].m1 = p ? 0.5f * (gl + gr) - 1.0f : 0.0f;   /* (centre: exactly none, the strip skipped) */
+            pan[ch].s1 = p ? 0.5f * (gl - gr) : 0.0f;
+        }
         chaneq_config(&cheq_side, ev[P_CH(CH_ORGAN, CHF_LO)], ev[P_CH(CH_ORGAN, CHF_MID)],
                       ev[P_CH(CH_ORGAN, CHF_MID_F)], ev[P_CH(CH_ORGAN, CHF_HI)], ev[P_CH(CH_ORGAN, CHF_FILT)], 44100.0f);
     }
@@ -855,6 +897,7 @@ void eng_init(void)
         for (ch = 0; ch < NCH; ch++)
             chaneq_init(&cheq[ch]);
         chaneq_init(&cheq_side);
+        pan_init();
     }
     bigknob_init(&bk);
     bigknob_init(&bkr);
@@ -1494,6 +1537,7 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
     for (i = 0; i < n; i++)
         dry[i] = ebus[i] = sbus[i] = 0.0f;
     prof_mark(PART_MIX);
+    org_side_n = 0;                              /* (the side bus: cleared at its first use this block) */
     for (ch = 0; ch < NCH; ch++) {               /* a fixed order: the same sum on one core or two */
         strip_t *s = &strip[ch];
         float pk = 0.0f;
@@ -1511,15 +1555,14 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             chaneq_run(&cheq[ch], buf, n);       /* 8.1: the strip's EQ and filter, before its fader and sends */
         prof_mark(PART_CH0 + ch);
         if (ch == CH_ORGAN) {                    /* the B-3's stereo horn (5.15): its side, at the strip's level */
-            const float *sd = on ? chordv_side() : 0;
-            org_side_n = 0;
+            float *sd = on ? (float *)chordv_side() : 0;   /* (chordv's output for this block: ours to change) */
             if (sd && s->dry.g != 0.0f) {
                 float g = s->dry.g;
-                for (i = 0; i < n; i++)
-                    org_side[i] = g * sd[i];
                 if (chaneq_active(&cheq_side))   /* (8.1: the side as the organ's strip) */
-                    chaneq_run(&cheq_side, org_side, n);
-                org_side_n = n;
+                    chaneq_run(&cheq_side, sd, n);
+                side_need(n);
+                for (i = 0; i < n; i++)
+                    org_side[i] += g * sd[i];
             }
         }
         if (!on) {
@@ -1565,6 +1608,33 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             if (gs != 0.0f)
                 for (i = 0; i < n; i++)
                     sbus[i] += gs * buf[i];
+        }
+        {                                        /* 8.9: the strip's pan (its highs between the sides) */
+            pan_t *pp = &pan[ch];
+            if (pp->m1 != 0.0f || pp->s1 != 0.0f || pp->m0 != 0.0f || pp->s0 != 0.0f) {
+                float gd = s->dry.g, z1 = pp->z1, z2 = pp->z2, z3 = pp->z3, z4 = pp->z4, m = pp->m0, sg = pp->s0;
+                float dm = (pp->m1 - pp->m0) / (float)n, ds = (pp->s1 - pp->s0) / (float)n;
+                side_need(n);
+                for (i = 0; i < n; i++) {
+                    float x = gd * buf[i], h1 = pan_b0 * x + z1, h;
+                    z1 = pan_b1 * x - pan_a1 * h1 + z2;
+                    z2 = pan_b2 * x - pan_a2 * h1;
+                    h = pan_b0 * h1 + z3;
+                    z3 = pan_b1 * h1 - pan_a1 * h + z4;
+                    z4 = pan_b2 * h1 - pan_a2 * h;
+                    m += dm;
+                    sg += ds;
+                    dry[i] += m * h;
+                    org_side[i] += sg * h;
+                }
+                pp->z1 = undenorm(z1);
+                pp->z2 = undenorm(z2);
+                pp->z3 = undenorm(z3);
+                pp->z4 = undenorm(z4);
+            } else
+                pp->z1 = pp->z2 = pp->z3 = pp->z4 = 0.0f;
+            pp->m0 = pp->m1;
+            pp->s0 = pp->s1;
         }
         s->peak = pk;                            /* (the block's last part: a meter, not a measurement) */
         prof_mark(PART_MIX);
