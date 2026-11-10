@@ -76,8 +76,8 @@ wait 300
 said SLOT 3 LOADED
 wait 200
 expect ui.tempo 720
-expect ui.song.len 32
-expect mot_total 40
+expect ui.song.len 41
+expect mot_total 111
 expect scene_used1 1
 """
 # a damaged image is refused (the slot stays empty)

@@ -64,8 +64,8 @@ by any of the artists, studios or labels named here.
 | **Mono, clean low end.** Nothing below about 150 Hz ever differs between left and right. | Tubby's sound system amplified bass and treble separately. Sound systems want the bass solid and centred. |
 | **Guard tiers: Studio, Four-track, Seven-inch.** When the processor is busy, Dubwise steps down rather than drop out. | The cheap and cast-off four-track systems the greats worked on, and the seven-inch single. |
 
-There's also a demo, **RIGHTEOUS DUB**: an original 32-bar riddim and dub in the 1970s Kingston manner, with the
-engineer's moves built in (SETUP → DEMO SONG). The manual ends with a few hidden things for those who read to the end.
+There's also a demo, **RIGHTEOUS DUB**: an original 41-bar riddim and dub in the 1970s Kingston manner, with the
+engineer's moves built in, that tours every voice, model and effect (SETUP → DEMO SONG). The manual ends with a few hidden things for those who read to the end.
 
 ## Status
 

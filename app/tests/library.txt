@@ -113,7 +113,7 @@ turn K2 1
 wait 100
 said RIGHTEOUS DUB LOADED: PRESS PLAY
 wait 200
-expect mot_total 40
+expect mot_total 111
 turn K1 -3
 wait 30
 turn K2 1

@@ -148,6 +148,7 @@ static int slot_load(uint32_t s)
     p = plat_data(SLOT_AT[s]) + sizeof h;
     if (!slot_head_ok(&h) || slot_sum(2166136261u, p, h.len) != h.sum)
         return 0;
+    demo_live = 0;                               /* (another song: the demo's tour stops) */
     for (i = 0; i < P_NIDS; i++)                 /* the project's parameters (the device's stay) */
         if (project_param(i))
             ctl_set(i, (int16_t)(p[2u * i] | p[2u * i + 1u] << 8));

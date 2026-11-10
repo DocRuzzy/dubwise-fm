@@ -1,7 +1,7 @@
 # The demo song, RIGHTEOUS DUB (demo.c): loaded from SETUP (DEMO SONG, KNOB 2), played through once (72 BPM: a bar
-# is 3.33 s; 32 bars, 1 min 47 s). Its own moves are the song's motion (throws, crashes, a freeze, an echo swell, the
-# Big Knob climbing, a dub push, a tape dive, the drop to wet); a few live ones go on top (a siren in the DROP, a BIM).
-# The recording, demo.wav, is the thing to listen to.
+# is 3.33 s; 41 bars, 2 min 17 s). A tour: each section brings in a voice, a model or an effect (the song's motion),
+# and the demo itself switches the desk's colour (CLEAN, then MCI) and captions each change; the desk is given back at
+# the stop. The recording, demo.wav, is the thing to listen to.
 wait 600
 listen
 master 3400
@@ -18,60 +18,121 @@ wait 100
 said RIGHTEOUS DUB LOADED: PRESS PLAY
 expect ui.tempo 720
 expect ui.song 1
-expect ui.song.len 32
-expect mot_total 40
-expect mot_bar20 4
+expect ui.song.len 41
+expect ui.desk 0
 tap HOME
 wait 300
 wav demo.wav
 tap PLAY
-wait 3373
-# INTRO: drum and bass
+wait 1667
+# INTRO: drum and bass, the desk CLEAN
+said DESK: CLEAN
 expect eng.ch7.mute 1
 expect eng.ch5.mute 1
-wait 8433
+expect eng.desk 0
+wait 10333
 expect eng.ch2.throw 1
-wait 4900
-# VERSE: the band and the melodica
+wait 3000
+# VERSE: the band and the melodica (FM)
+said LEAD: MELODICA
 expect eng.ch7.mute 0
-expect eng.ch5.mute 0
-wait 23533
-# VERSION: the melodica out
-expect eng.ch7.mute 1
-wait 12800
+expect eng.v7.inst 0
+wait 13333
+# the desk to MCI
+said DESK: MCI
+expect eng.desk 1
+wait 13334
+# CHORUS: REED; the B-3
+said CHORUS: REED
+expect eng.v7.inst 2
+expect eng.v6.model 1
+expect eng.v6.rotary 1
+wait 6666
+expect eng.v6.rotary 2
+wait 4667
 # the freeze into the DUB
 expect eng.echo.freeze 1
-wait 633
-# DUB: drum and bass
+wait 1333
+# DUB: drum and bass; the 3T head; siren A
 expect eng.echo.freeze 0
 expect eng.ch5.mute 1
-wait 12500
+expect eng.echo.head3 90
+wait 3334
+expect eng.siren 961
+wait 8666
 # the Big Knob climbed
 expect eng.hpf 32
-wait 833
-# DROP: the bass out; the Big Knob back
+wait 2000
+# DROP: the bass out, the PLUCK skank
+said BIG KNOB: LOW-PASS
 expect eng.hpf 0
 expect eng.ch4.mute 1
-# siren A, live
-key b5 down 90
-wait 3033
-key b5 up
-wait 2467
-expect eng.echo.push 1
-wait 5033
-expect eng.echo.dive 1
-wait 3000
-# VERSE again; a BIM, live
-expect eng.ch4.mute 0
-tapkey b7
-wait 22000
-# the drop to wet
-expect eng.wet 1
+expect eng.v5.model 1
 wait 4667
-# the end: stopped, the wet let go
+# the Big Knob a low-pass, closing
+expect eng.hpf.lp 1
+expect eng.hpf 28
+wait 2333
+# the NJD siren
+said SIREN: NJD
+expect eng.hpf.lp 0
+expect eng.v8.shape 1
+expect eng.siren 961
+wait 3000
+expect eng.echo.dive 1
+wait 3334
+# VOCAL: the 808s, phased hats, HORN; WHEEL UP
+said LEAD: HORN
+expect eng.v1.model 3
+expect eng.v2.model 3
+expect eng.v3.model 2
+expect eng.ph.on 1
+expect eng.v7.inst 3
+expect eng.v5.model 0
+wait 13333
+# FM+HORN, the sax; BIG UP
+said FM+HORN
+expect eng.v7.inst 4
+expect eng.v7.horn 1
+expect eng.v8.say 3
+perf reset
+wait 13333
+# (the busiest bars: 808s, the B-3, FM+HORN, phased hats, MCI: ~66 % on the device by x80; the guard stays in Studio)
+perf
+expect tier 0
+# VERSION: the BBD
+said BBD ECHO
+expect eng.echo.type 1
+expect eng.ch7.mute 1
+expect eng.ch6.mute 1
+expect eng.ph.on 0
+wait 7334
+expect eng.echo.push 1
+wait 6000
+# OUTRO: the tape back, the drive; the desk CLEAN
+said DESK: CLEAN
+expect eng.echo.type 0
+expect eng.drive.on 2
+expect eng.desk 0
+expect eng.ch7.mute 0
+wait 6666
+# the desk MCI again
+said DESK: MCI
+expect eng.desk 1
+wait 2667
+# the FILL
+expect eng.fill 1
+wait 3333
+# END: the drop to wet
+said END
+expect eng.wet 1
+expect eng.fill 0
+wait 3834
+# the end: stopped, the wet let go, the desk given back
 expect t_playing 0
 expect ui.play 0
 expect eng.wet 0
+expect ui.desk 0
 wait 4000
 wavstop
-#wav demo.wav peak<-0.5 dc<-50 side_lo<-60 seconds>110
+#wav demo.wav peak<-0.5 dc<-50 side_lo<-60 seconds>140
