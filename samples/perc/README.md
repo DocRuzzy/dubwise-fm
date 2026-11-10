@@ -20,7 +20,7 @@ There's no nyabinghi set in it, so the three drums are matched to the hits that 
 
 | Role | The nyabinghi drum | Stand-in | Measured |
 |---|---|---|---|
-| Bass ("thunder") | big, low, a padded beater | a floor tom or a kick from Black Arc (the owner offered them); else VSCO 2's orchestral bass drum | (to measure) |
+| Bass ("thunder") | big, low, open, a padded beater | `Kick VaporIzer 1` (also `2`) for now: the only kicks that ring; a floor tom if the owner's Tom folder comes through (the first zip was empty) | modes 47 and 129 Hz, rings to -40 dB in 0.75 s (0.81) |
 | Funde | slack head: low, dull, short | `Conga BlackSpark` (also `Conga LickShot`) | 221 Hz (226), -20 dB in 0.10 s (0.17) |
 | Repeater (kete) | tight head: higher, rings | `Bongo SteppersRock` (also `Conga SkaBuster`) | 652 Hz (483), rings to -40 dB in 0.63 s (0.55) |
 
@@ -28,6 +28,10 @@ The rest of the kit is fitted to Black Arc's reggae-session hits first, with VSC
 - `Conga *`, `Bongo *`;
 - `Cowbell *`, `Woodblock *`, `Tamb *`, `Shaker *`;
 - `Afuche *` (cabasa), `Guiro *`, `Triangle *`.
+
+Also from Black Arc (2026-11-10): `Hihat/` (91), `Snare/` (61), `Cymbal/` (19), `Kick/` (23). Besides the
+nyabinghi bass drum, these are the reggae session's own drums: a reference for checking the kick, rim and hats models
+against (the studies, 8.6). The kicks are tight: 40-80 Hz, most under -40 dB within 0.1-0.4 s.
 
 ## nyabinghi/ (if real recordings turn up)
 
