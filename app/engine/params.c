@@ -246,6 +246,7 @@ static const pdesc_t SPEAKER = {"speaker", 0, OUT_N - 1, OUT_AUTO};   /* (9.8: A
 static const pdesc_t JACK = {"spk", 0, 1, 0};   /* (9.8: 1 the jack known empty) */
 static const pdesc_t DICE_SEED = {"dice.seed", 0, 30000, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
+static const pdesc_t DEV_ECHO_AA = {"dev.echoaa", 0, 1, 0};   /* 9.7 */
 const char *tier_name(int32_t t)
 {
     static const char *const N[TIER_N] = {"STUDIO", "FOUR-TRACK", "SEVEN-INCH"};
@@ -348,6 +349,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &DESK_COL;
     if (id == P_DEV_LOAD)
         return &DEV_LOAD;
+    if (id == P_DEV_ECHO_AA)
+        return &DEV_ECHO_AA;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)
         return &ECHO[id - P_ECHO_TIME];
     if (id >= P_SPRING_RET && id < P_SPRING_END)

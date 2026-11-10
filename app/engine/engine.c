@@ -715,6 +715,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     c.wow = (float)ev[P_ECHO_WOW] * (1.0f / 127.0f);   /* 6.3 */
     c.head3 = send(ev[P_ECHO_HEAD3]);           /* 7.1 */
     c.bbd = ev[P_ECHO_TYPE] == ECHO_BBD;         /* 7.9 */
+    c.aa = ev[P_DEV_ECHO_AA] != 0;               /* 9.7 (the A/B) */
     desk_mci = ev[P_DESK] == DESK_MCI && tier_now == TIER_STUDIO;   /* 7.4 (Studio only) */
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));

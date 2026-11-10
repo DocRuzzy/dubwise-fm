@@ -123,6 +123,8 @@ enum {
                                * only; saved in the settings' spare bytes) */
     P_SPEAKER = 0x034,        /* 6.2: OUT_LINE, OUT_SPEAKER (BASS+: the lows heard through their harmonics on the
                                * FM-1's own speaker; saved as the FX bytes, an older save's 0: LINE) */
+    P_DEV_ECHO_AA = 0x03D,    /* 9.7 (an A/B for the owner's ear): 1, the echo's input through two half-band FIRs (as
+                               * the spring's) instead of two one-poles: less fold-back on hat and snare throws */
     P_DEV_LOAD = 0x03E,       /* development: this much % added to the measured load (the guard's host tests) */
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
