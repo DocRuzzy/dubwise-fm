@@ -32,3 +32,24 @@ wait 30
 expect ui.v8.pitch 80
 #wav siren-a.wav peak<-1 dc<-50 click<-30 zc_hz>550 zc_hz<850
 #wav siren-b.wav peak<-1 dc<-50 click<-30
+# 7.1: SHAPE NJD (the dub siren's RC sweep, a pulse whose width moves with the pitch, RC low-passes); dry, so the
+# echo's tail doesn't count
+param v8.shape 1
+param ch8.echo 0
+wait 30
+wav siren-njd-a.wav
+key b5 down
+wait 2000
+key b5 up
+wait 300
+expect ch8_db <-80
+wavstop
+wav siren-njd-b.wav
+key b6 down
+wait 2000
+key b6 up
+wait 300
+wavstop
+param v8.shape 0
+#wav siren-njd-a.wav peak<-1 dc<-60 click<-30 zc_hz>500 zc_hz<900 hf<-20
+#wav siren-njd-b.wav peak<-1 dc<-60 click<-30 zc_hz>500 zc_hz<900

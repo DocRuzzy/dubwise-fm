@@ -653,6 +653,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
     if (c.head2 < 0.35f * thr_env)               /* (the 2T head with it) */
         c.head2 = 0.35f * thr_env;
     c.wow = (float)ev[P_ECHO_WOW] * (1.0f / 127.0f);   /* 6.3 */
+    c.head3 = send(ev[P_ECHO_HEAD3]);           /* 7.1 */
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev, tier_now);

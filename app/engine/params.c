@@ -103,6 +103,7 @@ static const pdesc_t VOX_F[VX_N] = {
     [VX_SAYPITCH] = {"say pitch", -12, 12, 0},      /* its pitch, semitones */
     [VX_STUTTER] = {"stutter", 0, 127, 0},          /* a frame said again now and then */
     [VX_CRUSH] = {"crush", 0, 5, 0},                /* the speech chip's DAC, fewer bits */
+    [VX_SHAPE] = {"shape", 0, 1, 0},                /* 7.1: the sirens' shape, CLASSIC (0, as before) or NJD */
 };
 static const pdesc_t LEAD_F[VL_N] = {
     [VL_INST] = {"inst", 0, INST_N - 1, INST_MELODICA},
@@ -172,6 +173,7 @@ static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
     [P_DIVE_DEPTH - P_ECHO_TIME] = {"dive.depth", 0, 127, 64},
     [P_DIVE_TIME - P_ECHO_TIME] = {"dive.time", 0, 127, 40},
     [P_ECHO_PP - P_ECHO_TIME] = {"echo.pp", 0, 1, 0},
+    [P_ECHO_HEAD3 - P_ECHO_TIME] = {"echo.head3", 0, 127, 0},
     [P_ECHO_WIDTH - P_ECHO_TIME] = {"echo.width", 0, 127, 0},
 };
 static const pdesc_t SPRING[P_SPRING_END - P_SPRING_RET] = {

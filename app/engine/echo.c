@@ -110,6 +110,7 @@ void echo_init(void)
     cfg.g = 0.0f;
     cfg.tone = 0.5f;
     cfg.head2 = 0.0f;
+    cfg.head3 = 0.0f;
     cfg.freeze = 0;
     cfg.slew = 0.0005f;
     cfg.width = 0.0f;
@@ -147,7 +148,7 @@ static inline float tap(float d)                 /* the line d samples behind th
 
 static float line_step(float x)                  /* one line-rate sample: the input in, the return out */
 {
-    float h1, h2, hl, y, l;
+    float h1, h2, h3 = 0.0f, hl, y, l;
     uint32_t k;
     int32_t w;
     float tw;
@@ -164,7 +165,9 @@ static float line_step(float x)                  /* one line-rate sample: the in
     }
     h1 = tap(tw);
     h2 = tap(2.0f * tw);
-    last_heads_zero = h1 == 0.0f && h2 == 0.0f;
+    if (cfg.head3 > 0.0f)                        /* 7.1: 3T, or as far as the tape goes (T over 0.55 s) */
+        h3 = tap(fm_minf(3.0f * tw, (float)(ECHO_LINE - 4u)));
+    last_heads_zero = h1 == 0.0f && h2 == 0.0f && h3 == 0.0f;
     hl = tap((cfg.pingpong ? 2.0f : 1.0f) * tw - (float)AP_TOTAL);   /* the loop's own read: the all-passes' delay
                                                                          * taken off (ping-pong: from 2T) */
     if (cfg.freeze) {                            /* held: the tape loops as it is (no filters, no new input) */
@@ -208,8 +211,8 @@ write:
         y = 0.75f * (h1 + r);                    /* (the highs all on their side: 1.5 x; the lows 0.75 x on both) */
         out_r = y - d;
         y += d;
-    } else if ((y = h1 + cfg.head2 * h2), cfg.width > 0.0f) {                      /* the right reads later; only its difference above ~120 Hz */
-        float d = tap(tw + cfg.width) + cfg.head2 * h2 - y;
+    } else if ((y = h1 + cfg.head2 * h2 + cfg.head3 * h3), cfg.width > 0.0f) {   /* the right reads later; only its difference above ~120 Hz */
+        float d = tap(tw + cfg.width) + cfg.head2 * h2 + cfg.head3 * h3 - y;
         out_r = y + hp4_run(&side_hp, SIDE_A, d);
     } else {
         out_r = y;

@@ -30,7 +30,7 @@ enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, V
 enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_N };                        /* skank (P1.6) */
 enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_MODEL, VO_DB0, VO_DB1, VO_DB2, VO_DB3, VO_DB4, VO_DB5, VO_DB6,
        VO_DB7, VO_DB8, VO_PERC, VO_PFAST, VO_VIBCH, VO_ROTARY, VO_ODRIVE, VO_LESLIE, VO_N };      /* organ: bubble, B-3 (5.15) */
-enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_SAY, VX_SAYPITCH, VX_STUTTER, VX_CRUSH, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */
+enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_SAY, VX_SAYPITCH, VX_STUTTER, VX_CRUSH, VX_SHAPE, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */
 enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };        /* lead: melodica / brass (P2.2) */
 /* the MAIN macros (roadmap 5.3, spec 4.9): four a channel (not the vox: its MAIN is the siren's own four), stored as
  * the voice's last four fields; -64..63, 0 every target at its default. The engine never reads them: turning one
@@ -163,6 +163,7 @@ enum {
     P_DIVE_TIME,              /* 0..127: the glide, 0.1 .. 3 s */
     P_ECHO_WIDTH,             /* 0 mono; 1..127: the right side 8 .. 16 ms later (P1.5) */
     P_ECHO_PP,                /* 1: ping-pong (P3.1): odd repeats left, even right (above 150 Hz; the lows centred) */
+    P_ECHO_HEAD3,             /* 7.1: the 3T head in the return, 0..127 (the RE-201's 1 : 2 : 3; 0 in older saves: off) */
     P_ECHO_END,
     P_SPRING_RET = 0x0D0,     /* the spring's return (P1.2), 0..127 */
     P_SPRING_DECAY,           /* its decay: 0.5 .. 6 s */

@@ -91,3 +91,23 @@ expect echo_gr <99
 param dev.tones 0
 #wav echo-burst.wav peak<-1 dc<-60 repeat_ms>590 repeat_ms<615 click<-40
 #wav echo-push.wav peak<-1 dc<-40 tail2<-3 tail2>-45
+# 7.1: the 3T head (the RE-201's 1 : 2 : 3). At 1/4T (T = 5,879 line samples, 533 ms) 3T is 1.6 s and fits the tape:
+# with the loop's feedback at its least, a burst comes back at 3T only with the head up
+param dev.tones 0
+param echo.fb 0
+param echo.time 4
+param echo.ret 100
+wait 3000
+param echo.head3 127
+midi 90 3C 64
+wait 60
+midi 80 3C 00
+wait 1570
+expect echo_ret_db >-30
+wait 1500
+param echo.head3 0
+midi 90 3C 64
+wait 60
+midi 80 3C 00
+wait 1570
+expect echo_ret_db <-80
