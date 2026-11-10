@@ -27,7 +27,7 @@
 
 ## Then
 
-- Tag a release (`v0.2`: the 5.x block and its follow-ups, PR 10) once the PR is merged, on `main`; the workflow publishes it. (`v0.1-beta` was the first.)
+- Tag a release (`v0.3`: blocks 6 and 7, the demo tour and the 8.x plan) once the PR is merged, on `main`; the workflow publishes it. (`v0.1-beta` was the first; `v0.2` the 5.x block, PR 10.)
 - Email zven@thefirmwarehub.com:
   - the name (Dubwise FM) and the author (DocRuzzy, SpIllt Beats)
   - the repository link
