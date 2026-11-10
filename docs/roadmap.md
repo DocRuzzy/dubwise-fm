@@ -204,6 +204,23 @@ Grouped by priority: **A** first (5.1–5.6), then **B** (5.7–5.11, 5.15), the
 
 **Tests for the block:** `tails.txt`, `replay.txt` (5.1); `stop2.txt`: tails gone, no click, a later start normal (5.2); `sound.txt` (macros, raw ranges, the bass's fundamental share above a floor at the index cap) (5.3); `patches.txt` with a save, a reboot and a SysEx round trip (5.4); `dice.txt` with a fixed seed: bounds held, holds held, undo, captured and replayed (5.6); `models.txt` with `perf_pct` per model (5.7); `locks.txt` (5.8); `prob.txt`, the same song twice to identical WAVs (5.9).
 
+## From the fm1-emu survey (2026-11-10)
+
+The owner asked for every firmware on fm1-emu (joakimeriksson/fm1-emu, 158 of them) to be read for anything worth
+borrowing; four readers took the 25 near Dubwise (echo and dub, drums, bass and keys, voice and workflow), the rest
+are generative, games, trackers or ambient. The findings and their verdicts: `docs/survey-fm1-emu-2026-11.md`. The
+owner chose 6.1-6.6 to build and 6.7 to plan. Order of work: 6.1-6.4, 6.5, 6.6, then 6.7's plan.
+
+| # | Feature | Notes |
+|---|---|---|
+| 6.1 | **The bass's sub after its drive and filter; SUB TONE CLASSIC** | kwasub and rupture (GPL-3.0). **Done (2026-11-10):** the sub is added after DRIVE and the two low-passes (it stayed clean in level, and the drive no longer beats against it); new field SUB TONE (appended, 0 SINE as before): CLASSIC adds a third of the sub's 3rd and a fifth of its 5th, scaled to the sine's peak (rupture's `ru_sub_classic_read`). Existing sounds with SUB and DRIVE both up change a little (the sub is no longer squashed): **to be reviewed by ear**. Test `bassplus.txt`: SINE's 82 Hz under −35 dB, CLASSIC's above −28. Cost ~0.1 % (two sines at the half rate, CLASSIC only) |
+| 6.2 | **OUTPUT: SPEAKER (BASS+)** | Felucca's `spk_bass` and master low-cut (Leo Kuroshita, GPL-3.0; found in daurade). **Done (2026-11-10):** SETUP → OUTPUT LINE / SPEAKER (`P_SPEAKER`, saved in the settings' spare FX bytes: an older save's 0 is LINE, no format change). SPEAKER: the mix's lows under ~150 Hz (four one-poles) clipped at their own envelope, band-passed ~220 Hz–900 Hz and added ×1.5, and both sides cut 12 dB/oct under ~220 Hz. Test `bassplus.txt`: a 55 Hz bass note's fundamental down 8 dB, its 3rd (165 Hz) up from −71 to −30 dB. Cost ~1.5–2 % (host ×80), SPEAKER only. It affects USB too: LINE for recording |
+| 6.3 | **Tape wow and flutter on the echo** | demake's `media_block` (GPL-3.0) and DUB-1's depth. **Done (2026-11-10):** FX → TAPE → WOW (`P_ECHO_WOW`, 0..127, default 40 for a new project; saved in the settings' FX bytes, an older save's 0: none). All three tape reads move by T × WOW × 0.3 % at most: a 0.8 Hz wow whose rate wanders ±0.4 Hz on a 0.07 Hz sine (demake's random walk made a function of the time since PLAY, so a replay is bit-exact), and a 7 Hz flutter at 1/20. Found on the way, and fixed: `tap()` read the tape's in-between as `wpos − d` in floats (near 18,000 they keep ~0.002 of a sample), harmless while T was a whole number; the replay test caught it. Also: a ±1 step on the tape is written as 0 (the moving read could hold a limit cycle), the loop settles to exactly 0 when it goes idle, and at PLAY when it's inaudible. Tests: `replay.txt` bit-exact with WOW on; `bassplus.txt` at WOW 127 bounded and clean; `pingpong.txt` runs with WOW 0 (its onset metric; the sides still alternate ~7.5 dB with it on). Cost ~0.1 % |
+| 6.4 | **The throw's release tail** | DUB-1's `st_throw` (GPL-3.0). **Done (2026-11-10):** the loop's lift and the 2T head ease out after a throw is let go (a time constant of 0.2 s, ~0.5 s to settle) instead of snapping back, so a thrown word's repeats don't change character mid-ring. Test `throw.txt`: still lifted 50 ms after the release, down 1.2 s later. Cost 0 |
+| 6.5 | **The SMC-Mixer as the desk** | hortator-bt's `smc.c` (DEADACTIVE, GPL-3.0). Over the USB host (the SMC needs its own power): faders the strip levels (pickup), MUTE the mutes, SOLO the solos, REC momentary throws, SELECT the focus, knobs the Big Knob, echo and spring, transport PLAY/STOP, LEDs fed back. Cost: no audio CPU, ~2 KB. **To try on the device** |
+| 6.6 | **A deejay voice on VOX (LPC)** | spellbox's `speech.c` and encoder (GPL-3.0): a TMS5220-style 10-pole lattice at 8 kHz, ~70–90 B a word. Built-in shouts played in key from the keys, with stutter and crush. Cost: ~3–8 KB pool, ~0.5–1 % while talking |
+| 6.7 | **Trig conditions and FILL** | fizz (MPL-2.0), bigorna and luxr (GPL-3.0): 1ST, A:B, PRE and FILL / !FILL (a key held). A step format change: **plan first** (`docs/plan-6.7-conditions.md`), for the owner's OK |
+
 ## Open questions
 
 1. Panel and black-key groupings, and velocity reliability, on the device.

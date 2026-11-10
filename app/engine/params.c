@@ -62,6 +62,7 @@ static const pdesc_t BASS_F[VB_N] = {
     [VB_DRIVE] = {"drive", 0, 127, 0},              /* 5.3: a soft clip before the filter */
     [VB_GLIDE] = {"glide", 0, 127, 0},              /* 5.3: 0 .. 300 ms from the last note to the next */
     [VB_MODEL] = {"model", 0, BASS_MODELS - 1, BASS_ROUND},  /* 5.7: ROUND, PLUCK, HOLLOW, STEPPERS */
+    [VB_SUBTONE] = {"sub tone", 0, SUB_N - 1, SUB_SINE},     /* 6.1: SINE, CLASSIC (heard on small speakers) */
 };
 static const pdesc_t SKANK_F[VS_N] = {
     [VS_INDEX] = {"index", 0, 127, 70},             /* the attack's brightness */
@@ -215,6 +216,8 @@ static const pdesc_t TAILS = {"tails", 0, 1, 0};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
 static const pdesc_t DICE_LINE = {"dice.line", 0, 1, 0};
+static const pdesc_t ECHO_WOW = {"echo.wow", 0, 127, 40};   /* 6.3: a little, from a new project */
+static const pdesc_t SPEAKER = {"speaker", 0, OUT_N - 1, OUT_LINE};
 static const pdesc_t DICE_SEED = {"dice.seed", 0, 30000, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
 const char *tier_name(int32_t t)
@@ -304,6 +307,10 @@ const pdesc_t *param_desc(uint32_t id)
         return &DICE_LINE;
     if (id == P_DICE_SEED)
         return &DICE_SEED;
+    if (id == P_ECHO_WOW)
+        return &ECHO_WOW;
+    if (id == P_SPEAKER)
+        return &SPEAKER;
     if (id == P_DEV_LOAD)
         return &DEV_LOAD;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)

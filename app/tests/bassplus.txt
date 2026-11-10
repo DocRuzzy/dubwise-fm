@@ -1,0 +1,55 @@
+# Roadmap 6.1-6.3 (from the fm1-emu survey): the bass's sub after its drive and filter, and CLASSIC (a third of its
+# 3rd and a fifth of its 5th: heard on small speakers; rupture); SETUP OUTPUT SPEAKER (BASS+, Felucca's: the lows
+# under ~150 Hz heard through their harmonics, the sides cut under ~220 Hz); the echo's tape wow (demake, DUB-1) held
+# clean at its deepest. A bass note A1 (55 Hz), its sub an octave under (27.5 Hz).
+wait 600
+listen
+param v4.sub 100
+param ch4.echo 0
+param ch4.spring 0
+param v4.drive 127
+wav sub-sine.wav
+midi 90 21 64
+wait 800
+midi 80 21 00
+wait 300
+wavstop
+param v4.sub_tone 1
+wait 30
+wav sub-classic.wav
+midi 90 21 64
+wait 800
+midi 80 21 00
+wait 300
+wavstop
+param v4.sub_tone 0
+param v4.drive 0
+# OUTPUT: LINE, then SPEAKER (SETUP's row; BASS+ on the mix)
+wav out-line.wav
+midi 90 21 64
+wait 800
+midi 80 21 00
+wait 300
+wavstop
+param speaker 1
+wait 30
+wav out-speaker.wav
+midi 90 21 64
+wait 800
+midi 80 21 00
+wait 300
+wavstop
+param speaker 0
+# the echo's wow at its deepest: repeats bend, the loop stays clean and bounded
+param echo.wow 127
+param echo.fb 90
+param ch2.echo 127
+wav wow.wav
+midi 99 25 7F
+wait 5000
+wavstop
+#wav sub-sine.wav peak<-1 dc<-40 fund27>-14 fund82<-35
+#wav sub-classic.wav peak<-1 dc<-40 fund27>-16 fund82>-28
+#wav out-line.wav peak<-1 dc<-40 fund55>-12
+#wav out-speaker.wav peak<-1 dc<-40 fund55<-10 fund165>-36
+#wav wow.wav peak<-1 dc<-40 click<-10 growth<0

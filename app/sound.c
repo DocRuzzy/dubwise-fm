@@ -214,6 +214,8 @@ static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value
     }
     if (id == P_VOICE(CH_ORGAN, VO_PFAST))
         return v ? "FAST" : "SLOW";
+    if (id == P_VOICE(CH_BASS, VB_SUBTONE))      /* (6.1) */
+        return v ? "CLASSIC" : "SINE";
     if (id == P_VOICE(CH_ORGAN, VO_LESLIE))      /* (v0.3: FULL is setBfree's, Studio only) */
         return v ? "FULL" : "LIGHT";
     if (id == P_VOICE(CH_ORGAN, VO_ODRIVE) && v == 0)

@@ -548,6 +548,46 @@ static void strips_update(void)                  /* the targets from the applied
     }
 }
 
+static float thr_env;                            /* 6.4: 1 while a throw into the echo is held, then easing out (DUB-1) */
+
+/* 6.2 BASS+ (after Felucca's spk_bass and master low-cut, Leo Kuroshita / Hugelton Instruments, GPL-3.0-only, as
+ * daurade carries them): what the FM-1's speaker can't play (it gives almost nothing under ~50 Hz:
+ * docs/hardware.md), heard through its harmonics. The mix's lows under ~150 Hz (four one-poles) clipped at their own
+ * envelope (odd harmonics), band-passed ~220 Hz .. ~900 Hz and added, x1.5, to both sides; and the sides themselves
+ * cut 12 dB/oct under ~220 Hz (the speaker's cone flapping at nothing). A setting: LINE (off) for headphones, the
+ * line out and USB */
+static float sb_lp[4], sb_env, sb_h1, sb_h2, sb_hl, lc_l[2], lc_r[2];
+static void speaker_run(float *l, float *r, uint32_t n)
+{
+    uint32_t i, k;
+    for (i = 0; i < n; i++) {
+        float m = 0.5f * (l[i] + r[i]), a, t, u;
+        sb_lp[0] += (m - sb_lp[0]) * 0.02112f;   /* (692 / 32768: ~148 Hz) */
+        for (k = 1; k < 4u; k++)
+            sb_lp[k] += (sb_lp[k - 1u] - sb_lp[k]) * 0.02112f;
+        a = fm_fabsf(sb_lp[3]);
+        sb_env = a > sb_env ? sb_env + 0.25f * (a - sb_env) : undenorm(sb_env * (1.0f - 1.0f / 2048.0f));
+        t = fm_maxf(-sb_env, fm_minf(sb_env, 8.0f * sb_lp[3]));
+        sb_h1 += (t - sb_h1) * (1.0f / 32.0f);
+        u = t - sb_h1;
+        sb_h2 += (u - sb_h2) * (1.0f / 32.0f);
+        u -= sb_h2;
+        sb_hl += (u - sb_hl) * 0.125f;
+        lc_l[0] += (l[i] - lc_l[0]) * (1.0f / 32.0f);
+        l[i] -= lc_l[0];
+        lc_l[1] += (l[i] - lc_l[1]) * (1.0f / 32.0f);
+        l[i] = l[i] - lc_l[1] + 1.5f * sb_hl;
+        lc_r[0] += (r[i] - lc_r[0]) * (1.0f / 32.0f);
+        r[i] -= lc_r[0];
+        lc_r[1] += (r[i] - lc_r[1]) * (1.0f / 32.0f);
+        r[i] = r[i] - lc_r[1] + 1.5f * sb_hl;
+    }
+    for (k = 0; k < 4u; k++)
+        sb_lp[k] = undenorm(sb_lp[k]);
+    sb_h1 = undenorm(sb_h1), sb_h2 = undenorm(sb_h2), sb_hl = undenorm(sb_hl);
+    lc_l[0] = undenorm(lc_l[0]), lc_l[1] = undenorm(lc_l[1]), lc_r[0] = undenorm(lc_r[0]), lc_r[1] = undenorm(lc_r[1]);
+}
+
 static int echo_thrown(void)                     /* a throw into the echo held: the loop lifted */
 {
     uint32_t ch;
@@ -592,7 +632,9 @@ static void bus_update(void)                     /* the echo's and the voices' s
     t60 = echo_t60(ev[P_ECHO_FB]);
     c.g = fm_exp2f(-9.966f * (t / ECHO_RATE) / t60);   /* -60 dB after T60 */
     if (echo_thrown())
-        c.g = throw_lift(c.g);
+        thr_env = 1.0f;
+    c.g += (throw_lift(c.g) - c.g) * thr_env;    /* (6.4: the lift eases out after the throw, ~0.5 s, as DUB-1's
+                                                  * st_throw: the thrown word's repeats don't change mid-ring) */
     bus_echo_g = c.g;
     c.freeze = ev[P_ECHO_FREEZE] != 0;
     if (c.freeze)
@@ -608,8 +650,9 @@ static void bus_update(void)                     /* the echo's and the voices' s
     c.pingpong = ev[P_ECHO_PP] && tier_now == TIER_STUDIO;   /* (stereo: Studio only, as the width) */
     c.diffuse = tier_now < TIER_SEVEN;
     c.drive = tier_now >= TIER_SEVEN ? 1.8f : 1.0f;   /* Seven-inch: heavier tape saturation (the sound of it) */
-    if (echo_thrown() && c.head2 < 0.35f)
-        c.head2 = 0.35f;
+    if (c.head2 < 0.35f * thr_env)               /* (the 2T head with it) */
+        c.head2 = 0.35f * thr_env;
+    c.wow = (float)ev[P_ECHO_WOW] * (1.0f / 127.0f);   /* 6.3 */
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev, tier_now);
@@ -897,6 +940,7 @@ static void seq_start(void)                      /* the transport's start (or th
     uint32_t ch;
     voices_start();                              /* (the noise from its seed: a replay the same, 5.1) */
     spring_start();                              /* (the crash's noise too) */
+    echo_wow_start();                            /* (6.3: the wow too) */
     for (ch = 0; ch < NCH; ch++) {
         pcur[ch].p = (uint8_t)(ev[P_CH(ch, CHF_PAT)] & 3);
         pcur[ch].org = 0;
@@ -1544,6 +1588,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             bigknob_run(&bk, dry, n);
             bigknob_run(&bkr, dryr, n);
         }
+        if (ev[P_SPEAKER] == OUT_SPEAKER)       /* 6.2: BASS+ for the FM-1's own speaker */
+            speaker_run(dry, dryr, n);
         for (i = 0; i < n; i++) {
             float y = dry[i], yr = dryr[i];
             op = fm_maxf(op, fm_maxf(fm_fabsf(y), fm_fabsf(yr)));
@@ -1590,6 +1636,8 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         n = ENG_BLOCK;
     prof_t = plat_ticks24();
     blk_t24 = eng_clock_now();
+    if (!echo_thrown())                          /* 6.4: the throw's lift eases out, ~0.5 s (a time constant of 0.2) */
+        thr_env = undenorm(thr_env * fm_expf(-(float)n / (0.2f * 44100.0f)));
     drain();
     pat_sync();
     strips_update();
@@ -1720,7 +1768,7 @@ float eng_echo_g(void)
         return 1.0f;
     {
         float g = fm_exp2f(-9.966f * (t / ECHO_RATE) / echo_t60(ev[P_ECHO_FB]));
-        return echo_thrown() ? throw_lift(g) : g;
+        return g + (throw_lift(g) - g) * (echo_thrown() ? 1.0f : thr_env);
     }
 }
 int eng_playing(void) { return t_playing; }

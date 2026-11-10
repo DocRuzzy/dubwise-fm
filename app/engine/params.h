@@ -26,7 +26,7 @@ enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_DRIVE, VK_CTONE, VK_M
 enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_DROP, VR_HPF, VR_MODEL, VR_N };                  /* rim / snare */
 enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_HPF, VH_MODEL, VH_N };                           /* hats */
 enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_FEEDBACK, VB_DRIVE, VB_GLIDE,
-       VB_MODEL, VB_N };                                                                          /* bass */
+       VB_MODEL, VB_SUBTONE, VB_N };                                                                          /* bass */
 enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_N };                        /* skank (P1.6) */
 enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_MODEL, VO_DB0, VO_DB1, VO_DB2, VO_DB3, VO_DB4, VO_DB5, VO_DB6,
        VO_DB7, VO_DB8, VO_PERC, VO_PFAST, VO_VIBCH, VO_ROTARY, VO_ODRIVE, VO_LESLIE, VO_N };      /* organ: bubble, B-3 (5.15) */
@@ -50,7 +50,9 @@ enum { ORG_BUBBLE, ORG_B3, ORG_MODELS };
 enum { PERC_OFF, PERC_2ND, PERC_3RD, PERC_N };
 enum { VIB_OFF, VIB_V1, VIB_V2, VIB_V3, VIB_C1, VIB_C2, VIB_C3, VIB_N };
 enum { ROT_OFF, ROT_SLOW, ROT_FAST, ROT_BRAKE, ROT_N };
-enum { LES_LIGHT, LES_FULL, LES_N };            /* the rotary: ours, or setBfree's whirl (Studio only; v0.3) */
+enum { LES_LIGHT, LES_FULL, LES_N };
+enum { OUT_LINE, OUT_SPEAKER, OUT_N };          /* 6.2 */
+enum { SUB_SINE, SUB_CLASSIC, SUB_N };          /* 6.1: the bass's sub: a sine, or sine + 1/3 3rd + 1/5 5th */            /* the rotary: ours, or setBfree's whirl (Studio only; v0.3) */
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
 enum { INST_MELODICA, INST_BRASS, INST_N };
@@ -113,6 +115,10 @@ enum {
     P_CLICK = 0x030,          /* the click on every beat now (the UI's: a count-in, a recording; never saved) */
     P_DICE_LINE = 0x031,      /* 1: a Dice fire waits for the quantise line (5.6; SETUP; saved in the settings' spare byte) */
     P_DICE_SEED = 0x032,      /* Dice's generator seeded with this (tests; 0: from the clock; never saved) */
+    P_ECHO_WOW = 0x033,       /* 6.3: the tape's wow and flutter on the echo's repeats, 0..127 (0 none; saved in the
+                               * settings' FX bytes, an older save's 0: none) */
+    P_SPEAKER = 0x034,        /* 6.2: OUT_LINE, OUT_SPEAKER (BASS+: the lows heard through their harmonics on the
+                               * FM-1's own speaker; saved as the FX bytes, an older save's 0: LINE) */
     P_DEV_LOAD = 0x03E,       /* development: this much % added to the measured load (the guard's host tests) */
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };

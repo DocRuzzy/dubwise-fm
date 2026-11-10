@@ -14,7 +14,7 @@ static const fx_bank_t FX_BANK[] = {
     {"ECHO", {P_ECHO_TIME, P_ECHO_FB, P_ECHO_TONE, P_ECHO_HEAD2}, {"TIME", "FB", "TONE", "2T HEAD"}},
     {"SPRING", {P_SPRING_DECAY, P_SPRING_TONE, P_SPRING_RET, 0}, {"DECAY", "TONE", "RETURN", ""}},
     {"CROSS", {P_XS_E2S, P_XS_S2E, 0, 0}, {"ECHO>SPR", "SPR>ECHO", "", ""}},
-    {"TAPE", {P_DIVE_DEPTH, P_DIVE_TIME, 0, 0}, {"DIVE", "DIVE TIME", "", ""}},
+    {"TAPE", {P_DIVE_DEPTH, P_DIVE_TIME, P_ECHO_WOW, 0}, {"DIVE", "DIVE TIME", "WOW", ""}},
     {"PHASER", {P_PH_ON, P_PH_RATE, P_PH_DEPTH, P_PH_FB}, {"ON", "RATE", "DEPTH", "FEEDBACK"}},
     {"DRIVE", {P_DRIVE_ON, P_DRIVE_AMT, P_DRIVE_MIX, 0}, {"ON", "DRIVE", "BLEND", ""}},
     {"GATE", {P_SGATE_ON, P_SGATE_HOLD, P_SGATE_REL, 0}, {"SPRING GATE", "HOLD", "RELEASE", ""}},

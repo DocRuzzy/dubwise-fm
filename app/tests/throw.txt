@@ -27,6 +27,9 @@ key w8 up
 wait 50
 expect eng.ch1.throw 0
 expect echo_db -120
+# the lift eases out over ~0.5 s after the throw (6.4, after DUB-1): still up just after, back down after it
+expect echo_g >300
+wait 1200
 expect echo_g <200
 # pre-fader: the fader down does not matter (a pause first: a press within 300 ms of a tap would latch)
 param ch1.level 0

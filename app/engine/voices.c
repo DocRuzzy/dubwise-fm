@@ -79,6 +79,7 @@ static const float HAT_R[4] = {1.0f, 1.48f, 2.27f, 3.6f};
 static struct {
     float pc, pm, ps, ienv, amp, lp1, lp2, vel, f, target, mfb, ft;
     float index, ik, ak, rk, att, ratio, sub, sus, lp_a, fb, drive, gk;
+    int classic;                                 /* 6.1: the sub's tone: + 1/3 its 3rd + 1/5 its 5th */
     int32_t note;                                /* held, -1 none (released: ringing out) */
     int on;
 } bass;
@@ -189,6 +190,7 @@ void voices_config(const int16_t *ev, int tier)
     bass.sus = lin(ev[P_VOICE(CH_BASS, VB_SUSTAIN)], 0.0f, 1.0f);
     bass.fb = lin(ev[P_VOICE(CH_BASS, VB_FEEDBACK)], 0.0f, 0.6f);   /* 5.3: capped (sound.txt: the sine stays) */
     bass.drive = lin(ev[P_VOICE(CH_BASS, VB_DRIVE)], 0.0f, 5.0f);
+    bass.classic = ev[P_VOICE(CH_BASS, VB_SUBTONE)] == SUB_CLASSIC;
     switch (ev[P_VOICE(CH_BASS, VB_MODEL)]) {    /* 5.7: the models are settings of the one voice (no cost) */
     case BASS_PLUCK:                             /* a brighter pluck: its index doubled (capped), the filter open */
         bass.index = bass.index * 2.5f > 3.5f ? 3.5f : bass.index * 2.5f;
@@ -447,7 +449,7 @@ static int render_bass(float *o, uint32_t n)
             m = (bass.index * bass.ienv + 0.04f) * mm;
         } else
             m = (bass.index * bass.ienv + 0.04f) * fm_sin_turns(bass.pm);   /* a pluck, then nearly a pure sine */
-        s = fm_sin_turns(bass.pc + m * 0.15915494f) + bass.sub * fm_sin_turns(bass.ps);
+        s = fm_sin_turns(bass.pc + m * 0.15915494f);
         if (bass.drive > 0.0f)                   /* DRIVE (5.3): a soft clip before the filter */
             s = s * (1.0f + bass.drive) / (1.0f + bass.drive * 0.5f * fm_fabsf(s));
         /* the envelope: up in 2 ms, then down to the sustain while held, released in 60 ms */
@@ -463,7 +465,20 @@ static int render_bass(float *o, uint32_t n)
         }
         bass.lp1 = undenorm(bass.lp1 + lp2a * (s - bass.lp1));
         bass.lp2 = undenorm(bass.lp2 + lp2a * (bass.lp1 - bass.lp2));
-        y = bass.lp2 * bass.amp * bass.vel * 0.5f;
+        /* the sub, after the drive and the filter (6.1, after kwasub and rupture: it stays clean, and the drive
+         * doesn't beat against it); CLASSIC adds a third of its 3rd and a fifth of its 5th, so a small speaker hears
+         * it (rupture's classic sub) */
+        s = bass.lp2;
+        if (bass.sub > 0.0f) {
+            float u = fm_sin_turns(bass.ps);
+            if (bass.classic) {
+                float p3 = bass.ps * 3.0f, p5 = bass.ps * 5.0f;
+                u += (1.0f / 3.0f) * fm_sin_turns(p3 - (float)(int32_t)p3) + 0.2f * fm_sin_turns(p5 - (float)(int32_t)p5);
+                u *= 0.75f;                      /* (its peak as the sine's) */
+            }
+            s += bass.sub * u;
+        }
+        y = s * bass.amp * bass.vel * 0.5f;
         o[i] = 0.5f * (bass_last + y);
         bass_last = y;
         bass.ienv *= ik2;

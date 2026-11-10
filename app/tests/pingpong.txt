@@ -2,6 +2,9 @@
 # off 2T (right, one g down): every repeat in its turn, decaying as before. Only the sides' difference above ~150 Hz
 # is apart: the lows stay centred (side_lo). Studio tier only (stereo returns), as the width.
 wait 600
+# the tape's wow off (6.3): the metric finds each repeat by its onset, which the wow smears; with it on the
+# sides still alternate (measured 2026-11-10: 7.7, -8.6, 7.3 dB against 10, -10, 9.1)
+param echo.wow 0
 listen
 param ch3.echo 127
 param echo.fb 70
