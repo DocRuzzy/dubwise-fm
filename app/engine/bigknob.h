@@ -11,8 +11,9 @@ typedef struct {
     float g1, g, k, d;                           /* the step's coefficients (g1: the one-pole's G) */
     float s1, ic1, ic2;                          /* state */
     int on;
+    int lp;                                      /* 7.5: a low-pass (the 9068B) */
 } bigknob_t;
 
 void bigknob_init(bigknob_t *b);
-void bigknob_step(bigknob_t *b, float hz);       /* 0: off (bypass) */
+void bigknob_step(bigknob_t *b, float hz, int lp);   /* 0: off (bypass); lp: as a low-pass (7.5) */
 void bigknob_run(bigknob_t *b, float *x, uint32_t n);   /* in place */

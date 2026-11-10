@@ -480,6 +480,12 @@ static void fill_release(void)
     dub.fill_skip = 0;
 }
 
+static const char *bk_name(int32_t step)          /* the Big Knob's step as it sounds now: a high-pass's or (7.5) a
+                                                  * low-pass's cutoff */
+{
+    return ctl_get(P_HPF_LP) && step > 0 && step <= HPF_STEPS ? hz_name(lpf_hz(step)) : hpf_name(step);
+}
+
 static int32_t held_mute(void);          /* (below: the mute key held, -1 none) */
 static void button_press(uint32_t k)
 {
@@ -601,6 +607,13 @@ static void button_release(uint32_t k)
         ctl_set(P_SPIN, 0);
     if (k == B_OCTUP)
         fill_release();                  /* (never a help card: held, OCT+ is FILL) */
+    if (k == B_SEL) {                    /* 7.5: the Big Knob pressed: high-pass or low-pass (the 9068B) */
+        ctl_set(P_HPF_LP, !ctl_get(P_HPF_LP));
+        set_dirty = 1;
+        dub.dirty_centre = 1;
+        app_say(roots_name("BIG KNOB"), ctl_get(P_HPF_LP) ? "LOW-PASS" : "HIGH-PASS");
+        return;
+    }
     if (help_ate_release(k))             /* its help card shown: nothing more */
         return;
     if (k == B_ENV && !dc.env_used) {    /* ENV: Dice fires, on its bank (5.6) */
@@ -858,7 +871,7 @@ static void encoder(uint32_t k, int32_t e)
         v = e > 0 ? (v / s + e) * s : ((v + s - 1) / s + e) * s;   /* (off the setting's grid: to it first) */
         ctl_set(P_HPF_STEP, v);
         dub.dirty_centre = 1;
-        app_say(roots_name("BIG KNOB"), hpf_name(ctl_get(P_HPF_STEP)));
+        app_say(roots_name("BIG KNOB"), bk_name(ctl_get(P_HPF_STEP)));
     } else if (k == EN_ALGO) {
         dub.focus = (dub.focus + e % (int32_t)NCH + (int32_t)NCH) % (int32_t)NCH;
         if (dub.sound)
@@ -1372,13 +1385,14 @@ static void draw_centre(void)
     } else {                             /* the Big Knob: its detents as an arc (10, 20 or 40), lit to the step */
         int32_t stp = eng_param(P_HPF_STEP), k, s = hpf_detent(ctl_get(P_HPF_RES)), nd = HPF_STEPS / s;
         int32_t dot = nd > 20 ? 3 : 5;
-        cv_text(126, 4, &FONT_XS, ctl_get(P_HPF_ON) == HPF_ON_ECHO ? "BIG KNOB: ECHO" : "BIG KNOB", C_GRAY);
+        cv_text(126, 4, &FONT_XS, ctl_get(P_HPF_ON) == HPF_ON_ECHO ? (ctl_get(P_HPF_LP) ? "BIG KNOB LP: ECHO"
+                                    : "BIG KNOB: ECHO") : ctl_get(P_HPF_LP) ? "BIG KNOB LP" : "BIG KNOB", C_GRAY);
         for (k = 1; k <= nd; k++) {
             float a = 3.14159265f * (1.0f - (float)(k - 1) / (float)(nd - 1));   /* left to right */
             int32_t x = 180 + (int32_t)(24.0f * fm_cosf(a)), y = 42 - (int32_t)(22.0f * fm_sinf(a));
             cv_rect(x - dot / 2, y - dot / 2, dot, dot, k * s <= stp ? C_HI : C_LINE);
         }
-        cv_text(180 - text_w(&FONT_B, hpf_name(stp)) / 2, 44, &FONT_B, hpf_name(stp), stp ? C_WHITE : C_DIM);
+        cv_text(180 - text_w(&FONT_B, bk_name(stp)) / 2, 44, &FONT_B, bk_name(stp), stp ? C_WHITE : C_DIM);
         lands_text(lands_in(), t);
         cv_text(126, 63, &FONT_T, eng_playing() ? "NEXT LINE" : "STOPPED: AT ONCE", C_DIM);
         if (eng_playing())

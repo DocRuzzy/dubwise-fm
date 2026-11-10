@@ -96,7 +96,7 @@ static volatile uint32_t crashes;
 static volatile int32_t echo_div_now;
 static volatile uint32_t lock_now = 0xFFFu;
 static bigknob_t bk, bkr;                        /* the Big Knob (P1.1), left and right */
-static int32_t bk_step = -1;                     /* its step set */
+static int32_t bk_step = -1, bk_lp;              /* its step set; 7.5: a low-pass */
 static volatile float out_peak;                  /* the output's, before MASTER (tests, meters)      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
@@ -729,10 +729,14 @@ static void bus_update(void)                     /* the echo's and the voices' s
         drive_on = ev[P_DRIVE_ON];
     }
     lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
-    if (ev[P_HPF_STEP] != bk_step) {             /* a step: at once, unsmoothed (the detents are the sound) */
+    if (ev[P_HPF_STEP] != bk_step || ev[P_HPF_LP] != bk_lp) {   /* a step: at once, unsmoothed (the detents are the
+                                                                 * sound); 7.5: or the other filter */
+        float hz;
         bk_step = ev[P_HPF_STEP];
-        bigknob_step(&bk, hpf_hz(bk_step));
-        bigknob_step(&bkr, hpf_hz(bk_step));
+        bk_lp = ev[P_HPF_LP];
+        hz = bk_lp ? lpf_hz(bk_step) : hpf_hz(bk_step);
+        bigknob_step(&bk, hz, bk_lp);
+        bigknob_step(&bkr, hz, bk_lp);
     }
 }
 

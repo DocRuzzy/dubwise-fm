@@ -91,3 +91,47 @@ wait 30
 said BIG KNOB 1.2K
 expect eng.hpf 25
 param hpf.res 0
+# 7.5: pressed, the Big Knob is a low-pass (the Altec 9068B, the 9069B's sibling): the same detents, 3rd order,
+# 10 kHz (step 1) down to 250 Hz (step 40). Channel 8's test tone is 880 Hz at -20 dBFS: through 1.1 kHz (step 24)
+# -0.85 dB, through 250 Hz (step 40) -32.8 dB (|H| = 1 / sqrt(1 + r^6)). Pressed again, the high-pass
+param hpf 0
+param ch1.solo 0
+param ch1.echo 0
+param echo.ret 0
+param ch8.solo 1
+param ch8.echo 0
+param ch8.spring 0
+wait 300
+expect out_db >-21
+tap SEL
+wait 30
+said BIG KNOB LOW-PASS
+expect eng.hpf.lp 1
+param hpf 24
+wait 80
+expect out_db >-22
+expect out_db <-20
+param hpf 40
+wait 80
+expect out_db >-56
+expect out_db <-50
+shot bigknob-lp.png
+wav knob-lp.wav
+param hpf 0
+wait 100
+param hpf 12
+wait 100
+param hpf 28
+wait 100
+param hpf 40
+wait 100
+param hpf 0
+wait 100
+wavstop
+tap SEL
+wait 30
+said BIG KNOB HIGH-PASS
+expect eng.hpf.lp 0
+param ch8.solo 0
+param dev.tones 0
+#wav knob-lp.wav peak<-1 dc<-50

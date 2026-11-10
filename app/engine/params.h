@@ -175,6 +175,7 @@ enum {
     P_SPRING_END,
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..40 = HPF_HZ (the Altec's on 4, 8 .. 40) */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */
+    P_HPF_LP,                 /* 7.5: 1, the Big Knob a low-pass (the Altec 9068B, the 9069B's sibling): its press */
     P_HPF_END,
     P_WET = 0x0E4,            /* 1: drop to wet (black 5, held): the dry desk out, the returns on (spec 4.1) */
     P_DNB,                    /* 1: drum and bass (black 11, held): skank, organ, lead and vox out, sends too */
@@ -222,6 +223,8 @@ enum { DRIVE_OFF, DRIVE_BASS, DRIVE_MIX, DRIVE_N };
 #define HPF_STEPS 40                             /* the fine grid; the Altec's ten on every 4th (HPF_ALTEC) */
 #define HPF_ALTEC 4
 float hpf_hz(int32_t step);                          /* a step's cutoff, Hz (0: off) */
+float lpf_hz(int32_t step);                          /* 7.5: as a low-pass, 10 kHz (1) down to 250 Hz (40) */
+const char *hz_name(float hz);                       /* "250 HZ", "2.5K" (main loop: one buffer) */
 const char *hpf_name(int32_t step);                  /* "500 HZ", "1K", "OFF" */
 int32_t hpf_detent(int32_t res);                     /* fine steps a detent moves at HPF_RES_* (4, 2, 1) */
 uint32_t quant_beats(int32_t q);                     /* 1, 4, 8 .. 128 (4/4); QUANT_CYCLE: the UI's (cycle) */

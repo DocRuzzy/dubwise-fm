@@ -208,6 +208,7 @@ static const pdesc_t XS[P_XS_END - P_XS_E2S] = {
 static const pdesc_t HPF[P_HPF_END - P_HPF_STEP] = {
     {"hpf", 0, HPF_STEPS, 0},
     {"hpf.on", 0, HPF_ON_N - 1, HPF_ON_MIX},
+    {"hpf.lp", 0, 1, 0},
 };
 static const pdesc_t DESK[P_DESK_END - P_WET] = {
     {"wet", 0, 1, 0},
@@ -256,14 +257,15 @@ static const float HPF_HZ[HPF_STEPS + 1] = {
     220.0f, 250.0f, 297.3f, 353.6f, 420.4f, 500.0f, 594.6f, 707.1f, 840.9f, 1000.0f, 1189.2f, 1414.2f, 1681.8f,
     2000.0f, 2213.4f, 2449.5f, 2710.8f, 3000.0f, 3408.7f, 3873.0f, 4400.6f, 5000.0f, 5533.4f, 6123.7f, 6777.0f, 7500.0f};
 float hpf_hz(int32_t step) { return step >= 0 && step <= HPF_STEPS ? HPF_HZ[step] : 0.0f; }
-const char *hpf_name(int32_t step)                /* "70 HZ", "1.2K", "7.5K", "OFF" (main loop: one buffer) */
+float lpf_hz(int32_t step)                        /* 7.5: 10 kHz x 0.025^((step - 1) / 39), the replica's span */
+{
+    return step >= 1 && step <= HPF_STEPS ? 10000.0f * fm_exp2f((float)(step - 1) * (-5.321928f / 39.0f)) : 0.0f;
+}
+const char *hz_name(float hz)                     /* "70 HZ", "1.2K", "7.5K" (main loop: one buffer) */
 {
     static char t[12];
     char d[8];
-    int32_t v, n = 0, i;
-    if (step <= 0 || step > HPF_STEPS)
-        return step == 0 ? "OFF" : "";
-    v = (int32_t)(HPF_HZ[step] + 0.5f);
+    int32_t v = (int32_t)(hz + 0.5f), n = 0, i;
     if (v < 1000) {
         for (i = 0; v || !i; v /= 10)
             d[i++] = (char)('0' + v % 10);
@@ -283,6 +285,12 @@ const char *hpf_name(int32_t step)                /* "70 HZ", "1.2K", "7.5K", "O
     }
     t[n] = 0;
     return t;
+}
+const char *hpf_name(int32_t step)                /* "70 HZ", "1.2K", "7.5K", "OFF" */
+{
+    if (step <= 0 || step > HPF_STEPS)
+        return step == 0 ? "OFF" : "";
+    return hz_name(HPF_HZ[step]);
 }
 
 int32_t hpf_detent(int32_t res) { return res == HPF_RES_40 ? 1 : res == HPF_RES_20 ? 2 : HPF_ALTEC; }
