@@ -28,6 +28,7 @@ typedef struct {
     int pingpong;                                /* P3.1: the loop from 2T (gain g^2), odd repeats left, even right */
     float wow;                                   /* 6.3: the tape's wow and flutter, 0..1 (0 none) */
     float head3;                                 /* 7.1: the 3T head's level in the output (beyond the tape: its end) */
+    int bbd;                                     /* 7.9: a bucket brigade: the loop and the return through its filters */
 } echo_cfg_t;
 
 void echo_init(void);

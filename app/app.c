@@ -40,7 +40,7 @@ static const uint16_t SET_FX[] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_S
                                     P_DIVE_DEPTH, P_DIVE_TIME, P_ECHO_WIDTH, P_PH_ON, P_PH_RATE, P_PH_DEPTH, P_PH_FB,
                                     P_PH_SHAPE, P_DRIVE_ON, P_DRIVE_AMT, P_DRIVE_MIX, P_SGATE_ON, P_SGATE_HOLD,
                                     P_SGATE_REL, P_ECHO_PP, P_PH_MODE, P_PH_RATE2, P_ECHO_WOW, P_SPEAKER,
-                                    P_ECHO_HEAD3, P_DESK, P_HPF_LP};   /* (7.1, 7.4, 7.5) */
+                                    P_ECHO_HEAD3, P_DESK, P_HPF_LP, P_ECHO_TYPE};   /* (7.1, 7.4, 7.5, 7.9) */
 #define NSET_FX (sizeof SET_FX / sizeof SET_FX[0])
 typedef char set_fx_fits[NSET_FX <= 32u ? 1 : -1];
 static uint16_t scenes_dirty;            /* (arrange.c sets the bits; saved and cleared by SAVE) */

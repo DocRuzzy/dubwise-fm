@@ -175,6 +175,7 @@ static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
     [P_DIVE_TIME - P_ECHO_TIME] = {"dive.time", 0, 127, 40},
     [P_ECHO_PP - P_ECHO_TIME] = {"echo.pp", 0, 1, 0},
     [P_ECHO_HEAD3 - P_ECHO_TIME] = {"echo.head3", 0, 127, 0},
+    [P_ECHO_TYPE - P_ECHO_TIME] = {"echo.type", 0, ECHO_TYPE_N - 1, ECHO_TAPE},
     [P_ECHO_WIDTH - P_ECHO_TIME] = {"echo.width", 0, 127, 0},
 };
 static const pdesc_t SPRING[P_SPRING_END - P_SPRING_RET] = {

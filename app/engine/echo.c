@@ -24,6 +24,12 @@ static echo_cfg_t cfg;
 static uint32_t wpos;                            /* the write head */
 static float t_now;                              /* the slewed time */
 static float hp_x1, hp_y1, lp_y1;                /* the loop's filters */
+/* 7.9: BBD, a bucket brigade as Holters & Parker model one (DAFx 2018) and the Juno's and the DM-2's work: its clock
+ * runs slower for a longer delay (4,096 stages: clock = 2 x 4,096 / the delay), and its anti-alias filters sit at about
+ * a quarter of the clock, so the longer the echo the darker; each pass through the loop darker again. Two one-poles
+ * in the loop at that cutoff (after the tone's), and two on each side of the return. No hiss
+ * (it would keep the echo from ever going idle): companding cancels without it, so left out */
+static float bbd_l1, bbd_l2, bbd_o1, bbd_o2, bbd_r1, bbd_r2, bbd_k = 1.0f;
 static float dec_s1, dec_s2;                     /* the decimator's low-pass (two one-poles at ~4 kHz, 44.1 kHz) */
 static float up_prev, up_cur, up_lp;             /* the interpolator's two line-rate outputs, and its smoothing */
 static float upr_prev, upr_cur, upr_lp;          /* the right side's */
@@ -103,6 +109,7 @@ void echo_init(void)
     wpos = 0;
     t_now = 6615.0f;
     hp_x1 = hp_y1 = lp_y1 = dec_s1 = dec_s2 = up_prev = up_cur = up_lp = 0.0f;
+    bbd_l1 = bbd_l2 = bbd_o1 = bbd_o2 = bbd_r1 = bbd_r2 = 0.0f;
     phase = 0;
     lim_env = 0.0f;
     lim_g = 1.0f;
@@ -180,6 +187,14 @@ static float line_step(float x)                  /* one line-rate sample: the in
     hp_y1 = y;
     lp_y1 = undenorm(lp_y1 + cfg.tone * (y - lp_y1));
     y = lp_y1;
+    if (cfg.bbd) {                               /* 7.9: then the bucket brigade's filters, at a quarter of its clock:
+                                                  * each pass through both (TONE and the chip's) */
+        float fc = fm_minf(2048.0f * ECHO_RATE / tw, 4500.0f);
+        bbd_k = 1.0f - fm_expf(-6.2831853f * fc / ECHO_RATE);
+        bbd_l1 = undenorm(bbd_l1 + bbd_k * (y - bbd_l1));
+        bbd_l2 = undenorm(bbd_l2 + bbd_k * (bbd_l1 - bbd_l2));
+        y = bbd_l2;
+    }
     if (cfg.diffuse) {
         float *bp = ap_buf;
         for (k = 0; k < NAP; k++) {
@@ -216,6 +231,14 @@ write:
         out_r = y + hp4_run(&side_hp, SIDE_A, d);
     } else {
         out_r = y;
+    }
+    if (cfg.bbd) {                               /* 7.9: the return's own filters (its first repeat too) */
+        bbd_o1 = undenorm(bbd_o1 + bbd_k * (y - bbd_o1));
+        bbd_o2 = undenorm(bbd_o2 + bbd_k * (bbd_o1 - bbd_o2));
+        bbd_r1 = undenorm(bbd_r1 + bbd_k * (out_r - bbd_r1));
+        bbd_r2 = undenorm(bbd_r2 + bbd_k * (bbd_r1 - bbd_r2));
+        y = bbd_o2;
+        out_r = bbd_r2;
     }
     l = fm_maxf(fm_fabsf(y), fm_fabsf(out_r));
     lim_env = l > lim_env ? l : undenorm(lim_env * 0.9994f);

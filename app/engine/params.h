@@ -135,6 +135,7 @@ enum { TIER_STUDIO, TIER_FOUR, TIER_SEVEN, TIER_N };
 enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };
 enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };
 enum { DESK_CLEAN, DESK_MCI, DESK_N };
+enum { ECHO_TAPE, ECHO_BBD, ECHO_TYPE_N };
 enum { REC_FEEL, REC_HALF, REC_GRID, REC_QUANT_N };
 enum { STEMS_CHANNELS, STEMS_BUSES, STEMS_OFF, STEMS_N };
 enum { USBPORT_COMPUTER, USBPORT_KEYBOARD, USBPORT_N };
@@ -167,6 +168,7 @@ enum {
     P_ECHO_WIDTH,             /* 0 mono; 1..127: the right side 8 .. 16 ms later (P1.5) */
     P_ECHO_PP,                /* 1: ping-pong (P3.1): odd repeats left, even right (above 150 Hz; the lows centred) */
     P_ECHO_HEAD3,             /* 7.1: the 3T head in the return, 0..127 (the RE-201's 1 : 2 : 3; 0 in older saves: off) */
+    P_ECHO_TYPE,              /* 7.9: ECHO_TAPE (0, as built), ECHO_BBD (a bucket brigade: darker as it's longer) */
     P_ECHO_END,
     P_SPRING_RET = 0x0D0,     /* the spring's return (P1.2), 0..127 */
     P_SPRING_DECAY,           /* its decay: 0.5 .. 6 s */
