@@ -217,6 +217,7 @@ static const pdesc_t VOX[P_VOX_END - P_SIREN] = {
     {"shot", 0, 4095, 0},
 };
 static const pdesc_t TAILS = {"tails", 0, 1, 0};
+static const pdesc_t FILL = {"fill", 0, 1, 0};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
 static const pdesc_t DICE_LINE = {"dice.line", 0, 1, 0};
@@ -327,6 +328,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &DESK[id - P_WET];
     if (id == P_TAILS)
         return &TAILS;
+    if (id == P_FILL)
+        return &FILL;
     if (id >= P_SIREN && id < P_VOX_END)
         return &VOX[id - P_SIREN];
     if (id >= P_XS_E2S && id < P_XS_END)

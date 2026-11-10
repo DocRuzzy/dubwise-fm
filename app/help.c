@@ -68,14 +68,15 @@ static const help_card_t HELP[] = {
     {B_SAVE, PAGE_STEPS, "SAVE  (STEPS)",
      {"TAP: SAVE THE PROJECT.", "SAVE + WHITE 1-4: COPY THE", "PATTERN INTO A-D."}},
     {B_OCTDN, HELP_NONE, "OCT- / OCT+",
-     {"QUANTISE: WHERE A CHANGE LANDS.", "BEAT, 1-32 BARS, CYCLE.", "THE RUNWAY COUNTS DOWN TO IT."}},
+     {"QUANTISE: WHERE A CHANGE LANDS.", "BEAT, 1-32 BARS, CYCLE.", "THE RUNWAY COUNTS DOWN TO IT.",
+      "OCT+ HELD: FILL (FILL STEPS", "PLAY, !FILL ONES DON'T).", "+ OCT-: FILL LATCHED."}},
     {B_OCTUP, HELP_NONE, "OCT- / OCT+",
      {"QUANTISE: WHERE A CHANGE LANDS.", "BEAT, 1-32 BARS, CYCLE.", "THE RUNWAY COUNTS DOWN TO IT."}},
     {B_SEL, HELP_NONE, "SELECT",
      {"TURN: THE BIG KNOB, A STEPPED", "HIGH-PASS (10, 20 OR 40", "STEPS: SETUP).", "HOME + TURN: TEMPO.",
       "IN SETUP: THE ROW."}},
     {B_ENV, PAGE_STEPS, "ENV  (STEPS)",
-     {"HELD + A WHITE KEY: A DRUM", "STEP'S REPEAT: FLAM, X2-X4.", "BLACK 11 + A WHITE: CHANCE", "(100, 75, 50, 25%).",
+     {"HELD + A WHITE KEY: A DRUM", "STEP'S REPEAT: FLAM, X2-X4.", "BLACK 11 + A WHITE: ITS", "CONDITION: %, 1ST, PRE, FILL.",
       "HOME + ENV: RESEED THE", "PATTERN'S CHANCES.", "A DRUM STEP HELD: K1 DECAY,", "K2 TUNE (ITS LOCKS)."}},
     {B_ENV, HELP_NONE, "ENV",
      {"DICE (EDIT TO ITS LAST BANK):", "ENV FIRES: ROLL OR MUTATE.", "K1 AMOUNT, K2 MODE,", "K4 THE LAST 8 RESULTS.",
@@ -181,7 +182,8 @@ static int help_input(uint32_t *keys, uint32_t *btn, uint32_t now)
     *btn &= ~help.bswallow;
     kp = *keys & ~dub.keys;
     bp = *btn & ~dub.btn;
-    if (bp && !kp && *btn == bp && !*keys && !(bp & (bp - 1u))) {   /* one button, on its own */
+    if (bp && !kp && *btn == bp && !*keys && !(bp & (bp - 1u))
+        && !(bp == 1u << B_OCTUP && dub.page != PAGE_STEPS)) {   /* one button, on its own (OCT+ held: FILL, 6.7) */
         uint32_t k = 0;
         while (!(bp >> k & 1u))
             k++;

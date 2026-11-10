@@ -181,5 +181,5 @@ tapkey w0
 wait 20
 key b10 up
 wait 30
-said CHANCE 1 75%
+said CONDITION 1 75%
 expect chance4_1 1

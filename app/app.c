@@ -443,6 +443,7 @@ void app_redraw(void)                    /* (APP_REDRAW: the screen mirror lost 
 /* AUTOSAVE (SETUP, on by default; the 2026-11 QoL review): what SAVE keeps, saved by itself once nothing has been
  * touched for 4 s, stopped, the sound died away (a flash write stops the sound for a moment) and nothing being
  * loaded. Quiet: SAVE's light going out says it. A failed one waits 30 s before the next try */
+static uint32_t hits_mark;                       /* (6.7 tests: hitsmark, hits) */
 static uint32_t as_fail_t;
 static void autosave_tick(void)
 {
@@ -534,6 +535,22 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         ctl_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1), st);
         return 1;
     }
+    if (!strcmp(cmd, "hitsmark")) {      /* hits counts from here (6.7) */
+        hits_mark = eng_seq_hits();
+        return 1;
+    }
+    if (!strcmp(cmd, "cond")) {          /* cond CH PAT I C: a step's CONDITION (6.7; 0..15), CH 1-8, PAT A-D, I from 1 */
+        char pc[8] = {0};
+        int ch = 1, i = 1, c = 0;
+        step_t st;
+        if (sscanf(plat_host_line, "%*s %d %7s %d %d", &ch, pc, &i, &c) < 4)
+            return 1;
+        ch = (ch - 1) & 7;
+        st = ctl_get_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1));
+        STEP_COND_SET(st, c);
+        ctl_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1), st);
+        return 1;
+    }
     if (!strcmp(cmd, "capture")) {       /* capture A | B: from the next start to its stop (replay.txt) */
         int k = a[0] == 'B' ? 1 : 0;
         if (!cap[k].ev) {
@@ -577,6 +594,10 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     }
     if (!strcmp(cmd, "oldsteps")) {      /* the steps as saved before 5.8 (PST1, a drum's gate a length; patstore.c) */
         pst_oldsteps();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldsteps2")) {     /* the steps as saved before 6.7 (PST2), stray top bits on the kick's */
+        pst_oldsteps2();
         return 1;
     }
     if (!strcmp(cmd, "oldsound")) {      /* sounds saved before 5.3, and no patch library (patches.c) */
@@ -823,6 +844,8 @@ int app_expect(const char *what, int *got)
         *got = (int)eng_chord_last((uint32_t)(atoi(what + 8) - 1) % NCH);
     else if (!strcmp(what, "seq_hits"))
         *got = (int)eng_seq_hits();
+    else if (!strcmp(what, "hits"))         /* steps played since the last hitsmark (6.7) */
+        *got = (int)(eng_seq_hits() - hits_mark);
     else if (!strncmp(what, "perf_ch", 7))  /* perf_chN: channel N's average cost, tenths of a % of the device's block */
         *got = (int)(eng_prof((uint32_t)atoi(what + 7)).avg / 16.0 * 80.0 * 1000.0 / ENG_BLOCK_TICKS + 0.5);
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */

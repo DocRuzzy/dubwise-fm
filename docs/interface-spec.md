@@ -71,7 +71,7 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 | KNOB 1–4 | Echo time · Feedback · Echo return · Spring return |
 | KNOB 1–4 (mute key held) | Level · Echo send · Spring send · Filter |
 | SELECT / ALGORITHM / PRESETS | Big Knob / focus / cue scene |
-| OCT− / OCT+ | Launch quantise |
+| OCT− / OCT+ | Launch quantise (OCT+ on its let-go). **OCT+ held: FILL** (6.7); OCT− tapped while it is held latches FILL, an OCT+ tap lets it go |
 | REC | Arm song capture |
 
 #### 4.1.1 As built in P0.1 (2026-11-08)
@@ -106,7 +106,7 @@ One colour per channel, always paired with its number and a shape cue (filled = 
 **Built for 5.8 / 5.9 (2026-11-09; plan `docs/plan-5.8-5.9-steps.md`):** an on step pressed turns off at its let-go unless a knob edited it meanwhile (hold to edit); REPEAT on ENV held + a white key (the drums); CHANCE on black 11 held + a white key (every channel); RESEED on HOME + ENV; a drum step held: KNOB 1 its DECAY lock, KNOB 2 its TUNE lock (kick, rim); the big view marks CHANCE (%), REPEAT (F or dots), locks (a tick) and the steps that skip this loop (hollow).
 
 - **White 1–16:** steps; OCT± page through 17–64.
-- **Black 1–8:** channel. **Black 9 / 10 held + white:** accent / ghost (built). **Black 11 held + white:** the step's chance, 100 → 75 → 50 → 25 % (roadmap 5.9).
+- **Black 1–8:** channel. **Black 9 / 10 held + white:** accent / ghost (built). **Black 11 held + white:** the step's condition (roadmap 5.9 CHANCE, grown in 6.7): none → 75 / 50 / 25 % → 1ST, NOT 1ST → 1:2, 2:2, 1:4 … 4:4 → PRE, NOT PRE → FILL, NOT FILL; black 11 held + KNOB 4 runs through them.
 - **REC** on bass, skank or lead turns the keys into a keyboard.
 - **Templates** (one drop / rockers / steppers / flyers) are written as editable steps.
 - **Drum step locks (5.8).** A kick, rim or hat step held: KNOB 2 = its TUNE lock (hats: closed / open as now), KNOB 1 = its DECAY lock (with no step held, KNOB 1 is still the length). **ENV held + white** cycles the step's REPEAT: off · FLAM · ×2 · ×3 · ×4. A locked step shows a dot; a repeat shows its count.

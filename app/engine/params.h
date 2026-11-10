@@ -179,6 +179,8 @@ enum {
     P_XS_E2S = 0x0E8,         /* cross-sends (P1.3): the echo's return into the spring, 0..127 */
     P_XS_S2E,                 /* the spring's return into the echo, 0..127 (the two together capped: a loop) */
     P_XS_END,
+    P_FILL = 0x0EB,           /* 6.7: FILL held (OCT+ held, or learned): the FILL steps play, the !FILL ones don't. A
+                               * momentary (the song's motion captures it); never saved */
     P_SIREN = 0x0EC,          /* the siren held (black 6 / 7, roadmap 5.1): 0 none, else (SIREN_A or B) + 1 | velocity << 4;
                                * a parameter, so the song's motion captures it (a momentary, as a throw) */
     P_SHOT,                   /* a one-shot fired (black 8-10): shot (0..7, + 8 backwards) | velocity << 4 | a toggle << 11

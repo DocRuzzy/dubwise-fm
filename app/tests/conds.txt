@@ -1,0 +1,212 @@
+# Trig conditions and FILL (roadmap 6.7; plan docs/plan-6.7-conditions.md). A step's CONDITION (5.9's CHANCE grown
+# to 16 values) decides each pass: 1ST, !1ST, A:B, PRE / !PRE (the channel's last conditional step), FILL / !FILL
+# (OCT+ held, latched by OCT- while held). A one-step kick pattern: a pass a sixteenth (125 ms at 120 BPM), eight
+# passes from the start; `hits` counts the steps played. And a save from before 6.7 (PST2) loads with its stray top
+# bits cleared, CHANCE kept.
+wait 600
+listen
+# the converter: a 75 % kick step, saved, its top bits set as a hand-made PST2 might, a reboot
+cond 1 A 1 1
+tap SAVE
+wait 300
+oldsteps2
+reboot
+wait 600
+expect chance1_1 1
+expect note1_1 36
+expect dirty 1
+clearpat 1 A
+clearpat 2 A
+clearpat 3 A
+clearpat 4 A
+clearpat 5 A
+clearpat 6 A
+clearpat 7 A
+clearpat 8 A
+param tempo 1200
+param ch1.len 1
+step 1 A 1 2 36
+wait 30
+# no condition: all eight
+cond 1 A 1 0
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 8
+# 1ST: once
+cond 1 A 1 4
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 1
+# !1ST: the other seven
+cond 1 A 1 5
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 7
+# 1:2 and 2:2: every other
+cond 1 A 1 6
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 4
+cond 1 A 1 7
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 4
+# 1:4 .. 4:4: one pass in four
+cond 1 A 1 8
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 2
+cond 1 A 1 9
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 2
+cond 1 A 1 10
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 2
+cond 1 A 1 11
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 2
+# FILL, not held: none; !FILL: all
+cond 1 A 1 14
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 0
+cond 1 A 1 15
+wait 30
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 8
+# OCT+ held: FILL; the FILL step plays, a tap still steps the quantise (at its let-go), OCT- while held latches
+cond 1 A 1 14
+expect ui.quant 1
+press OCT+
+wait 350
+expect eng.fill 1
+said FILL ON
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 8
+release OCT+
+wait 30
+expect eng.fill 0
+expect ui.quant 1
+tap OCT+
+wait 30
+expect ui.quant 2
+expect eng.fill 0
+tap OCT-
+wait 30
+expect ui.quant 1
+press OCT+
+wait 350
+tap OCT-
+wait 30
+said FILL LATCHED
+release OCT+
+wait 30
+expect eng.fill 1
+expect ui.quant 1
+cond 1 A 1 15
+hitsmark
+tap PLAY
+wait 880
+tap PLAY
+wait 600
+expect hits 0
+tap OCT+
+wait 30
+expect eng.fill 0
+expect ui.quant 1
+# PRE / !PRE: a 50 % step then a PRE (both or neither) or a !PRE (exactly one) step, eight passes of two
+param ch1.len 2
+step 1 A 2 2 36
+cond 1 A 1 2
+cond 1 A 2 0
+hitsmark
+tap PLAY
+wait 1880
+tap PLAY
+wait 600
+expect hits >8
+cond 1 A 2 13
+hitsmark
+tap PLAY
+wait 1880
+tap PLAY
+wait 600
+expect hits 8
+cond 1 A 2 12
+cond 1 A 1 1
+hitsmark
+tap PLAY
+wait 1880
+tap PLAY
+wait 600
+expect hits >5
+# the note's top bit is the condition's: the bass's notes play at their pitch with conditions 8-15
+param ch1.len 16
+clearpat 1 A
+param ch4.len 1
+param ch4.echo 0
+step 4 A 1 2 45 0 60
+cond 4 A 1 15
+expect cond4_1 15
+expect note4_1 45
+param tempo 600
+wav cond-bass.wav
+tap PLAY
+wait 1500
+tap PLAY
+wait 600
+wavstop
+#wav cond-bass.wav peak<-1 zc_hz>100 zc_hz<125
+cond 4 A 1 0
+param tempo 750

@@ -49,7 +49,8 @@ deterministic (FILL is captured as key events).
 - **Elsewhere:** FILL becomes a MIDI-learn target (`midilearn.c`; a CC ≥ 64 is on). So a pedal, a pad, or any SMC
   button (6.5) can hold it. 6.5 handles only notes 0x00–0x1F and 0x5D–0x5F, and whether the SMC sends the Mackie
   CYCLE (0x56) gets checked on the hardware before it's mapped.
-- **Latch:** a double tap on OCT+ latches FILL until the next tap, as the throws latch.
+- **Latch:** OCT− tapped while OCT+ holds FILL latches it, until the next OCT+ tap. (Built 2026-11-10: the plan's
+  double tap on OCT+ caught the quick taps that step the quantise.)
 
 The header shows **FILL** while it's on.
 
@@ -102,7 +103,7 @@ Four bits are needed. A step has two spare bits today, and the two CHANCE bits a
 
   With the new magic it sees an unknown magic and loads empty patterns. That's the usual downgrade behaviour; the
   release notes say so.
-- `tools/dubwise_slots.py info` learns DSL4 and prints the conditions in use.
+- `tools/dubwise_slots.py info` learns DSL4 and prints the slot's version.
 - FILL's state is never stored. A saved latch would surprise the player at the next boot.
 
 ## Tests
@@ -140,6 +141,6 @@ Four bits are needed. A step has two spare bits today, and the two CHANCE bits a
    would take !1ST, !PRE and 4:4.
 3. **The fourth bit in the note's top bit, with `STEP_NOTE` everywhere** (recommended; no store grows). The test above
    is there because it's the risky part.
-4. **FILL on OCT+ held, with a double-tap latch, and MIDI-learnable.** The other choice is black 11
+4. **FILL on OCT+ held, latched by OCT− while it is held (built; the plan first had a double tap), and MIDI-learnable.** The other choice is black 11
    held on the DUB page, but that key is the drum & bass drop.
 5. **PRE counts the last conditional step, including skipped ones** (the Elektron rule; fizz and bigorna both do it).

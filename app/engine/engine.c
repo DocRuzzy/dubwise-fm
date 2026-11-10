@@ -987,6 +987,7 @@ static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i, uint32_t sb)
 }
 
 
+static uint8_t cond_pre[NCH];                    /* 6.7: PRE, each channel's last conditional step played (1) or not */
 /* channel ch's steps that land in [w0, w1), for those whose grid line is in [lo, hi), played from s */
 static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t w0, int32_t w1)
 {
@@ -1000,8 +1001,18 @@ static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t
         if (line < lo || line >= hi)
             continue;
         st = pat[ch][s->p][i];
-        if (!LVL(st) || !chance_plays(ch, s->p, (uint32_t)i, (uint32_t)(n / len), STEP_CHANCE(st), m.rsv))
+        if (n == 0)
+            cond_pre[ch] = 1;                    /* (a launch: the first PRE plays) */
+        if (!LVL(st))
             continue;
+        {                                        /* its CONDITION (6.7): PRE follows the last conditional step */
+            uint32_t c = STEP_COND(st);
+            int ok = cond_plays(ch, s->p, (uint32_t)i, (uint32_t)(n / len), c, m.rsv, ev[P_FILL] != 0, cond_pre[ch]);
+            if (c != COND_NONE)
+                cond_pre[ch] = (uint8_t)ok;
+            if (!ok)
+                continue;
+        }
         t = line + swing_fine(m, n) + st.off;
         if (t < w0 && line >= w0 && w0 == 0)     /* (at the very start, nothing before: early is on the one) */
             t = 0;
@@ -1062,7 +1073,7 @@ static void seq_hit(const sev_t *e)              /* a step, now */
             vrel(ch, held_note[ch]);
             held_note[ch] = -1;
         }
-        ctrig(ch, chord, st.note, vel);
+        ctrig(ch, chord, STEP_NOTE(st), vel);
         chord_last[ch] = chord;
         if (ch == CH_ORGAN && ev[P_VOICE(CH_ORGAN, VO_MODEL)] == ORG_B3) {   /* the B-3 held for its gate (5.15): a
                                                   * step, or the gate's length; the bubble a stab, as built */
@@ -1075,9 +1086,9 @@ static void seq_hit(const sev_t *e)              /* a step, now */
             vrel(ch, held_note[ch]);
             held_note[ch] = -1;
         }
-        trig(ch, st.note, vel);
+        trig(ch, STEP_NOTE(st), vel);
         if (ch == CH_BASS || ch == CH_LEAD) {    /* held for its gate: the bass a step (staccato), the lead two */
-            held_note[ch] = st.note;
+            held_note[ch] = (int8_t)STEP_NOTE(st);
             off_at[ch] = e->t + (st.gate ? 4 * (int32_t)st.gate : grid_fine(m.grid) * (ch == CH_LEAD ? 2 : 1));
         }
     }
