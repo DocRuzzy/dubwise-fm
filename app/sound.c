@@ -184,9 +184,9 @@ static int organ_bar(uint32_t id, int32_t v, char *t)   /* a drawbar's field sho
 
 static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value as its name (5.7), 0: not one */
 {
-    static const char *const K[KICK_MODELS] = {"SINE", "THUMP", "BOOM"}, *const R[RIM_MODELS] = {"CROSS", "SNARE",
-                                                                                                    "SYNDRUM"};
-    static const char *const H[HAT_MODELS] = {"METAL", "NOISE"}, *const B[BASS_MODELS] = {"ROUND", "PLUCK", "HOLLOW",
+    static const char *const K[KICK_MODELS] = {"SINE", "THUMP", "BOOM", "808"}, *const R[RIM_MODELS] = {"CROSS", "SNARE",
+                                                                                                    "SYNDRUM", "808"};
+    static const char *const H[HAT_MODELS] = {"METAL", "NOISE", "808"}, *const B[BASS_MODELS] = {"ROUND", "PLUCK", "HOLLOW",
                                                                                           "STEPPERS"};
     if (v < 0)
         return 0;

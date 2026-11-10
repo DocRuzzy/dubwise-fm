@@ -39,9 +39,9 @@ enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };
  * loads as it was made. One that can't be needs a version and a converter, planned first (CLAUDE.md). Every voice
  * field's range fits int8 (a patch keeps them so: patches.txt checks, voice_int8). */
 /* the voice models (5.7; the MODEL field, 0 the one built first: neutral at 0) */
-enum { KICK_SINE, KICK_THUMP, KICK_BOOM, KICK_MODELS };
-enum { RIM_CROSS, RIM_SNARE, RIM_SYNDRUM, RIM_MODELS };
-enum { HAT_METAL, HAT_NOISE, HAT_MODELS };
+enum { KICK_SINE, KICK_THUMP, KICK_BOOM, KICK_808, KICK_MODELS };   /* 7.6: 808, after Plaits */
+enum { RIM_CROSS, RIM_SNARE, RIM_SYNDRUM, RIM_808, RIM_MODELS };
+enum { HAT_METAL, HAT_NOISE, HAT_808, HAT_MODELS };
 enum { BASS_ROUND, BASS_PLUCK, BASS_HOLLOW, BASS_STEPPERS, BASS_MODELS };
 enum { ORG_BUBBLE, ORG_B3, ORG_MODELS };
 /* 5.15 (docs/plan-5.15-organ.md): the B-3's nine drawbars are stored as offsets from the default registration, full

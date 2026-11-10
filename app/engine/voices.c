@@ -5,6 +5,7 @@
 #include "params.h"
 #include "fastmath.h"
 #include "dsp.h"
+#include "d808.h"                                /* 7.6: the 808 models, after Plaits */
 
 #define SR 44100.0f
 #define INV_SR (1.0f / 44100.0f)
@@ -66,6 +67,15 @@ static float lk_take(uint32_t ch, float *tmul)   /* (voice_trig) the locks for t
     return d;
 }
 
+/* 7.6: the 808 models (d808.c). Their knobs, from each channel's own: KICK TUNE (the pitch, 40..70 Hz), SWEEP (the
+ * attack's FM), DECAY (up to ~1 s), CLICK (the tone), DRIVE (the self-FM's punch); RIM TUNE (150..350 Hz), INDEX (the
+ * tone: 2 modes, then 5), DECAY (up to ~0.6 s), NOISE (snappy); HAT TONE (the squares' base, 300..800 Hz), HPF (the
+ * colour), NOISE (noisiness), CLOSED / OPEN as now */
+static int m808[3];                              /* the kick, rim and hat on their 808 model */
+static d808_kick_cfg_t k808;
+static d808_snare_cfg_t s808;
+static d808_hat_cfg_t h808;
+
 /* ------------------------------------------------------------------- hats --- */
 static struct {
     float p[4], amp, h1x, h1y, h2x, h2y, vel;
@@ -117,6 +127,7 @@ void voices_start(void)                          /* the transport's start: the n
 
 void voices_init(void)
 {
+    d808_init();
     lead.on = 0;
     lead.note = -1;
     lead.amp = 0.0f;
@@ -190,6 +201,21 @@ void voices_config(const int16_t *ev, int tier)
         hat.hp_a = 0.37f;
         hat.gain = 2.4f;
     }
+    m808[CH_KICK] = ev[P_VOICE(CH_KICK, VK_MODEL)] == KICK_808;   /* 7.6 */
+    k808.f0 = lin(ev[P_VOICE(CH_KICK, VK_TUNE)], 40.0f, 70.0f);
+    k808.attack_fm = lin(ev[P_VOICE(CH_KICK, VK_SWEEP)], 0.0f, 1.0f);
+    k808.decay = lin(ev[P_VOICE(CH_KICK, VK_DECAY)], 0.0f, 0.55f);
+    k808.tone = lin(ev[P_VOICE(CH_KICK, VK_CLICK)], 0.0f, 1.0f);
+    k808.self_fm = lin(ev[P_VOICE(CH_KICK, VK_DRIVE)], 0.0f, 1.0f);
+    m808[CH_SNARE] = ev[P_VOICE(CH_SNARE, VR_MODEL)] == RIM_808;
+    s808.f0 = lin(ev[P_VOICE(CH_SNARE, VR_TUNE)], 150.0f, 350.0f);
+    s808.tone = lin(ev[P_VOICE(CH_SNARE, VR_INDEX)], 0.0f, 1.0f);
+    s808.decay = lin(ev[P_VOICE(CH_SNARE, VR_DECAY)], 0.0f, 0.5f);
+    s808.snappy = lin(ev[P_VOICE(CH_SNARE, VR_NOISE)], 0.0f, 1.0f);
+    m808[CH_HATS] = ev[P_VOICE(CH_HATS, VH_MODEL)] == HAT_808;
+    h808.f0 = hat.f;
+    h808.tone = (float)(ev[P_VOICE(CH_HATS, VH_HPF)] + 64) * (1.0f / 127.0f);
+    h808.noisiness = hat.noise_l;
     /* bass: INDEX 0..2.5, IDECAY 10..150 ms, DECAY 80..1500 ms, CUTOFF 300..2500 Hz, RATIO 1:1 / 2:1, SUB, SUSTAIN */
     bass.index = lin(ev[P_VOICE(CH_BASS, VB_INDEX)], 0.0f, 2.5f);
     bass.ik = t60k(lin(ev[P_VOICE(CH_BASS, VB_IDECAY)], 10.0f, 150.0f));
@@ -248,6 +274,10 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
     switch (ch) {
     case CH_KICK:                                /* phase 0: the sine starts from zero, no click */
         kick.dinv = lk_take(CH_KICK, &kick.tmul);
+        if (m808[CH_KICK]) {                     /* 7.6 */
+            d808_kick_trig(&k808, v, kick.tmul, kick.dinv);
+            break;
+        }
         kick.ph = kick.pm = 0.0f;
         kick.penv = kick.cenv = kick.tenv = 1.0f;
         kick.amp = 1.0f;
@@ -258,6 +288,10 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
         if (!rim.on)                             /* (from silence: its high-pass from rest too, 5.1) */
             rim.hp_x = rim.hp_y = 0.0f;
         rim.dinv = lk_take(CH_SNARE, &rim.tmul);
+        if (m808[CH_SNARE]) {                    /* 7.6 */
+            d808_snare_trig(&s808, v, rim.tmul, rim.dinv);
+            break;
+        }
         rim.pc = rim.pm = rim.p2 = 0.0f;
         rim.denv = 1.0f;
         rim.ienv = rim.amp = rim.nenv = 1.0f;
@@ -277,6 +311,11 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
             hat.k = note == 46 ? hat.ko : hat.kc;
             if (d != 1.0f)
                 hat.k = fm_powf(hat.k, d);
+            if (m808[CH_HATS]) {                 /* 7.6 */
+                h808.k = hat.k;
+                d808_hat_trig(&h808, v);
+                break;
+            }
         }
         hat.amp = 1.0f;
         hat.vel = v;
@@ -628,15 +667,38 @@ static int render_lead(float *o, uint32_t n)
     return 1;
 }
 
+#define KICK_808_GAIN 2.3f                       /* (7.6: levels matched to the other models: SINE's peak, CROSS's, METAL's RMS) */
+#define RIM_808_GAIN 0.8f
+#define HAT_808_GAIN 0.42f
+static float d808_tmp[256];
+static int d808_mix(int (*m)(float *, uint32_t), int (*ours)(float *, uint32_t), float gain, float *o, uint32_t n)
+{
+    int a, b;
+    uint32_t i;
+    if (n > 256u)
+        n = 256u;
+    a = ours(o, n);
+    b = m(d808_tmp, n);
+    if (!b)
+        return a;
+    if (!a)
+        for (i = 0; i < n; i++)
+            o[i] = gain * d808_tmp[i];
+    else
+        for (i = 0; i < n; i++)
+            o[i] += gain * d808_tmp[i];
+    return 1;
+}
+
 int voice_render(uint32_t ch, float *o, uint32_t n)
 {
     switch (ch) {
-    case CH_KICK:
-        return render_kick(o, n);
+    case CH_KICK:                                /* (7.6: an 808 hit rings on if the model changes under it) */
+        return d808_mix(d808_kick_render, render_kick, KICK_808_GAIN, o, n);
     case CH_SNARE:
-        return render_rim(o, n);
+        return d808_mix(d808_snare_render, render_rim, RIM_808_GAIN, o, n);
     case CH_HATS:
-        return render_hats(o, n);
+        return d808_mix(d808_hat_render, render_hats, HAT_808_GAIN, o, n);
     case CH_BASS:
         return render_bass(o, n);
     case CH_LEAD:
