@@ -21,6 +21,11 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_THROW_DEST] = {"dest", 0, DEST_N - 1, DEST_ECHO},   /* per channel: param_def */
     [CHF_LEN] = {"oldlen", 1, 64, 16},              /* (retired: a pattern's length is its own, riddim.h) */
     [CHF_PAT] = {"pat", 0, NPAT - 1, 0},            /* the pattern playing, A..D (the session, 4.8) */
+    [CHF_LO] = {"lo", -64, 63, 0},                 /* 8.1: the low shelf (100 Hz), v x 15/64 dB */
+    [CHF_MID] = {"mid", -64, 63, 0},               /* the mid's peak (Q 1.4), v x 15/64 dB */
+    [CHF_MID_F] = {"midf", -64, 63, 0},            /* its frequency, 1.26 kHz x 40^(v/127): 200 Hz .. 7.9 kHz */
+    [CHF_HI] = {"hi", -64, 63, 0},                 /* the high shelf (5 kHz) */
+    [CHF_FILT] = {"filt", -40, 40, 0},             /* the Big Knob's steps on this channel: + high-pass, - low-pass */
 };
 /* the voices' parameters, 0..127 unless said (voices.c maps them) */
 static const pdesc_t KICK_F[VK_N] = {

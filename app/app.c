@@ -254,6 +254,59 @@ static void ml_load(void);
 static void pl_load(void);                 /* (patches.c: the patch library, 5.4) */
 static void sh_load(void);                 /* (shots.c: your own one-shots, 5.14) */
 
+/* the live desk (8.1; docs/plan-8.1-channel-eq.md, 2c): every channel field a slot keeps (levels, mutes, solos,
+ * sends, throw destinations and amounts, the strip's EQ; not the throws, not the pattern, which PAT2 keeps), so a
+ * project switched back on sounds as it was left. Its own object, the store's OBJ_SCNPAT0 + 4 (only a save from before
+ * the session held anything there, read once at that boot; as OBJ_MAP, + 3). A save without it boots with the desk at
+ * its defaults, as before 8.1 */
+#define OBJ_DESK (OBJ_SCNPAT0 + 4)
+#define DESK_MAGIC 0x314B5344u                   /* "DSK1" */
+typedef struct {
+    uint32_t magic;
+    int16_t v[NCH * CH_STRIDE];
+} desk_store_t;
+static desk_store_t dsk;
+static uint32_t desk_sig;                        /* the desk as last saved or loaded (desk_tick: SAVE lit on a change) */
+static int project_param(uint32_t id);          /* (slots.c) */
+static int desk_keeps(uint32_t id)
+{
+    uint32_t f = (id - P_CH_BASE) % CH_STRIDE;
+    return project_param(id) && f != CHF_PAT && f != CHF_LEN;
+}
+static uint32_t desk_hash(void)
+{
+    uint32_t i, h = 2166136261u;
+    for (i = 0; i < NCH * CH_STRIDE; i++)
+        if (desk_keeps(P_CH_BASE + i))
+            h = (h ^ (uint16_t)ctl_get(P_CH_BASE + i)) * 16777619u;
+    return h;
+}
+static int desk_save(void)
+{
+    uint32_t i;
+    dsk.magic = DESK_MAGIC;
+    for (i = 0; i < NCH * CH_STRIDE; i++)
+        dsk.v[i] = desk_keeps(P_CH_BASE + i) ? (int16_t)ctl_get(P_CH_BASE + i) : 0;
+    if (plat_store_save(OBJ_DESK, &dsk, sizeof dsk) != 0)
+        return 0;
+    desk_sig = desk_hash();
+    return 1;
+}
+static void desk_load(void)
+{
+    uint32_t i;
+    if (plat_store_load(OBJ_DESK, &dsk, sizeof dsk) == (int)sizeof dsk && dsk.magic == DESK_MAGIC)
+        for (i = 0; i < NCH * CH_STRIDE; i++)
+            if (desk_keeps(P_CH_BASE + i))
+                ctl_set(P_CH_BASE + i, dsk.v[i]);   /* (clamped) */
+    desk_sig = desk_hash();
+}
+static void desk_tick(void)                      /* every frame: a desk move since the save lights SAVE */
+{
+    if (!set_dirty && desk_hash() != desk_sig)
+        set_dirty = 1;
+}
+
 static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
     if (save_hold) {                       /* (a backup streaming: what it reads must not move) */
@@ -288,7 +341,7 @@ static int save_project(int quiet)       /* SAVE (quiet: the autosave, which say
             snd.v[i] = (int16_t)ctl_get(P_VOICE_BASE + i);
     }
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
-        && proj_save() && ml_save()
+        && proj_save() && ml_save() && desk_save()
         && ((eng_playing() && ctl_get(P_SONG_REC)) || mot_save())) {   /* (motion: not while it is captured) */
         set_dirty = 0;
         if (!quiet)
@@ -343,6 +396,7 @@ static void load_saved(void)             /* the store's objects into both sides 
                 ctl_set(P_VOICE_BASE + i, snd.v[i]);   /* (clamped) */
     }
     proj_load();
+    desk_load();                         /* (8.1: after the patterns: the desk's fields, not CHF_PAT) */
     ml_load();
     pl_load();
     sh_load();
@@ -599,6 +653,20 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     }
     if (!strcmp(cmd, "oldmotion")) {     /* the motion as saved before 4,096 moves: 5,000 (motion.c) */
         mot_oldsave();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldscenes2")) {    /* the scenes as saved before 8.1 (SCN2: no EQ) */
+        pst_oldscenes2();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldslot4")) {      /* oldslot4 N: slot N (1..4) as saved before 8.1 (DSL4: scenes without EQ) */
+        int n = 1;
+        sscanf(plat_host_line, "%*s %d", &n);
+        slot_old4((uint32_t)(n - 1) % NSLOTS);
+        return 1;
+    }
+    if (!strcmp(cmd, "nodesk")) {        /* a save from before 8.1: no desk object */
+        plat_store_save(OBJ_DESK, &dsk, 0);
         return 1;
     }
     if (!strcmp(cmd, "oldsteps2")) {     /* the steps as saved before 6.7 (PST2), stray top bits on the kick's */

@@ -1,0 +1,84 @@
+# 8.1's stored formats (docs/plan-8.1-channel-eq.md): a scene keeps each strip's EQ (SCN3), a slot keeps the scenes'
+# (DSL5), SAVE keeps the live desk (DSK1); and the saves from before load as they were made, the EQ flat.
+wait 600
+listen
+param dev.tones 1
+param ch4.mid 30
+param ch4.midf -20
+param ch2.filt 12
+param ch1.lo -40
+param ch3.level 60
+wait 50
+tap HOME
+wait 30
+expect page 5
+# scene 1: the desk with its EQ
+press SAVE
+tapkey w0
+wait 30
+release SAVE
+wait 30
+said SCENE 1 STORED
+# the EQ flattened by hand; the scene brings it back (stopped: at once)
+param ch4.mid 0
+param ch2.filt 0
+param ch1.lo 0
+wait 50
+tapkey w0
+wait 50
+expect eng.ch4.mid 30
+expect eng.ch4.midf -20
+expect eng.ch2.filt 12
+expect eng.ch1.lo -40
+# SAVE keeps it all, the live desk too: through a reboot
+param ch5.hi 25
+param ch6.echo 70
+wait 50
+expect dirty 1
+tap SAVE
+wait 1500
+said SAVED
+expect dirty 0
+reboot
+wait 800
+# (a reboot keeps the page: ARRANGE)
+expect ui.ch5.hi 25
+expect ui.ch6.echo 70
+expect ui.ch3.level 60
+expect ui.ch4.mid 30
+expect dirty 0
+# a desk move lights SAVE
+param ch6.echo 71
+wait 50
+expect dirty 1
+param ch6.echo 70
+wait 50
+# the scene came back with its EQ
+param ch4.mid 0
+wait 50
+expect page 5
+tapkey w0
+wait 50
+expect eng.ch4.mid 30
+expect eng.ch2.filt 12
+# a scene saved before 8.1 (SCN2): its desk recalled as it was, the EQ flat
+oldscenes2
+reboot
+wait 800
+expect scene_used1 1
+param ch4.mid 10
+wait 50
+expect page 5
+tapkey w0
+wait 50
+expect eng.ch3.level 60
+expect eng.ch4.mid 0
+expect eng.ch2.filt 0
+expect eng.ch1.lo 0
+# a save from before 8.1 without the desk: the desk at its defaults, as before
+nodesk
+reboot
+wait 800
+expect ui.ch5.hi 0
+expect ui.ch6.echo 0
+expect ui.ch3.level 100

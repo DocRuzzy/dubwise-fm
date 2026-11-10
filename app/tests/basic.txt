@@ -43,7 +43,8 @@ expect ui.tempo 780
 tap SAVE
 wait 30
 expect dirty 0
-expect store_writes 7
+# (since 8.1, one more: the live desk)
+expect store_writes 8
 reboot
 wait 600
 expect ui.v1.tune 45

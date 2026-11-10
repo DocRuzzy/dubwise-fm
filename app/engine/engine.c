@@ -7,6 +7,7 @@
 #include "echo.h"
 #include "voices.h"
 #include "riddim.h"
+#include "chaneq.h"                              /* 8.1: each strip's EQ and filter */
 #include "bigknob.h"
 #include "spring.h"
 #include "chordv.h"
@@ -61,6 +62,7 @@ typedef struct {
 
 static int16_t ev[P_NIDS];                       /* the applied values (the main loop reads them back); 16 bits: pdesc_t */
 static strip_t strip[NCH];
+static chaneq_t cheq[NCH], cheq_side;               /* 8.1: each strip's EQ; the B-3 horn's side as the organ's */
 static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], eret[ENG_BLOCK], sret[ENG_BLOCK];
 static float dryr[ENG_BLOCK], eretr[ENG_BLOCK], sretr[ENG_BLOCK];   /* the right side (returns are stereo: P1.5) */
 static volatile float echo_peak, spring_peak, echo_ret_peak, spring_ret_peak;
@@ -729,6 +731,14 @@ static void bus_update(void)                     /* the echo's and the voices' s
             tape_reset();
         drive_on = ev[P_DRIVE_ON];
     }
+    {                                            /* 8.1: each strip's EQ and filter */
+        uint32_t ch;
+        for (ch = 0; ch < NCH; ch++)
+            chaneq_config(&cheq[ch], ev[P_CH(ch, CHF_LO)], ev[P_CH(ch, CHF_MID)], ev[P_CH(ch, CHF_MID_F)],
+                          ev[P_CH(ch, CHF_HI)], ev[P_CH(ch, CHF_FILT)], 44100.0f);
+        chaneq_config(&cheq_side, ev[P_CH(CH_ORGAN, CHF_LO)], ev[P_CH(CH_ORGAN, CHF_MID)],
+                      ev[P_CH(CH_ORGAN, CHF_MID_F)], ev[P_CH(CH_ORGAN, CHF_HI)], ev[P_CH(CH_ORGAN, CHF_FILT)], 44100.0f);
+    }
     lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
     if (ev[P_HPF_STEP] != bk_step || ev[P_HPF_LP] != bk_lp) {   /* a step: at once, unsmoothed (the detents are the
                                                                  * sound); 7.5: or the other filter */
@@ -840,6 +850,12 @@ void eng_init(void)
     fxv_init();
     mot_init();
     mot_hold = 0;
+    {
+        uint32_t ch;
+        for (ch = 0; ch < NCH; ch++)
+            chaneq_init(&cheq[ch]);
+        chaneq_init(&cheq_side);
+    }
     bigknob_init(&bk);
     bigknob_init(&bkr);
     phaser_reset();
@@ -1491,6 +1507,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             phaser_run(buf, 0, n);               /* the phaser on a channel (before its strip) */
         if (on && drive_on == DRIVE_BASS && ch == CH_BASS)
             tape_run(buf, 0, n);                 /* the bass through the tape (C7) */
+        if (on && chaneq_active(&cheq[ch]))
+            chaneq_run(&cheq[ch], buf, n);       /* 8.1: the strip's EQ and filter, before its fader and sends */
         prof_mark(PART_CH0 + ch);
         if (ch == CH_ORGAN) {                    /* the B-3's stereo horn (5.15): its side, at the strip's level */
             const float *sd = on ? chordv_side() : 0;
@@ -1499,6 +1517,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
                 float g = s->dry.g;
                 for (i = 0; i < n; i++)
                     org_side[i] = g * sd[i];
+                if (chaneq_active(&cheq_side))   /* (8.1: the side as the organ's strip) */
+                    chaneq_run(&cheq_side, org_side, n);
                 org_side_n = n;
             }
         }

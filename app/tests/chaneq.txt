@@ -1,0 +1,65 @@
+# 8.1: each channel's own EQ and stepped filter (docs/plan-8.1-channel-eq.md). dev.tones puts a -20 dBFS sine on every
+# channel, 110 Hz x the channel's number: a stage's gain is read off the strip's level (chN_db, after the EQ).
+wait 600
+param dev.tones 1
+wait 300
+expect ch1_db >-21
+expect ch1_db <-19
+# the low shelf (100 Hz): ch1's 110 Hz up, then down
+param ch1.lo 63
+wait 300
+expect ch1_db >-12
+param ch1.lo -64
+wait 300
+expect ch1_db <-29
+# flat again: exactly as before (the stage skipped)
+param ch1.lo 0
+wait 300
+expect ch1_db >-21
+expect ch1_db <-19
+# the high shelf (5 kHz) leaves ch8's 880 Hz nearly alone; boosted on the highs only
+param ch8.hi 63
+wait 300
+expect ch8_db >-21
+expect ch8_db <-17
+param ch8.hi 0
+# the mid: centred on ch4's 440 Hz (midf -36), +15 dB, then -15
+param ch4.midf -36
+param ch4.mid 63
+wait 400
+expect ch4_db >-6.5
+param ch4.mid -64
+wait 400
+expect ch4_db <-33
+# swept away an octave and more: the tone comes back towards flat
+param ch4.midf 40
+wait 600
+expect ch4_db >-21.5
+param ch4.mid 0
+# the stepped filter: a high-pass at step 20 (500 Hz) takes ch2's 220 Hz down; a low-pass at step 32 takes ch8's 880 Hz
+param ch2.filt 20
+wait 300
+expect ch2_db <-30
+param ch2.filt 0
+wait 300
+expect ch2_db >-21
+param ch8.filt -32
+wait 300
+expect ch8_db <-26
+param ch8.filt 0
+wait 300
+expect ch8_db >-21
+# the low end stays mono, the mix clean
+# the whole mix with a channel EQ'd on each of five strips
+param ch3.lo 40
+param ch5.mid 50
+param ch6.hi -40
+param ch7.filt 12
+param ch8.filt -8
+wav chaneq.wav
+wait 2000
+wavstop
+#wav chaneq.wav peak<-1 dc<-50 side_lo<-60
+perf reset
+wait 2000
+perf

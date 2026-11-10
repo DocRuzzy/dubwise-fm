@@ -33,7 +33,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))   # (make_oneshots.py, 
 
 HDR = bytes([0x7D, 0x44, 0x57])                   # non-commercial, "DW"
 PIECE = 256
-MAGIC = 0x344C5344                                # "DSL4" (6.7: trig conditions in the steps)
+MAGIC = 0x354C5344                                # "DSL5" (8.1: each strip's EQ in the scenes)
+MAGIC4 = 0x344C5344                               # "DSL4" (6.7: trig conditions in the steps: still loads)
 MAGIC3 = 0x334C5344                               # "DSL3" (5.8, 5.9: step locks, repeats, chance, seeds: still loads)
 MAGIC2 = 0x324C5344                               # "DSL2" (the session, 4.8: still loads)
 MAGIC1 = 0x314C5344                               # "DSL1" (before it: still loads)
@@ -114,7 +115,7 @@ class Dump:
 
 def info(image):
     magic, length, _sum, moves = struct.unpack_from("<IIII", image, 0)
-    if magic not in (MAGIC, MAGIC3, MAGIC2, MAGIC1) or length + 16 != len(image):
+    if magic not in (MAGIC, MAGIC4, MAGIC3, MAGIC2, MAGIC1) or length + 16 != len(image):
         return "not a Dubwise slot file"
     tempo = struct.unpack_from("<h", image, 16)[0]  # parameter 0 (P_TEMPO), BPM x 10
     ver = struct.pack("<I", magic).decode("ascii")

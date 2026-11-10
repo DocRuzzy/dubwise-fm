@@ -1550,6 +1550,7 @@ void dub_draw(void)
     uint32_t now = plat_ms(), b = eng_beat(), cm = cued_mask(), blink = blink_on();
     int drew = 0;
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
+    desk_tick();                         /* (8.1: a desk move since the save lights SAVE) */
     slot_tick();                         /* (a loaded slot's, the same way) */
     slot_sx_tick();                      /* (a slot going to a computer) */
     sh_sx_tick();                        /* (the one-shots going to one: 5.14) */
