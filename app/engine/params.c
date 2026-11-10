@@ -99,6 +99,10 @@ static const pdesc_t VOX_F[VX_N] = {
     [VX_DEPTH] = {"depth", 0, 127, 36},             /* 1 .. 24 semitones */
     [VX_WAVE] = {"wave", 0, 1, 0},                  /* sine, triangle */
     [VX_LIVE] = {"live", 0, 127, 0},                /* the live input (P2.8): 0 off, 100 as it comes, 127 +2 dB */
+    [VX_SAY] = {"say", 0, 16, 0},                   /* 6.6: 0 black 8 is BIM; 1..16 it says a shout (lpc_data.h) */
+    [VX_SAYPITCH] = {"say pitch", -12, 12, 0},      /* its pitch, semitones */
+    [VX_STUTTER] = {"stutter", 0, 127, 0},          /* a frame said again now and then */
+    [VX_CRUSH] = {"crush", 0, 5, 0},                /* the speech chip's DAC, fewer bits */
 };
 static const pdesc_t LEAD_F[VL_N] = {
     [VL_INST] = {"inst", 0, INST_N - 1, INST_MELODICA},

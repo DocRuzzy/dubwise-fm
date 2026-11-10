@@ -1,0 +1,42 @@
+# The deejay voice (roadmap 6.6; app/engine/lpc.c, after SPELLBOX's speech chip): VOX's SAY picks a shout, and black 8
+# says it in place of BIM (its name said on the screen); SAY PITCH raises it, STUTTER repeats frames, CRUSH drops the
+# chip's bits; each shout a second or so, clean, and silent after. SAY 0: BIM again.
+wait 600
+listen
+param ch8.echo 0
+param v8.say 1
+wait 30
+wav say-selecta.wav
+tapkey b7
+wait 30
+said ONE SHOT SELECTA
+wait 1500
+wavstop
+param v8.say 2
+wait 30
+wav say-wheelup.wav
+tapkey b7
+wait 30
+said ONE SHOT WHEEL UP
+wait 1500
+wavstop
+param v8.say 3
+param v8.say_pitch 7
+param v8.stutter 60
+param v8.crush 2
+wait 30
+wav say-bigup.wav
+tapkey b7
+wait 30
+said ONE SHOT BIG UP
+wait 2000
+wavstop
+param v8.say 0
+wait 30
+tapkey b7
+wait 30
+said ONE SHOT BIM
+wait 600
+#wav say-selecta.wav peak<-1 dc<-40 rms>-45 tail<-80
+#wav say-wheelup.wav peak<-1 dc<-40 rms>-45 tail<-80
+#wav say-bigup.wav peak<-1 dc<-40 rms>-48 tail<-80

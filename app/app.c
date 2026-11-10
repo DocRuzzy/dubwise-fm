@@ -13,6 +13,7 @@
 #include "engine/fxv.h"
 #include "engine/motion.h"
 #include "engine/chordv.h"                  /* (the B-3's tables, built in the main loop: 5.15) */
+#include "engine/lpc.h"                     /* (the deejay voice's names: 6.6) */
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 

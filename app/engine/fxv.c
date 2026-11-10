@@ -7,6 +7,7 @@
 #include "dsp.h"
 #include "plat.h"                                /* PLAT_POOL */
 #include "oneshots_data.h"
+#include "lpc.h"                                 /* 6.6: the deejay voice */
 
 #define SHOT_TOTAL (sizeof SHOT_BIM + sizeof SHOT_HORN + sizeof SHOT_LASER)
 typedef char shots_fit[SHOT_TOTAL <= FXV_SHOT_MAX ? 1 : -1];
@@ -16,6 +17,7 @@ static uint32_t shot_len[NSHOTS];                /* (the factory's, or the owner
 static char shot_name[NSHOTS][9];
 static volatile int shots_held;                  /* 1: being replaced (main loop): none starts or plays */
 static float ulaw[256];                          /* mu-law -> -1..1 */
+static int say_k, say_semis, say_stutter, say_crush;   /* 6.6: VOX's SAY (0: BIM), and its bends */
 static struct {
     uint32_t pos, end;                           /* in half samples (22,050 Hz data at 44.1 kHz) */
     float vel;
@@ -52,6 +54,7 @@ void fxv_init(void)                             /* (at boot: copies the one-shot
         shot[k].on = 0;
     }
     shots_held = 0;
+    lpc_init();
 }
 
 /* The owner's one-shots (5.14; app/shots.c): fxv_shots_hold stops them and keeps them from starting, the app copies
@@ -98,6 +101,10 @@ void fxv_shot(uint32_t k, uint32_t vel) { fxv_shot_dir(k, vel, 0); }
 
 void fxv_shot_dir(uint32_t k, uint32_t vel, int rev)
 {
+    if (k == 0u && say_k > 0) {                  /* 6.6: black 8 says the shout SAY picked */
+        lpc_say(say_k - 1, vel, say_semis, say_stutter, say_crush);
+        return;
+    }
     if (k >= NSHOTS || shots_held || shot_len[k] < 2u)   /* (an empty one of the owner's: nothing) */
         return;
     shot[k].rev = rev;
@@ -107,7 +114,7 @@ void fxv_shot_dir(uint32_t k, uint32_t vel, int rev)
     shot[k].on = 1;
 }
 
-const char *fxv_shot_name(uint32_t k) { return k < NSHOTS ? shot_name[k] : ""; }
+const char *fxv_shot_name(uint32_t k) { return k == 0u && say_k > 0 ? lpc_name(say_k - 1) : k < NSHOTS ? shot_name[k] : ""; }
 uint32_t fxv_shot_len(uint32_t k) { return k < NSHOTS ? shot_len[k] : 0u; }
 
 static int shots_render(float *o, uint32_t n, int add)   /* the one-shots into o (added, or written) */
@@ -150,6 +157,10 @@ void fxv_config(const int16_t *ev)
     sr.rate = 0.5f * fm_exp2f(lin(ev[P_VOICE(CH_VOX, VX_RATE)], 0.0f, 4.585f));   /* 0.5 .. 12 Hz */
     sr.ratio = fm_exp2f(lin(ev[P_VOICE(CH_VOX, VX_DEPTH)], 1.0f, 24.0f) * (1.0f / 12.0f));
     sr.tri = ev[P_VOICE(CH_VOX, VX_WAVE)] ? 1.0f : 0.0f;
+    say_k = ev[P_VOICE(CH_VOX, VX_SAY)];
+    say_semis = ev[P_VOICE(CH_VOX, VX_SAYPITCH)];
+    say_stutter = ev[P_VOICE(CH_VOX, VX_STUTTER)];
+    say_crush = ev[P_VOICE(CH_VOX, VX_CRUSH)];
 }
 
 void fxv_on(int32_t which, uint32_t vel)
@@ -173,8 +184,10 @@ int fxv_render(float *o, uint32_t n)
 {
     uint32_t i;
     if (!sr.gate && sr.amp < 1e-5f) {
+        int any;
         sr.amp = 0.0f;
-        return shots_render(o, n, 0);
+        any = shots_render(o, n, 0);
+        return lpc_render(o, n, any) | any;      /* (6.6: the voice, on top) */
     }
     for (i = 0; i < n; i++) {
         float m, f, s;
@@ -193,5 +206,6 @@ int fxv_render(float *o, uint32_t n)
         o[i] = s * sr.amp * sr.vel * 0.35f;
     }
     shots_render(o, n, 1);
+    lpc_render(o, n, 1);
     return 1;
 }
