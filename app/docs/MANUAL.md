@@ -11,6 +11,24 @@ effects, ARP the key and the chord lane, GLO the SETUP page, HOME the scenes and
 play along with, load the demo, RIGHTEOUS DUB (SETUP → DEMO SONG). The one-page cheat sheet:
 https://docruzzy.github.io/dubwise-fm/cheat/
 
+## Your first ten minutes
+
+1. **Press PLAY.** ONE DROP starts: kick and rim on beat 3, the bass, the skank on 2 and 4. Press PLAY again to stop
+   (it stops when you let go).
+2. **Drop the bass on the one.** Tap white key 4 (BASS). It doesn't cut at once: it blinks, and lands on the next bar's
+   first beat. Tap it again to bring the bass back, on the next one. The middle of the screen says when it lands.
+3. **Throw the snare.** Hold white key 10 (the snare's throw) for half a beat: the rim goes into the tape echo and
+   rings on. Hit it harder for a bigger throw.
+4. **Turn the Big Knob.** Click it clockwise a few steps: the band thins from the bottom up, as King Tubby's filter
+   did. Click it back to OFF on the one.
+5. **Kick the spring.** Black key 1: a thunderclap from the spring, even with nothing sent to it.
+6. **Drop to wet.** Hold black key 5: the band goes, only the echo and spring play on. Let go: the band is back.
+7. **Load the demo and play over it.** GLO (SETUP), turn KNOB 1 to DEMO SONG, turn KNOB 2 twice, press HOME, then
+   PLAY: RIGHTEOUS DUB, a 2-minute tour of every sound. Throw, mute and turn over the top of it.
+
+That's the core of it: mutes on the one, throws, the Big Knob, the spring. Everything after this is depth: the
+channel EQ and pan (3f), scenes and the song (3e), the patterns (3c).
+
 ![The DUB page, stopped: 75.0 BPM, BAR 1.1, Q 1 BAR in the header; eight channel strips, all playing; the echo's repeats falling; TIME 1/8., FB 3.2s, ECHO 100, SPRG 90](img/screen-ready.png "The DUB page at rest")
 
 ---
