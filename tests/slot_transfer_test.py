@@ -93,6 +93,13 @@ said LOAD SLOT SLOT 4 (EMPTY)
 import struct  # noqa: E402
 old = bytearray(d.done)
 STEPS = 16 + 512 * 2 + 8 * 4 * 4                # (the header, the parameters, the patterns' settings: the kick's A)
+SCENES = STEPS + 8 * 4 * 64 * 4                 # the scenes: 16 of 152 bytes since 8.1 (DSL5), 112 before (no EQ)
+body = old[:SCENES]
+for sc in range(16):
+    body += old[SCENES + 152 * sc:SCENES + 152 * sc + 112]
+body += old[SCENES + 16 * 152:]
+old = bytearray(body)
+struct.pack_into("<I", old, 4, len(old) - 16)
 k = next(i for i in range(64) if old[STEPS + 4 * i] & 3)
 old[STEPS + 4 * k + 3] = 37
 h = 2166136261

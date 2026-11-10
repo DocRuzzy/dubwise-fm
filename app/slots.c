@@ -14,7 +14,9 @@
 #define NSLOTS 4u
 #define SLOT_BYTES 0x8000u
 static const uint32_t SLOT_AT[NSLOTS] = {0x97000u, 0x9F000u, 0xA7000u, 0xBD000u};
-#define SLOT_MAGIC 0x344C5344u                   /* "DSL4" (6.7: steps as PST3, the CONDITION) */
+#define SLOT_MAGIC 0x354C5344u                   /* "DSL5" (8.1: the scenes with each strip's EQ, SCN3's) */
+#define SLOT_MAGIC4 0x344C5344u                  /* "DSL4" (6.7: steps as PST3, the CONDITION): its scenes without the
+                                                  * EQ (scene_v4_t), loaded flat */
 #define SLOT_MAGIC3 0x334C5344u                  /* "DSL3" (5.8, 5.9: steps as PST2; a pattern's SEED kept): the top bits
                                                   * cleared */
 #define SLOT_MAGIC2 0x324C5344u                  /* "DSL2" (the session): the same layout, its drum gates cleared */
@@ -28,10 +30,14 @@ typedef struct {
                      + SONG_BARS * (uint32_t)sizeof(song_v1_t) + SONG_BARS)
 #define SLOT_MOVES_MAX ((SLOT_BYTES - (uint32_t)sizeof(slot_head_t) - SLOT_FIXED) / (uint32_t)sizeof(mot_ev_t))
 typedef char slot_fits[SLOT_FIXED + sizeof(slot_head_t) < SLOT_BYTES ? 1 : -1];
+#define SLOT_FIXED4 (SLOT_FIXED - NSCENES * ((uint32_t)sizeof(scene_t) - (uint32_t)sizeof(scene_v4_t)))   /* DSL2..DSL4 */
+#define SLOT_PST3(m) ((m) == SLOT_MAGIC || (m) == SLOT_MAGIC4)   /* the steps as PST3 */
 
 static int slot_head_ok(const slot_head_t *h)    /* a whole slot of either form */
 {
-    uint32_t fixed = h->magic == SLOT_MAGIC || h->magic == SLOT_MAGIC3 || h->magic == SLOT_MAGIC2 ? SLOT_FIXED : h->magic == SLOT_MAGIC1 ? SLOT_FIXED1 : 0u;
+    uint32_t fixed = h->magic == SLOT_MAGIC ? SLOT_FIXED
+                     : h->magic == SLOT_MAGIC4 || h->magic == SLOT_MAGIC3 || h->magic == SLOT_MAGIC2 ? SLOT_FIXED4
+                     : h->magic == SLOT_MAGIC1 ? SLOT_FIXED1 : 0u;
     return fixed && h->moves <= SLOT_BYTES && h->len == fixed + h->moves * (uint32_t)sizeof(mot_ev_t)
            && h->len <= SLOT_BYTES - sizeof *h;
 }
@@ -48,7 +54,8 @@ static int project_param(uint32_t id)            /* a project's, not the device'
         return 1;
     if (id >= P_CHORD0 && id < P_CHORD_END)
         return 1;
-    return id >= P_CH_BASE && id < P_NIDS && param_desc(id) && mot_momentary(id) < 0 && id != P_SPIN && id != P_SHOT && id != P_TAILS;
+    return id >= P_CH_BASE && id < P_NIDS && param_desc(id) && mot_momentary(id) < 0 && id != P_SPIN && id != P_SHOT && id != P_TAILS
+           && id != P_BK_RES;                    /* (8.10: a SETUP preference, the device's) */
 }
 
 static const slot_head_t *slot_head(uint32_t s)  /* the slot's header in the flash, 0: empty */
@@ -60,7 +67,7 @@ static const slot_head_t *slot_head(uint32_t s)  /* the slot's header in the fla
         return 0;
     for (i = 0; i < sizeof h; i++)
         ((uint8_t *)&h)[i] = p[i];
-    return (h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC3 || h.magic == SLOT_MAGIC2 || h.magic == SLOT_MAGIC1) && h.len <= SLOT_BYTES - sizeof h
+    return (h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC4 || h.magic == SLOT_MAGIC3 || h.magic == SLOT_MAGIC2 || h.magic == SLOT_MAGIC1) && h.len <= SLOT_BYTES - sizeof h
            ? &h : 0;
 }
 
@@ -140,7 +147,7 @@ static int slot_load(uint32_t s)
 {
     const slot_head_t *hp = slot_head(s);
     const uint8_t *p;
-    uint32_t i, ch, b;
+    uint32_t i, ch, b, k2;
     slot_head_t h;
     if (!hp)
         return -1;
@@ -185,7 +192,7 @@ static int slot_load(uint32_t s)
                 m.len = p[0];
                 m.grid = p[1];
                 m.swing = p[2];
-                m.rsv = h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC3 ? p[3] : 0u;   /* (the SEED, 5.9) */
+                m.rsv = SLOT_PST3(h.magic) || h.magic == SLOT_MAGIC3 ? p[3] : 0u;   /* (the SEED, 5.9) */
                 ctl_meta_set(ch, i, m);
             }
         for (ch = 0; ch < NCH; ch++)
@@ -193,9 +200,9 @@ static int slot_load(uint32_t s)
                 uint32_t k;
                 for (k = 0; k < NSTEPS; k++, p += 4) {
                     step_t st;
-                    st.lvl = h.magic == SLOT_MAGIC ? p[0] : h.magic == SLOT_MAGIC3 ? (uint8_t)(p[0] & 0x7Fu)
+                    st.lvl = SLOT_PST3(h.magic) ? p[0] : h.magic == SLOT_MAGIC3 ? (uint8_t)(p[0] & 0x7Fu)
                              : (uint8_t)(p[0] & 3u);   /* (DSL3, DSL2: the converters, as PST2's and PST1's) */
-                    st.note = (int8_t)(h.magic == SLOT_MAGIC ? p[1] : p[1] & 0x7Fu);
+                    st.note = (int8_t)(SLOT_PST3(h.magic) ? p[1] : p[1] & 0x7Fu);
                     st.off = (int8_t)p[2];
                     st.gate = h.magic == SLOT_MAGIC2 && is_drum(ch) ? 0u : p[3];
                     if (STEP_REPEAT(st) >= REP_N)
@@ -203,8 +210,22 @@ static int slot_load(uint32_t s)
                     ctl_step_at(ch, i, k, st);
                 }
             }
-        for (i = 0; i < sizeof scenes; i++)
-            ((uint8_t *)scenes)[i] = *p++;
+        if (h.magic == SLOT_MAGIC)
+            for (i = 0; i < sizeof scenes; i++)
+                ((uint8_t *)scenes)[i] = *p++;
+        else                                     /* (DSL2..DSL4: before 8.1, the scenes without the EQ: flat) */
+            for (k2 = 0; k2 < NSCENES; k2++) {
+                scene_v4_t o4;
+                for (i = 0; i < sizeof o4; i++)
+                    ((uint8_t *)&o4)[i] = *p++;
+                scene_put(k2, o4.used, o4.scope, o4.desk);
+                for (ch = 0; ch < NCH; ch++)
+                    scenes[k2].pat[ch] = (uint8_t)(o4.pat[ch] < NPAT ? o4.pat[ch] : 0u);
+            }
+        for (k2 = 0; k2 < NSCENES; k2++)         /* (any: the EQ kept in range) */
+            for (ch = 0; ch < NCH; ch++)
+                for (i = 0; i < SCENE_EQ; i++)
+                    scenes[k2].eq[ch][i] = (int8_t)param_clamp(P_CH(ch, CHF_LO + i), scenes[k2].eq[ch][i]);
         for (i = 0; i < sizeof song; i++)
             ((uint8_t *)song)[i] = *p++;
     }
@@ -458,3 +479,42 @@ static int slot_sysex(const uint8_t *p, uint32_t n)   /* app_sysex: the bytes be
     }
     return 1;
 }
+
+#ifdef PLAT_HOST
+static void slot_old4(uint32_t s)                /* (tests) slot s as a DSL4 slot (before 8.1): its scenes without the
+                                                  * EQ, the rest as it is */
+{
+    static uint8_t img[SLOT_BYTES];
+    slot_head_t h = *slot_head(s);
+    const uint8_t *p = plat_data(SLOT_AT[s]) + sizeof h;
+    uint32_t pre = P_NIDS * 2u + NCH * NPAT * (uint32_t)sizeof(pmeta_t) + NCH * NPAT * NSTEPS * (uint32_t)sizeof(step_t);
+    uint32_t i, k, o = 0;
+    if (h.magic != SLOT_MAGIC)
+        return;
+    for (i = 0; i < pre; i++)
+        img[o++] = p[i];
+    for (k = 0; k < NSCENES; k++) {              /* each scene as scene_v4_t: the EQ left off its end */
+        scene_t sc;
+        scene_v4_t o4;
+        for (i = 0; i < sizeof sc; i++)
+            ((uint8_t *)&sc)[i] = p[pre + k * sizeof sc + i];
+        o4.used = sc.used;
+        o4.scope = sc.scope;
+        for (i = 0; i < SCENE_DESK; i++)
+            o4.desk[i] = sc.desk[i];
+        for (i = 0; i < NCH; i++)
+            o4.pat[i] = sc.pat[i];
+        for (i = 0; i < sizeof o4; i++)
+            img[o++] = ((uint8_t *)&o4)[i];
+    }
+    for (i = pre + (uint32_t)sizeof scenes; i < h.len; i++)
+        img[o++] = p[i];
+    h.magic = SLOT_MAGIC4;
+    h.len = o;
+    h.sum = slot_sum(2166136261u, img, o);
+    for (i = 0; i < SLOT_BYTES / 4096u; i++)
+        plat_data_erase(SLOT_AT[s] + i * 4096u);
+    plat_data_write(SLOT_AT[s] + sizeof h, img, o);
+    plat_data_write(SLOT_AT[s], &h, sizeof h);
+}
+#endif

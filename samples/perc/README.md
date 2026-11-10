@@ -9,6 +9,30 @@ is copied in). Used for the conga, quinto, tumba, bongos, the "giant" hand drum 
 stand-ins for the nyabinghi drums until real ones arrive), cowbell, claves, woodblock (`wood_click`), tambourine,
 maracas and Camo's shaker.
 
-## nyabinghi/ (the owner's downloads, still to come)
+## blackarc/ (the owner's, 2026-11-10)
+
+From Native Instruments' **Black Arc** expansion, which the owner owns: 67 one-shots (Percussion and Shaker folders).
+Licensed to the owner for use in productions, not for redistribution: **never committed**, and only measured numbers
+(modes, decays, noise bands) go into the firmware. Credit in `CREDITS.md` as "fitted partly to measurements of the
+owner's licensed Native Instruments Black Arc samples; no audio included".
+
+There's no nyabinghi set in it, so the three drums are matched to the hits that play their roles, by measurement:
+
+| Role | The nyabinghi drum | Stand-in | Measured |
+|---|---|---|---|
+| Bass ("thunder") | big, low, open, a padded beater | `Tom KingdomRise` | modes 109 and 183 Hz (1 : 1.68, a membrane's), rings to -40 dB in 1.79 s |
+| Funde | slack head: low, dull, bends down | the body from `Tom KungFuDub`, the hand's attack from `Conga BlackSpark` | the tom glides 256 to 166 Hz (a slack head), rings 1.34 s; the conga 221 Hz, -20 dB in 0.10 s |
+| Repeater (kete) | tight head: higher, rings | `Bongo SteppersRock` (also `Conga SkaBuster`) | 652 Hz (483), rings to -40 dB in 0.63 s (0.55) |
+
+The rest of the kit is fitted to Black Arc's reggae-session hits first, with VSCO 2 as a cross-check:
+- `Conga *`, `Bongo *`;
+- `Cowbell *`, `Woodblock *`, `Tamb *`, `Shaker *`;
+- `Afuche *` (cabasa), `Guiro *`, `Triangle *`.
+
+Also from Black Arc (2026-11-10): `Hihat/` (91), `Snare/` (61), `Cymbal/` (19), `Kick/` (23), `Tom/` (7), `Clap/` (9). Besides the
+nyabinghi bass drum, these are the reggae session's own drums: a reference for checking the kick, rim and hats models
+against (the studies, 8.6). The kicks are tight: 40-80 Hz, most under -40 dB within 0.1-0.4 s.
+
+## nyabinghi/ (if real recordings turn up)
 
 Real nyabinghi drums (bass drum, funde, repeater / kete) from Freesound: credit each file's page and licence here.

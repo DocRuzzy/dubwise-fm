@@ -14,6 +14,7 @@ said SOUND KICK 2
 expect ui.v1.model 2
 tap EDIT
 tap EDIT
+tap EDIT
 wait 30
 expect sound_bank 0
 param v1.model 0

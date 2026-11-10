@@ -245,6 +245,8 @@ static void label_of(uint32_t id, char *l, uint32_t n)   /* a voice field's name
     }
     if (s[0] == 'm' && s[1] == '.')
         s += 2;
+    if (id >= P_CH_BASE && id < P_CH_BASE + NCH * CH_STRIDE && (id - P_CH_BASE) % CH_STRIDE == CHF_MID_F)
+        s = "freq";                              /* (8.1: the STRIP bank's; no strcmp on the device) */
     upper(s, l, n);
 }
 

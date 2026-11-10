@@ -21,6 +21,12 @@ static const pdesc_t CH_FIELDS[CHF_N] = {
     [CHF_THROW_DEST] = {"dest", 0, DEST_N - 1, DEST_ECHO},   /* per channel: param_def */
     [CHF_LEN] = {"oldlen", 1, 64, 16},              /* (retired: a pattern's length is its own, riddim.h) */
     [CHF_PAT] = {"pat", 0, NPAT - 1, 0},            /* the pattern playing, A..D (the session, 4.8) */
+    [CHF_LO] = {"lo", -64, 63, 0},                 /* 8.1: the low shelf (100 Hz), v x 15/64 dB */
+    [CHF_MID] = {"mid", -64, 63, 0},               /* the mid's peak (Q 1.4), v x 15/64 dB */
+    [CHF_MID_F] = {"midf", -64, 63, 0},            /* its frequency, 1.26 kHz x 40^(v/127): 200 Hz .. 7.9 kHz */
+    [CHF_HI] = {"hi", -64, 63, 0},                 /* the high shelf (5 kHz) */
+    [CHF_FILT] = {"filt", -40, 40, 0},             /* the Big Knob's steps on this channel: + high-pass, - low-pass */
+    [CHF_PAN] = {"pan", -64, 63, 0},               /* 8.9: left -64 .. right 63, above ~150 Hz only (the lows stay mono) */
 };
 /* the voices' parameters, 0..127 unless said (voices.c maps them) */
 static const pdesc_t KICK_F[VK_N] = {
@@ -225,6 +231,7 @@ static const pdesc_t VOX[P_VOX_END - P_SIREN] = {
 };
 static const pdesc_t TAILS = {"tails", 0, 1, 0};
 static const pdesc_t FILL = {"fill", 0, 1, 0};
+static const pdesc_t BKRES = {"bk.res", 0, BKRES_N - 1, BKRES_OFF};   /* 8.10 */
 static const pdesc_t DESK_COL = {"desk", 0, DESK_N - 1, DESK_CLEAN};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
@@ -341,6 +348,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &SPRING[id - P_SPRING_RET];
     if (id >= P_HPF_STEP && id < P_HPF_END)
         return &HPF[id - P_HPF_STEP];
+    if (id == P_BK_RES)
+        return &BKRES;
     if (id >= P_WET && id < P_DESK_END)
         return &DESK[id - P_WET];
     if (id == P_TAILS)

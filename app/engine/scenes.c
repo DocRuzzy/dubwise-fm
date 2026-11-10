@@ -25,8 +25,11 @@ void scene_capture(uint32_t s, uint32_t scope, const int16_t *vals)
     for (k = 0; k < SCENE_DESK; k++)
         sc->desk[k] = vals[scene_param(k)];
     sc->scope = (uint8_t)(scope < SCOPE_N ? scope : SCOPE_DESK);
-    for (ch = 0; ch < NCH; ch++)
+    for (ch = 0; ch < NCH; ch++) {
         sc->pat[ch] = (uint8_t)vals[P_CH(ch, CHF_PAT)];
+        for (k = 0; k < SCENE_EQ; k++)           /* 8.1 */
+            sc->eq[ch][k] = (int8_t)vals[P_CH(ch, CHF_LO + k)];
+    }
     sc->used = 1;
 }
 
@@ -38,6 +41,9 @@ void scene_apply(uint32_t s, int16_t *vals)
         return;
     for (k = 0; k < SCENE_DESK; k++)
         vals[scene_param(k)] = (int16_t)param_clamp(scene_param(k), sc->desk[k]);
+    for (ch = 0; ch < NCH; ch++)                 /* 8.1: the strips' EQ (a scene from before 8.1: flat) */
+        for (k = 0; k < SCENE_EQ; k++)
+            vals[P_CH(ch, CHF_LO + k)] = (int16_t)param_clamp(P_CH(ch, CHF_LO + k), sc->eq[ch][k]);
     if (sc->scope == SCOPE_PATTERNS)
         for (ch = 0; ch < NCH; ch++)
             vals[P_CH(ch, CHF_PAT)] = (int16_t)(sc->pat[ch] < NPAT ? sc->pat[ch] : 0u);

@@ -70,15 +70,19 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | HOME + SEQ, tapped | Tap tempo: from the second tap, the average of the last four gaps (a pause over 2 s starts again). Refused while MIDI clock in has the tempo. |
 | Any button, held a second on its own | Its help card for this page. It stays when you let go, and the next press (which does nothing else) or 12 s puts the page back. A combo you hold while thinking still works: a knob or key pressed with the button held closes the card and does its job. |
 | ALGORITHM | Moves the focus between the channels. |
-| EDIT | The SOUND view of the focused channel. While it's open, the middle of the screen draws the voice's shape from its settings: its loudness (white, filled) and a second curve in amber (the kick's pitch falling, the rim's ring, the open hat, the bass's pluck, the lead's vibrato, the siren's sweep), redrawn as you turn a knob, with a line running across it on each hit (not with REDUCED MOTION). First MAIN: four macros, each turning several settings at once along a shaped curve (the kick's PUNCH: the sweep up, the fall quicker, the click up); in the middle (0) everything is at its default. Press EDIT again for the raw settings, four at a time, then once more to go back to the echo's knobs. A raw setting turned after its macro leaves the macro where it is, and MAIN shows a small dot by it. ALGORITHM picks the channel. Channel 8 (VOX) has no MAIN: its first bank is the siren's. **Patches:** on the SOUND view, PRESET steps through the channel's patches and loads each as you turn (INIT and the factory ones first, then your own; a run of turns is one undo step); the footer shows the patch's name, with a * once you've changed it. Hold SAVE and turn PRESET to keep the sound: into the next free slot of the channel's 16 (named BASS 01, BASS 02 ...), or, if one of your patches is showing, over it (it asks twice). Stopped only (writing the flash would interrupt the sound). Your patches belong to the FM-1, not to a project: they're there in every project. **Renaming one:** with it showing, hold SAVE and turn KNOB 1 to move along the name and KNOB 2 to change the letter (the screen shows it in brackets); let go of SAVE to keep the name. Stopped only, and only your own patches. **Dice** (the last bank, after the raw ones): press ENV to roll the channel a new sound inside safe bounds (KNOB 2: ROLL), or nudge the current one (MUTATE, by KNOB 1's AMOUNT, 5–100 %). KNOB 4 steps back through the channel's last 8 results, each played in as you reach it. KNOB 3 MORPHs from your sound (as it was when you started turning) towards the result KNOB 4 shows: at 50 % halfway between the two, at 100 % the result, back at 0 % your sound exactly. A good way to find the in-between: roll something wild, load your patch again (PRESET), then turn MORPH. To morph towards a patch in the library instead, hold ENV and turn PRESET on the DICE bank: it picks the patch as the target without loading it (MORPH TO STEPPERS ...); KNOB 4 goes back to the history. To keep a setting out of it, hold ENV and turn that knob on MAIN or a raw bank: a lock shows. HOME + EDIT rolls from any page. Dice only ever changes the focused voice: never levels, sends, the dub bus, patterns or other channels. Each roll is one undo step; SETUP's DICE ON LINE makes it land on the next quantise line while playing. |
+| EDIT | The SOUND view of the focused channel. While it's open, the middle of the screen draws the voice's shape from its settings: its loudness (white, filled) and a second curve in amber (the kick's pitch falling, the rim's ring, the open hat, the bass's pluck, the lead's vibrato, the siren's sweep), redrawn as you turn a knob, with a line running across it on each hit (not with REDUCED MOTION). First MAIN: four macros, each turning several settings at once along a shaped curve (the kick's PUNCH: the sweep up, the fall quicker, the click up); in the middle (0) everything is at its default. Press EDIT again for the raw settings, four at a time, then once more to go back to the echo's knobs. A raw setting turned after its macro leaves the macro where it is, and MAIN shows a small dot by it. ALGORITHM picks the channel. Channel 8 (VOX) has no MAIN: its first bank is the siren's. **Patches:** on the SOUND view, PRESET steps through the channel's patches and loads each as you turn (INIT and the factory ones first, then your own; a run of turns is one undo step); the footer shows the patch's name, with a * once you've changed it. Hold SAVE and turn PRESET to keep the sound: into the next free slot of the channel's 16 (named BASS 01, BASS 02 ...), or, if one of your patches is showing, over it (it asks twice). Stopped only (writing the flash would interrupt the sound). Your patches belong to the FM-1, not to a project: they're there in every project. **Renaming one:** with it showing, hold SAVE and turn KNOB 1 to move along the name and KNOB 2 to change the letter (the screen shows it in brackets); let go of SAVE to keep the name. Stopped only, and only your own patches. **Dice** (the last bank, after the raw ones): press ENV to roll the channel a new sound inside safe bounds (KNOB 2: ROLL), or nudge the current one (MUTATE, by KNOB 1's AMOUNT, 5–100 %). KNOB 4 steps back through the channel's last 8 results, each played in as you reach it. KNOB 3 MORPHs from your sound (as it was when you started turning) towards the result KNOB 4 shows: at 50 % halfway between the two, at 100 % the result, back at 0 % your sound exactly. A good way to find the in-between: roll something wild, load your patch again (PRESET), then turn MORPH. To morph towards a patch in the library instead, hold ENV and turn PRESET on the DICE bank: it picks the patch as the target without loading it (MORPH TO STEPPERS ...); KNOB 4 goes back to the history. To keep a setting out of it, hold ENV and turn that knob on MAIN or a raw bank: a lock shows. HOME + EDIT rolls from any page. Dice only ever changes the focused voice: never levels, sends, the dub bus, patterns or other channels. Each roll is one undo step; SETUP's DICE ON LINE makes it land on the next quantise line while playing. **STRIP** (after DICE, the last bank): the channel's EQ, KNOB 1 LO (a shelf at 100 Hz, ±15 dB), KNOB 2 MID (±15 dB), KNOB 3 FREQ (the MID's frequency, 200 Hz to 7.9 kHz, swept smoothly), KNOB 4 HI (a shelf at 5 kHz). The quick way there: hold the channel's key and press EDIT. |
 | GLO | The SETUP page (below). |
 | MASTER | Sets the volume. |
-| SAVE | Saves your project: the tempo, sounds, patterns, scenes, the song and its moves, the FX and SETUP. SAVE lights while there's something to save. On SETUP's slot rows it saves to (or loads from) a song slot instead. |
+| SAVE | Saves your project: the tempo, the desk (levels, mutes, solos, sends, each channel's EQ and filter), sounds, patterns, scenes, the song and its moves, the FX and SETUP. SAVE lights while there's something to save. On SETUP's slot rows it saves to (or loads from) a song slot instead. |
 | KNOB 1 · TIME | The echo's time, in steps of the beat: 1/16, 1/8T, 1/16., 1/8, 1/4T, 1/8. (dotted eighth, the default), 1/4, 1/2T, 1/4., 1/2. At slow tempos the longest don't fit, so you get the longest that does. A change glides like tape, bending the pitch. |
 | KNOB 2 · FB | How long the repeats last: the time they take to fall 60 dB, from 0.1 s to endless (INF). |
 | KNOB 3 · ECHO | The echo's return level. |
 | KNOB 4 · SPRG | The spring's return level. |
-| Hold white key 1–8 + KNOB 1–3 | That channel's level, echo send and spring send. Turning a knob while you hold the key keeps the key from flipping the mute. |
+| Hold white key 1–8 + KNOB 1–4 | That channel's **level** (KNOB 1), **its own filter** (KNOB 2), **echo send** (KNOB 3) and **spring send** (KNOB 4): the echo always on KNOB 3 and the spring on KNOB 4, as their returns are. Turning a knob while you hold the key keeps the key from flipping the mute. |
+| Hold white key 1–8 + BIG KNOB | **That channel's own filter** (as KNOB 2), on the Big Knob's steps: turn up for the high-pass (70 Hz to 7.5 kHz), down past OFF for the low-pass (closing as you go). Hold several keys and they move together: hold the kick, snare and hats keys for the drums' filter as one. The strip's name turns amber, underlined, while its EQ or filter is in. See 3f. |
+| Hold white key 1–8 + press BIG KNOB | Those channels' filters straight back OFF: the snap back on the one. |
+| Hold white key 1–8 + ALGORITHM | That channel's **pan**: left, centre, right (several keys held: all of them). Only the part above about 150 Hz moves; the lows stay centred. A small amber tick at the strip's foot shows where it sits. SAVE and slots keep it; the song records it, so it can move. |
+| Hold white key 1–8 + EDIT | That channel's **STRIP** at once (its EQ: LO, MID, FREQ, HI), with no banks to step through. ALGORITHM then moves to the next channel's STRIP. See 3f. |
 | Black key 2 | Echo hold, while held: no new sound goes in, and the tape loops as it is. |
 | Black key 3 | Dub push, while held: feedback past endless, so the echo builds and rings. The tape's saturation and the limiter keep it from blowing up. |
 | White keys 9–16 | Throw channels 1–8: while you hold the key, the channel goes to its destination, whatever its fader and even when it's muted, and the echo's feedback lifts so the throw rings on. Hit the key harder for a bigger throw: the softest sends about −8 dB, the hardest full level (SETUP: THROW VELOCITY; off, every throw is full). Tap twice quickly to latch a throw on; tap again to let it go. |
@@ -90,9 +94,25 @@ can recover an FM-1 that doesn't start, too. For details, see felucca-bsp's `too
 | Black key 11 | Drum and bass, while held: the skank, organ, lead and vox drop out (their sends too), leaving the kick, snare, hats and bass. |
 | HOME + PLAY | Rewind (the selector calls it: REWIND, COME AGAIN / PULL UP, SELECTA / WHEEL UP): the last second and a half spins backwards like a record pulled back, the echo and spring stop, and after a beat's silence the tune comes again from bar 1. Stopped, it just spins back. |
 | HOME + REC · HOME + GLO | Undo · redo, a step at a time: a mute, a key, a knob's turning, a step, a riddim, a scene. Throws, freezes, pushes and the like let go by themselves, so they aren't kept. When your last action was a song capture, HOME + REC takes that pass back first. |
-| (Stereo) | The dry sound is mono. Only the echo and the spring are stereo: the spring always, the echo with WIDTH. Below about 150 Hz both sides stay the same, so the bass stays solid and mono. |
+| (Stereo) | Each voice is mono; you place it with its pan (hold its key and turn ALGORITHM). The pan moves only what's above about 150 Hz, so the kick and bass stay solid in the middle whatever you do. The echo and the spring are stereo: the spring always, the echo with WIDTH. The Seven-inch tier (when the FM-1 is overloaded) folds everything to mono. |
 | Black key 1 | Spring crash: strikes the spring tank, a thunderclap even with nothing sent to it. Held while you hold a throw key, it sends that throw to the spring as well. |
 | FX | The FX page: ECHO (time, feedback, tone, 2T head), SPRING (decay, tone, return), CROSS (the echo's return into the spring, the spring's into the echo), TAPE (the dive), PHASER (where it is: OFF, HATS, SKANK, ECHO or the whole MIX; RATE 0.1–18 Hz, DEPTH, FEEDBACK), GATE (the spring gate: each snare opens the spring for HOLD, then it shuts over RELEASE, so a long spring is chopped into a tail after every snare), DRIVE (tape saturation on the BASS or the whole MIX: DRIVE up to +14 dB into the tape, BLEND with the clean sound; quiet sounds keep their level, loud ones flatten and thicken) and WIDTH (the echo's right side 8–16 ms behind its left, for a wider echo; the phaser's sine or square sweep; PING-PONG, the echo's repeats left, right, left, while the bass in them stays in the middle) and BI-PHASE (a second phaser: MODE SINGLE, CASCADE, the two in a row for deeper sweeps with the second at its own RATE 2, or STEREO, the left and right sweeping against each other, on the echo's return; elsewhere STEREO works as CASCADE so the dry sound stays mono); press FX again for the next. KNOB 1–4 change them. The cross-sends make a loop between the two effects, so they're held back automatically when the echo or the spring is set long: it never runs away. |
+
+**The knobs' colours.** Each knob keeps one job across the pages, so it can wear a colour, and the screen draws its
+labels in that colour. The default set:
+
+| Knob | Colour | Its job |
+| --- | --- | --- |
+| BIG KNOB (SELECT) | Red | The filter: the whole mix's, or a held channel's |
+| ALGORITHM | Yellow | Where things sit: the focus, or a held channel's pan |
+| PRESET | (none) | Moving around: scenes, patterns, patches |
+| KNOB 1 | White | The main one: echo TIME, a channel's LEVEL, LO |
+| KNOB 2 | Orange | The heat: feedback (FB), a channel's FILTER, MID |
+| KNOB 3 | Blue | The echo: its return, a channel's echo send |
+| KNOB 4 | Green | The spring: its return, a channel's spring send |
+
+Colour your caps (or a dot of paint on each) to match, or set the screen to match the caps you have: SETUP's COLOUR
+rows, one a knob, OFF for the page's own colours.
 
 The keys light by one rule: bright is playing, dim is muted or not in use yet, and a slow blink means waiting.
 
@@ -138,6 +158,8 @@ Turn KNOB 1 (or SELECT) to move through the list and KNOB 2 (or PRESET) to chang
 | TEST TONES | A test tone on every channel (not saved). |
 | OUTPUT | LINE (the default: headphones, the line out, USB) or SPEAKER (BASS+): for the FM-1's own little speaker, which plays almost nothing under 50 Hz. The kick's and the bass's lows are heard through their harmonics instead, and the lows the speaker can't play are cut, so it doesn't flap. Set it back to LINE for headphones or a system. |
 | DESK | CLEAN (the default) or MCI: each channel after its fader goes through a gentle saturation, a little hot, the way the MCI desk at King Tubby's overdrove when a fader was pushed (its fader came before its drive). A loud channel thickens; a quiet one passes as it is. After Airwindows' ConsoleMC. Studio tier only: when the guard steps down it goes back to CLEAN. |
+| COLOUR BIG KNOB … COLOUR KNOB 4 | Seven rows, one a knob (the Big Knob, ALGORITHM, PRESET, KNOB 1–4): the colour of its cap, OFF, WHITE, RED, ORANGE, YELLOW, GREEN, BLUE or PURPLE. The screen draws that knob's labels (and the Big Knob's arc, the focus mark) in it. The default set: red, yellow, off, white, orange, blue, green. |
+| BIG KNOB RESONANCE | OFF (the default: the Altec's, clean steps), LOW or HIGH: each step of the Big Knob rings as it clicks, a peak at the step (about +6 or +12 dB), like the "impedance" of a hardware dub filter. Best with the Big Knob on the echo's return: the repeats whistle up as you climb. |
 | ONE SHOTS | FACTORY, or YOURS when you've put your own on the FM-1 (below, "Your own one-shots"). Turn KNOB 2 twice to have BIM, HORN and LASER back (stopped). |
 | GUARD TIER | AUTO, or a tier locked as a sound: STUDIO (everything), FOUR-TRACK (mono returns, a simpler spring), SEVEN-INCH (thinner skank and organ, no sub, a plainer echo with heavier tape saturation: rougher, like a 1970s 7-inch). On AUTO, the FM-1 steps down a tier by itself when it's working too hard, and back up when it can; the header shows 4T or 7IN while it's down. |
 | PERFORMANCE | Turn KNOB 2: the PERF page, what each part costs and the tier. |
@@ -223,8 +245,8 @@ skank chopping every off-beat, no organ.
 
 ## 3e. ARRANGE (HOME, then HOME again): scenes
 
-A scene is a snapshot of the desk: every channel's level, mute, solo, echo and spring sends and throw destination,
-the Big Knob and both returns. A scene with patterns (P) also keeps which pattern (A–D) each channel plays, like a
+A scene is a snapshot of the desk: every channel's level, mute, solo, echo and spring sends, throw destination, EQ and
+filter, the Big Knob and both returns. A scene with patterns (P) also keeps which pattern (A–D) each channel plays, like a
 row of the session: one scene can be the "vocal" version (bass A, skank on) and another the "dub" (bass B, the
 skank out).
 
@@ -289,11 +311,43 @@ the keys light the allowed notes: the root bright, the rest dim. A screen reader
 or "chord lock, A minor". On the STEPS page, KNOB 2 skips notes the lock doesn't allow. On the SETUP page, LOCK MIDI
 IN makes the lock filter MIDI notes coming in too.
 
+## 3f. Dub moves with the channel EQ
+
+The engineers mixed with blunt tools: a stepped filter and a few EQ knobs per channel, played as a performance, not set
+and forgotten (mastery guide C3, C12). Each channel has them here: the Big Knob's steps of its own, and an EQ (LO, MID,
+FREQ, HI). The song's motion records every move, and a scene keeps the whole desk's EQ.
+
+| The move | How |
+| --- | --- |
+| **Thin one channel to nothing** (Tubby: a horn "into a faint squeal, then gone") | Hold its key and turn the Big Knob up, a click at a time, on the beat. Let go of the key: the mute stays as it was. |
+| **Filter the drums, the band left alone** (the drum bus drill) | Hold the kick, snare and hats keys together and turn the Big Knob: the three filters move as one. |
+| **Snap back to bypass on the one** | Keep the keys held and press the Big Knob: their filters are off at once, as you press (time it for the downbeat). |
+| **Muffle a channel behind a wall** | Hold its key and turn the Big Knob *down*, past OFF: the low-pass (the Altec 9068B's steps) closes as you go. |
+| **Scientist's mid sweep** | Hold the channel's key and press EDIT (its STRIP), set MID up (KNOB 2, +10 dB or so), then sweep FREQ (KNOB 3). The peak glides, so the sweep sings rather than steps. Bring MID back to FLAT to end it. |
+| **"A little bass, take off bass"** (Tubby's EQ) | On the STRIP: LO and HI, blunt shelves. Take the bass's LO down for a thinner, harder line; lift the skank's HI to cut through. |
+| **A different desk per section** | Store a scene with the EQ as it is (ARRANGE: SAVE held + a white key). Recalling it brings every channel's EQ and filter back on the line. |
+| **Record it** | Arm the song (REC) and play the moves: the filter's clicks and the mid's sweep are kept bar by bar and play back as you made them. |
+
+The whole mix still has the Big Knob itself (turned with no key held). Channel filters and the Big Knob stack: a
+channel thinned on its own, then the whole mix evaporating behind it.
+
+### A horn dub, the classic chain
+
+The Kingston horns were recorded dry and close, then thrown, filtered and fed back at the desk. On the FM-1, with
+HORN (or FM+HORN) on the lead, channel 7:
+
+| Step | On the FM-1 |
+| --- | --- |
+| **Dry and driven** | SETUP's DESK: MCI, the console's drive on every strip. The lead's BRIGHT is HORN's blare: the default is the reggae sections' brightness, up for a harder edge, down for a softer one. |
+| **The dub throw** | Keep the horns muted (white 7) and catch a stab at a phrase's end with its throw (white 15): it goes to the echo at full level, muted or not, harder for more. The FX page's TAPE bank: WOW for the repeats' wobble; hold black 3 (push) to break them up. |
+| **Filter the tail** | SETUP's BIG KNOB ON: ECHO puts the Big Knob on the echo's return, and BIG KNOB RESONANCE (LOW or HIGH) makes each step ring: turn it up as the repeats ring, and they whistle up and away. Send the echo into the spring (FX: CROSS) for the splash. |
+| **The wall** | FX's ECHO TYPE: BBD, darker as it repeats. Hold black 5 (drop to wet): the band goes, the horns' echo carries on; hold black 3 with it for the edge of self-oscillation. |
+
 ## 4. Saving
 
 With AUTOSAVE on (SETUP, the default), this happens by itself a few seconds after you stop and leave the FM-1
-alone. Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs and the FX page, the SETUP page, the key, its lock and the chord lane, the sounds, the patterns, the scenes, the song and its recorded moves. They come back the next time the FM-1 starts. The
-mutes and solos aren't saved: scenes will do that. To keep more than one project, use SETUP's song slots (four of them); to keep
+alone. Press SAVE (and let go) to keep the tempo, the quantise setting, the echo's knobs and the FX page, the SETUP page, the key, its lock and the chord lane, the desk (every channel's level, mute, solo, sends, EQ and filter), the sounds, the patterns, the scenes, the song and its
+recorded moves. They come back the next time the FM-1 starts, sounding as you left them. To keep more than one project, use SETUP's song slots (four of them); to keep
 them off the FM-1, see Backing up, below.
 
 ![Stopped, after changes: 2 BARS quantise, the HAT muted and the BASS soloed](img/screen-settings.png "Changed, not saved yet")

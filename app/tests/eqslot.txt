@@ -1,0 +1,85 @@
+# 8.1: a slot keeps the scenes' EQ and the desk's (DSL5); a slot saved before 8.1 (DSL4) loads with its scenes' EQ
+# flat, the rest as it was.
+wait 600
+listen
+param ch4.mid 30
+param ch2.filt -12
+param ch5.hi 25
+param ch3.level 60
+wait 50
+tap HOME
+wait 30
+press SAVE
+tapkey w0
+wait 30
+release SAVE
+wait 30
+said SCENE 1 STORED
+# into slot 1
+tap GLO
+wait 30
+turn K1 -6
+wait 30
+said SAVE TO SLOT TO 1 (EMPTY)
+tap SAVE
+wait 300
+said SLOT 1 SAVED
+# all flat, then slot 1 back
+param ch4.mid 0
+param ch2.filt 0
+param ch5.hi 0
+param ch3.level 100
+wait 30
+turn K1 1
+wait 30
+said LOAD SLOT SLOT 1 (SAVED)
+tap SAVE
+wait 30
+tap SAVE
+wait 300
+said SLOT 1 LOADED
+wait 200
+expect ui.ch4.mid 30
+expect ui.ch2.filt -12
+expect ui.ch5.hi 25
+expect ui.ch3.level 60
+param ch4.mid 0
+wait 30
+tap HOME
+wait 30
+tap HOME
+wait 30
+expect page 5
+tapkey w0
+wait 50
+expect eng.ch4.mid 30
+expect eng.ch2.filt -12
+# the same slot as saved before 8.1 (DSL4): loaded, its scene's desk as it was, the scene's EQ flat
+oldslot4 1
+tap HOME
+wait 30
+expect page 0
+tap GLO
+wait 30
+said SETUP LOAD SLOT
+tap SAVE
+wait 30
+tap SAVE
+wait 300
+said SLOT 1 LOADED
+wait 200
+expect scene_used1 1
+expect ui.ch3.level 60
+param ch4.mid 10
+param ch3.level 100
+wait 30
+tap HOME
+wait 30
+tap HOME
+wait 30
+expect page 5
+tapkey w0
+wait 50
+expect eng.ch3.level 60
+expect eng.ch4.mid 0
+expect eng.ch2.filt 0

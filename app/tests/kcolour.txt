@@ -1,0 +1,36 @@
+# 8.8: the knobs' colours, matched to their caps (SETUP: COLOUR BIG KNOB .. COLOUR KNOB 4). The default set (the
+# owner's): the Big Knob red, ALGORITHM yellow, PRESET off, KNOB 1 white, 2 orange, 3 blue (the echo), 4 green (the
+# spring). Kept in the settings' spare bytes: an older save (0 there) has the default set.
+wait 600
+listen
+expect kcol0 2
+expect kcol1 4
+expect kcol2 0
+expect kcol3 1
+expect kcol4 3
+expect kcol5 6
+expect kcol6 5
+tap GLO
+wait 30
+turn K1 29
+wait 30
+said COLOUR BIG KNOB RED
+turn K2 1
+wait 30
+said COLOUR BIG KNOB ORANGE
+expect kcol0 3
+turn K1 6
+wait 30
+said COLOUR KNOB 4 GREEN
+turn K2 -5
+wait 30
+said COLOUR KNOB 4 OFF
+expect kcol6 0
+expect dirty 1
+tap SAVE
+wait 1500
+reboot
+wait 800
+expect kcol0 3
+expect kcol6 0
+expect kcol5 6

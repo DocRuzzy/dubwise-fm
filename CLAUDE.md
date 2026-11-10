@@ -31,7 +31,7 @@ Dubwise FM is an open-source (GPL-3.0-only) firmware that turns the M-VAVE FM-1 
 - The audio render never touches flash, never allocates and never waits. The UI draws in the main loop with dirty rectangles only.
 - Must stay playable on one core. The second core is optional acceleration. Respect the guard tiers (Studio / Four-track / Seven-inch).
 - One parameter ID space. The UI→engine command queue holds ≥256 entries with overflow handling. Each module keeps its own modulation state.
-- Mono dry path; stereo only on effect returns.
+- The low end mono (below ~150 Hz, every channel). Each channel pans above that (8.9, the owner's decision of 2026-11-10); the effect returns are stereo; the Seven-inch tier is mono.
 - No radio (`ble = false`): the RAM goes to the dub bus.
 - Never compromise timing, dropout-free playback, a clean low end, or feedback-loop stability.
 

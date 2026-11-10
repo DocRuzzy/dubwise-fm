@@ -1,0 +1,59 @@
+# 8.9: each channel's pan, above ~150 Hz only (the lows stay mono: a 4th-order split at 150 Hz). dev.tones: a sine on
+# every channel, 110 Hz x its number. The owner, 2026-11-10: per-channel panning, the main out being stereo.
+wait 600
+param dev.tones 1
+param ch5.solo 1
+wait 300
+# centred: no side at all
+wav pan-centre.wav
+wait 1000
+wavstop
+#wav pan-centre.wav side<-55 peak<-1
+# (the side there is the echo's WIDTH, not the pan)
+# the skank's 550 Hz hard right: its side as loud as its middle (the left near silent), constant power
+param ch5.pan 63
+wait 300
+wav pan-right.wav
+wait 1000
+wavstop
+#wav pan-right.wav side>-40 peak<-1 side_lo<-60
+# the bass's 440 Hz and the kick's 110 Hz, both hard left with the skank right: the lows still mono
+param ch5.solo 0
+param ch1.solo 1
+param ch1.pan -64
+wait 300
+wav pan-kick.wav
+wait 1000
+wavstop
+#wav pan-kick.wav side_lo<-50
+# (110 Hz is just under the split: a kick's 50-60 Hz is 20 dB further down)
+param ch1.solo 0
+param ch1.pan 0
+param ch5.pan 0
+# the cost: every channel panned
+param ch1.pan -40
+param ch2.pan 30
+param ch3.pan 50
+param ch4.pan -20
+param ch5.pan 63
+param ch6.pan -63
+param ch7.pan 20
+param ch8.pan -10
+wait 300
+perf reset
+wait 2000
+perf
+# the control: a channel's key held + FOCUS (ALGORITHM): its pan; the mute stays, the focus stays (the kick: 1)
+param ch1.pan 0
+param ch5.pan 0
+listen
+key w4 down 80
+wait 30
+turn ALGO 5
+wait 30
+said SKANK PAN R 10
+expect ui.ch5.pan 10
+key w4 up
+wait 400
+expect eng.ch5.mute 0
+expect focus 1

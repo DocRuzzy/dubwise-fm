@@ -19,11 +19,19 @@ enum { SCOPE_DESK, SCOPE_PATTERNS, SCOPE_N };
 #define SCENE_GLOBALS 3                          /* the Big Knob, the echo's return, the spring's */
 #define SCENE_DESK (NCH * SCENE_CH_FIELDS + SCENE_GLOBALS)
 
+#define SCENE_EQ 5                               /* 8.1: each strip's LO, MID, MID F, HI, FILT (CHF_LO on, int8) */
+
 typedef struct {
     uint8_t used, scope;
     int16_t desk[SCENE_DESK];
     uint8_t pat[NCH];                            /* SCOPE_PATTERNS: the pattern each channel plays (0..NPAT-1) */
+    int8_t eq[NCH][SCENE_EQ];                    /* 8.1 (SCN3, DSL5): the strips' EQ; 0 flat (a scene from before) */
 } scene_t;
+typedef struct {                                 /* a scene as SCN2 and a DSL2..DSL4 slot kept it (before 8.1) */
+    uint8_t used, scope;
+    int16_t desk[SCENE_DESK];
+    uint8_t pat[NCH];
+} scene_v4_t;
 
 extern scene_t scenes[NSCENES];
 

@@ -4,7 +4,8 @@
  *
  *   OBJ_PATTERN   "PAT2": each channel's pattern playing, and each pattern's length, grid and swing
  *   OBJ_PST0..2   "PST1": the steps, three channels an object (the objects the scenes' pattern copies used to fill)
- *   OBJ_SCENES    "SCN2": the scenes' desks, and the pattern each channel plays in a "P" scene
+ *   OBJ_SCENES    "SCN3": the scenes' desks, the pattern each channel plays in a "P" scene, and (8.1) each
+ *                 strip's EQ ("SCN2", before it, loads with the EQ flat)
  *   OBJ_SONG      "SON2": the song's bars (7 bytes: the patterns each bar played)
  *
  * Before the session (PAT1, SCN1 + SCP1, SON1) a channel had one pattern, and a "P" scene kept a copy of all eight.
@@ -32,13 +33,19 @@ typedef struct {
     uint8_t ch0, rsv[3];
     step_t steps[PST_CH][NPAT][NSTEPS];
 } pst_store_t;
-#define SCN2_MAGIC 0x324E4353u                   /* "SCN2" */
+#define SCN3_MAGIC 0x334E4353u                   /* "SCN3" (8.1: SCN2 and each scene's strip EQ after it) */
+#define SCN2_MAGIC 0x324E4353u                   /* "SCN2": the same without the EQ (loads flat) */
 typedef struct {
     uint32_t magic;
     uint8_t used[NSCENES], scope[NSCENES];
     int16_t desk[NSCENES][SCENE_DESK];
     uint8_t pat[NSCENES][NCH];
 } scn2_store_t;
+typedef struct {
+    scn2_store_t c;                              /* (its magic SCN3) */
+    int8_t eq[NSCENES][NCH][SCENE_EQ];
+} scn3_store_t;
+typedef char scn3_fits[sizeof(scn3_store_t) <= PLAT_STORE_MAX ? 1 : -1];
 #define SON2_MAGIC 0x324E4F53u                   /* "SON2" */
 typedef struct {
     uint32_t magic;
@@ -91,6 +98,7 @@ static union {                                   /* one object at a time */
     pat2_store_t a;
     pst_store_t s;
     scn2_store_t c;
+    scn3_store_t c3;
     son2_store_t g;
     pat1_store_t a1;
     scn1_store_t c1;
@@ -211,16 +219,19 @@ static int scenes_save(void)                     /* the scenes, if anything chan
     uint32_t s, k, ch;
     if (!scenes_dirty)
         return 1;
-    pbuf.c.magic = SCN2_MAGIC;
+    pbuf.c3.c.magic = SCN3_MAGIC;
     for (s = 0; s < NSCENES; s++) {
-        pbuf.c.used[s] = scenes[s].used;
-        pbuf.c.scope[s] = scenes[s].scope;
+        pbuf.c3.c.used[s] = scenes[s].used;
+        pbuf.c3.c.scope[s] = scenes[s].scope;
         for (k = 0; k < SCENE_DESK; k++)
-            pbuf.c.desk[s][k] = scenes[s].desk[k];
-        for (ch = 0; ch < NCH; ch++)
-            pbuf.c.pat[s][ch] = scenes[s].pat[ch];
+            pbuf.c3.c.desk[s][k] = scenes[s].desk[k];
+        for (ch = 0; ch < NCH; ch++) {
+            pbuf.c3.c.pat[s][ch] = scenes[s].pat[ch];
+            for (k = 0; k < SCENE_EQ; k++)
+                pbuf.c3.eq[s][ch][k] = scenes[s].eq[ch][k];
+        }
     }
-    if (plat_store_save(OBJ_SCENES, &pbuf.c, sizeof pbuf.c) != 0)
+    if (plat_store_save(OBJ_SCENES, &pbuf.c3, sizeof pbuf.c3) != 0)
         return 0;
     scenes_dirty = 0;
     return 1;
@@ -245,8 +256,11 @@ static void scene_put(uint32_t s, uint8_t used, uint8_t scope, const int16_t *de
     scenes[s].scope = scope < SCOPE_N ? scope : SCOPE_DESK;
     for (k = 0; k < SCENE_DESK; k++)
         scenes[s].desk[k] = desk[k];
-    for (ch = 0; ch < NCH; ch++)
+    for (ch = 0; ch < NCH; ch++) {
         scenes[s].pat[ch] = 0;
+        for (k = 0; k < SCENE_EQ; k++)           /* (8.1: flat; SCN3 puts its own after) */
+            scenes[s].eq[ch][k] = 0;
+    }
     scenes[s].used = used ? 1u : 0u;
 }
 
@@ -254,8 +268,18 @@ static void proj_load(void)                      /* the store's patterns, scenes
 {
     uint32_t s, ch, p, i, o;
     int old = 0;
-    if (plat_store_load(OBJ_SCENES, &pbuf.c, sizeof pbuf.c) == (int)sizeof pbuf.c && pbuf.c.magic == SCN2_MAGIC) {
+    if (plat_store_load(OBJ_SCENES, &pbuf.c3, sizeof pbuf.c3) == (int)sizeof pbuf.c3 && pbuf.c3.c.magic == SCN3_MAGIC) {
         for (s = 0; s < NSCENES; s++) {
+            scene_put(s, pbuf.c3.c.used[s], pbuf.c3.c.scope[s], pbuf.c3.c.desk[s]);
+            for (ch = 0; ch < NCH; ch++) {
+                uint32_t k;
+                scenes[s].pat[ch] = (uint8_t)(pbuf.c3.c.pat[s][ch] < NPAT ? pbuf.c3.c.pat[s][ch] : 0u);
+                for (k = 0; k < SCENE_EQ; k++)
+                    scenes[s].eq[ch][k] = (int8_t)param_clamp(P_CH(ch, CHF_LO + k), pbuf.c3.eq[s][ch][k]);
+            }
+        }
+    } else if (plat_store_load(OBJ_SCENES, &pbuf.c, sizeof pbuf.c) == (int)sizeof pbuf.c && pbuf.c.magic == SCN2_MAGIC) {
+        for (s = 0; s < NSCENES; s++) {          /* (before 8.1: the EQ flat) */
             scene_put(s, pbuf.c.used[s], pbuf.c.scope[s], pbuf.c.desk[s]);
             for (ch = 0; ch < NCH; ch++)
                 scenes[s].pat[ch] = (uint8_t)(pbuf.c.pat[s][ch] < NPAT ? pbuf.c.pat[s][ch] : 0u);
@@ -413,6 +437,14 @@ static void pst_oldsteps2(void)                  /* (tests) the steps saved as P
                     }
         plat_store_save(OBJ_PST0 + o, &pbuf.s, sizeof pbuf.s);
     }
+}
+
+static void pst_oldscenes2(void)                 /* (tests) the scenes saved as SCN2 (before 8.1): without the EQ */
+{
+    if (plat_store_load(OBJ_SCENES, &pbuf.c3, sizeof pbuf.c3) != (int)sizeof pbuf.c3 || pbuf.c3.c.magic != SCN3_MAGIC)
+        return;
+    pbuf.c3.c.magic = SCN2_MAGIC;
+    plat_store_save(OBJ_SCENES, &pbuf.c3.c, sizeof pbuf.c3.c);
 }
 
 static int pst_expect(const char *what, int *got)   /* scnpatS_C: scene S's pattern for channel C (both from 1) */

@@ -32,6 +32,12 @@ void bigknob_step(bigknob_t *b, float hz, int lp)
     b->on = 1;
 }
 
+void bigknob_q(bigknob_t *b, float q)
+{
+    b->k = 1.0f / q;
+    b->d = 1.0f / (1.0f + b->g * (b->g + b->k));
+}
+
 void bigknob_run(bigknob_t *b, float *x, uint32_t n)
 {
     uint32_t i;

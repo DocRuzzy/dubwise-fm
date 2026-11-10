@@ -46,6 +46,7 @@ expect dice_n1 3
 tap EDIT
 tap EDIT
 tap EDIT
+tap EDIT
 wait 30
 said SOUND KICK 1
 press ENV
@@ -95,6 +96,7 @@ release HOME
 expect ui.v1.sweep >16
 expect ui.v1.sweep <34
 # HOME + EDIT: a fire from the DUB page, the view closed
+tap EDIT
 tap EDIT
 wait 30
 expect sound_bank 0

@@ -13,6 +13,7 @@
 #include "engine/fxv.h"
 #include "engine/motion.h"
 #include "engine/chordv.h"                  /* (the B-3's tables, built in the main loop: 5.15) */
+#include "engine/chaneq.h"                  /* (8.1: the STRIP bank's frequency in Hz) */
 #include "engine/lpc.h"                     /* (the deejay voice's names: 6.6) */
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
@@ -42,6 +43,14 @@ static const uint16_t SET_FX[] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_S
                                     P_SGATE_REL, P_ECHO_PP, P_PH_MODE, P_PH_RATE2, P_ECHO_WOW, P_SPEAKER,
                                     P_ECHO_HEAD3, P_DESK, P_HPF_LP, P_ECHO_TYPE};   /* (7.1, 7.4, 7.5, 7.9) */
 #define NSET_FX (sizeof SET_FX / sizeof SET_FX[0])
+/* 8.8: the knobs' colours, matched to their caps: seven encoders, 3 bits each (21 bits) in the FX bytes' last three
+ * (unused before: 0 in an older save). Stored XOR the default set, so 0 is the default set (the owner's scheme).
+ * 8.10: bits 21-22 (the last byte's 5-6) the Big Knob's resonance (P_BK_RES; 0, OFF, in an older save) */
+enum { KC_BIG, KC_ALGO, KC_PRESET, KC_K1, KC_K2, KC_K3, KC_K4, KC_N };
+enum { KCOL_OFF, KCOL_WHITE, KCOL_RED, KCOL_ORANGE, KCOL_YELLOW, KCOL_GREEN, KCOL_BLUE, KCOL_PURPLE, KCOL_N };
+#define KC_AT 29u                                /* set.fx[29..31] */
+typedef char kc_fits[NSET_FX <= KC_AT ? 1 : -1];
+static const uint8_t KC_DEF[KC_N] = {KCOL_RED, KCOL_YELLOW, KCOL_OFF, KCOL_WHITE, KCOL_ORANGE, KCOL_BLUE, KCOL_GREEN};
 typedef char set_fx_fits[NSET_FX <= 32u ? 1 : -1];
 static uint16_t scenes_dirty;            /* (arrange.c sets the bits; saved and cleared by SAVE) */
 static uint8_t set_dirty;                /* changed since the last save: SAVE is lit */
@@ -222,6 +231,23 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 void app_panic(void) { eng_panic(); }
 
 /* --------------------------------------------------------------- settings --- */
+static uint32_t kc_bits(void)                     /* the 21 bits as stored */
+{
+    return (uint32_t)set.fx[KC_AT] | (uint32_t)set.fx[KC_AT + 1u] << 8 | (uint32_t)set.fx[KC_AT + 2u] << 16;
+}
+static uint32_t kcol(uint32_t k)                  /* knob k's colour (KCOL_*) */
+{
+    return ((kc_bits() >> (3u * k)) & 7u) ^ KC_DEF[k % KC_N];
+}
+static void kcol_set(uint32_t k, uint32_t c)
+{
+    uint32_t b = kc_bits() & ~(7u << (3u * k));
+    b |= ((c ^ KC_DEF[k % KC_N]) & 7u) << (3u * k);
+    set.fx[KC_AT] = (uint8_t)b;
+    set.fx[KC_AT + 1u] = (uint8_t)(b >> 8);
+    set.fx[KC_AT + 2u] = (uint8_t)(b >> 16);
+    set_dirty = 1;
+}
 static void settings_defaults(void)
 {
     set.magic = SET_MAGIC;
@@ -254,6 +280,60 @@ static void ml_load(void);
 static void pl_load(void);                 /* (patches.c: the patch library, 5.4) */
 static void sh_load(void);                 /* (shots.c: your own one-shots, 5.14) */
 
+/* the live desk (8.1; docs/plan-8.1-channel-eq.md, 2c): every channel field a slot keeps (levels, mutes, solos,
+ * sends, throw destinations and amounts, the strip's EQ; not the throws, not the pattern, which PAT2 keeps), so a
+ * project switched back on sounds as it was left. Its own object, the store's OBJ_SCNPAT0 + 4 (only a save from before
+ * the session held anything there, read once at that boot; as OBJ_MAP, + 3). A save without it boots with the desk at
+ * its defaults, as before 8.1 */
+#define OBJ_DESK (OBJ_SCNPAT0 + 4)
+#define DESK_MAGIC 0x314B5344u                   /* "DSK1" */
+typedef struct {
+    uint32_t magic;
+    int16_t v[NCH * CH_STRIDE];
+} desk_store_t;
+typedef char desk_fits_pbuf[sizeof(desk_store_t) <= sizeof pbuf ? 1 : -1];
+#define dsk (*(desk_store_t *)(void *)&pbuf)     /* (patstore.c's buffer: one object at a time, no RAM of its own) */
+static uint32_t desk_sig;                        /* the desk as last saved or loaded (desk_tick: SAVE lit on a change) */
+static int project_param(uint32_t id);          /* (slots.c) */
+static int desk_keeps(uint32_t id)
+{
+    uint32_t f = (id - P_CH_BASE) % CH_STRIDE;
+    return project_param(id) && f != CHF_PAT && f != CHF_LEN;
+}
+static uint32_t desk_hash(void)
+{
+    uint32_t i, h = 2166136261u;
+    for (i = 0; i < NCH * CH_STRIDE; i++)
+        if (desk_keeps(P_CH_BASE + i))
+            h = (h ^ (uint16_t)ctl_get(P_CH_BASE + i)) * 16777619u;
+    return h;
+}
+static int desk_save(void)
+{
+    uint32_t i;
+    dsk.magic = DESK_MAGIC;
+    for (i = 0; i < NCH * CH_STRIDE; i++)
+        dsk.v[i] = desk_keeps(P_CH_BASE + i) ? (int16_t)ctl_get(P_CH_BASE + i) : 0;
+    if (plat_store_save(OBJ_DESK, &dsk, sizeof dsk) != 0)
+        return 0;
+    desk_sig = desk_hash();
+    return 1;
+}
+static void desk_load(void)
+{
+    uint32_t i;
+    if (plat_store_load(OBJ_DESK, &dsk, sizeof dsk) == (int)sizeof dsk && dsk.magic == DESK_MAGIC)
+        for (i = 0; i < NCH * CH_STRIDE; i++)
+            if (desk_keeps(P_CH_BASE + i))
+                ctl_set(P_CH_BASE + i, dsk.v[i]);   /* (clamped) */
+    desk_sig = desk_hash();
+}
+static void desk_tick(void)                      /* every frame: a desk move since the save lights SAVE */
+{
+    if (!set_dirty && desk_hash() != desk_sig)
+        set_dirty = 1;
+}
+
 static int save_project(int quiet)       /* SAVE (quiet: the autosave, which says nothing): 1 saved */
 {
     if (save_hold) {                       /* (a backup streaming: what it reads must not move) */
@@ -273,6 +353,7 @@ static int save_project(int quiet)       /* SAVE (quiet: the autosave, which say
         uint32_t i;
         for (i = 0; i < NSET_FX; i++)
             set.fx[i] = (uint8_t)ctl_get(SET_FX[i]);
+        set.fx[KC_AT + 2u] = (uint8_t)((set.fx[KC_AT + 2u] & 0x1Fu) | (uint32_t)ctl_get(P_BK_RES) << 5);   /* 8.10 */
     }
     {
         uint32_t i;
@@ -288,7 +369,7 @@ static int save_project(int quiet)       /* SAVE (quiet: the autosave, which say
             snd.v[i] = (int16_t)ctl_get(P_VOICE_BASE + i);
     }
     if (plat_store_save(OBJ_SETTINGS, &set, sizeof set) == 0 && plat_store_save(OBJ_SOUND, &snd, sizeof snd) == 0
-        && proj_save() && ml_save()
+        && proj_save() && ml_save() && desk_save()
         && ((eng_playing() && ctl_get(P_SONG_REC)) || mot_save())) {   /* (motion: not while it is captured) */
         set_dirty = 0;
         if (!quiet)
@@ -343,6 +424,7 @@ static void load_saved(void)             /* the store's objects into both sides 
                 ctl_set(P_VOICE_BASE + i, snd.v[i]);   /* (clamped) */
     }
     proj_load();
+    desk_load();                         /* (8.1: after the patterns: the desk's fields, not CHF_PAT) */
     ml_load();
     pl_load();
     sh_load();
@@ -358,6 +440,7 @@ static void load_saved(void)             /* the store's objects into both sides 
         uint32_t i;
         for (i = 0; i < NSET_FX; i++)
             ctl_set(SET_FX[i], set.fx[i]);
+        ctl_set(P_BK_RES, set.fx[KC_AT + 2u] >> 5 & 3u);   /* 8.10: the Big Knob's resonance (0 in an older save: OFF) */
     }
     {
         uint32_t i;
@@ -599,6 +682,20 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     }
     if (!strcmp(cmd, "oldmotion")) {     /* the motion as saved before 4,096 moves: 5,000 (motion.c) */
         mot_oldsave();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldscenes2")) {    /* the scenes as saved before 8.1 (SCN2: no EQ) */
+        pst_oldscenes2();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldslot4")) {      /* oldslot4 N: slot N (1..4) as saved before 8.1 (DSL4: scenes without EQ) */
+        int n = 1;
+        sscanf(plat_host_line, "%*s %d", &n);
+        slot_old4((uint32_t)(n - 1) % NSLOTS);
+        return 1;
+    }
+    if (!strcmp(cmd, "nodesk")) {        /* a save from before 8.1: no desk object */
+        plat_store_save(OBJ_DESK, &dsk, 0);
         return 1;
     }
     if (!strcmp(cmd, "oldsteps2")) {     /* the steps as saved before 6.7 (PST2), stray top bits on the kick's */

@@ -38,11 +38,11 @@ wait 30
 expect echo_div 3
 param tempo 750
 param echo.time 5
-# hold-to-focus: K2 with mute key 4 held sets channel 4's echo send, and the mute stays as it was
+# hold-to-focus: K3 with mute key 4 held sets channel 4's echo send (8.8: K3, as the echo's return), and the mute stays
 param ch4.echo 60
 key w3 down
 wait 50
-turn K2 2
+turn K3 2
 wait 400
 key w3 up
 wait 50
