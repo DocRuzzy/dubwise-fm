@@ -20,7 +20,8 @@
 4. From another firmware (e.g. a Felucca one): install Dubwise again, and check step 1's identity.
 5. From two or three popular alternative firmwares besides Felucca (e.g. SLOOP, LOOM-8, X0X), install Dubwise and remove it again (`roundup-review-2026-11.md`: one firmware reviewed there blocked every later install). Note any that refuse.
 6. The recovery path, in the README: if an install fails, plug the FM-1 straight into the computer (no hub), restore stock with the web installer (or M-VAVE's FM1 Open), then install again.
-7. **Every device session, not just the release:** the PERF page with the UK STEPPERS desk and every effect up, and
+7. **Beta testers:** the README's call and [`hardware-test-list.md`](hardware-test-list.md); reports come in as "Beta test report" issues.
+8. **Every device session, not just the release:** the PERF page with the UK STEPPERS desk and every effect up, and
    then with the demo song. Note the average, the peak, the tier the guard settles on, and `plat_stack_least_ever`,
    in the project's Practice log ("Device measurements"). The roadmap's CPU figures are host estimates (×80) until
    these readings replace them.

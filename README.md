@@ -7,6 +7,14 @@
 
 **A reggae and dub mixing desk you play live, as firmware for the M-VAVE FM-1.**
 
+> [!IMPORTANT]
+> **Beta testers wanted.** Dubwise FM hasn't run on a real FM-1 yet. If you have one, install it, work through any
+> part of the **[hardware test list](docs/hardware-test-list.md)** (installing and removing it, saving, how the keys
+> feel, how it sounds, whether it keeps up) and
+> **[send a beta test report](https://github.com/DocRuzzy/dubwise-fm/issues/new?template=beta-report.md)**. One
+> section is a real help; the install and saving checks help most. If anything goes wrong,
+> [getting back to stock](#install-and-getting-back) takes a few minutes.
+
 In dub, the mixing desk is the instrument. King Tubby, Lee "Scratch" Perry, Scientist and the engineers after them took
 a finished riddim and remade it live at the board: dropping instruments out on the one, throwing a snare or a word into
 a tape echo until it rang, striking the spring reverb like a drum, and stepping a high-pass filter until the band
@@ -127,11 +135,23 @@ Dubwise stands on other people's open code and published research. Every source 
 - **Recordings** from Freesound (CC0 and CC BY) for fitting the melodica and the horns. Only measured numbers go into the
   firmware, never the audio.
 
+## Install and getting back
+
+- **Install:** download `dubwise.fwsc` from [Releases](https://github.com/DocRuzzy/dubwise-fm/releases) and install it
+  with the [Firmware Hub](https://thefirmwarehub.com)'s web installer, or `python3 base/tools/fm1_install.py
+  app/build/dubwise.fwsc`. The boot splash shows the SpIllt Beats mark, and the FM-1 appears on the computer as
+  DUBWISE FM-1.
+- **Leave it:** install any other firmware (M-VAVE's V15, or another from the hub) over Dubwise. The package carries
+  the update loader, so nothing extra is needed.
+- **If an install fails:** plug the FM-1 straight into the computer (no USB hub), restore the stock firmware with the
+  web installer or M-VAVE's FM1 Open, then install again.
+
 ## Status
 
-**Beta, not yet tested on a real FM-1.** The roadmap is built (P0 desk and sequencer, P1 signature tone, P2 colour,
-leads and live input, P3 wishlist, then the session, sound design, the FM-1 survey's borrowings and the voices from
-outside it, blocks 4 to 7) and checked by 84 host-simulator scenarios with audio analysis. The device package
+**Beta, not yet tested on a real FM-1: [beta testers wanted](docs/hardware-test-list.md).** The roadmap is built
+(P0 desk and sequencer, P1 signature tone, P2 colour, leads and live input, P3 wishlist, then the session, sound
+design, the FM-1 survey's borrowings and the voices from outside it, blocks 4 to 9) and checked by 85
+host-simulator scenarios with audio analysis. The device package
 builds and passes fm1-base's install simulation. The live USB-audio input waits on a proposed fm1-base change
 ([`docs/upstream/`](docs/upstream/)). See [`docs/roadmap.md`](docs/roadmap.md), the manual in
 [`app/docs/MANUAL.md`](app/docs/MANUAL.md), and the release checklist in
