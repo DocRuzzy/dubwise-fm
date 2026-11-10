@@ -26,7 +26,8 @@ expect spring_ret_db >-30
 key b0 up
 wait 3000
 wavstop
-# black 1 with a throw held: the kick (its destination the echo) goes to the spring as well, and back after
+# black 1 with a throw held: the kick (its destination the echo) goes to the spring as well, as much as black 1 is
+# pressed (9.15: its velocity half of it, leaning in the rest), and back after; its destination is left alone
 param dev.tones 1
 param ch5.spring 0
 key w8 down
@@ -35,11 +36,16 @@ expect spring_db -120
 key b0 down
 wait 50
 said THROW PLUS SPRING
-expect eng.ch1.dest 2
-expect spring_db >-25
+expect eng.ch1.dest 0
+expect spring_db >-31
+expect spring_db <-25
 expect crashes 1
+key b0 down 100 100
+wait 400
+expect spring_db >-25
 key b0 up
 wait 50
+expect eng.thrspr 0
 expect eng.ch1.dest 0
 key w8 up
 param dev.tones 0

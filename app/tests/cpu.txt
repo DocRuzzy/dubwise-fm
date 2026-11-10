@@ -71,8 +71,9 @@ perf reset
 wait 4000
 perf
 expect tier 0
-# the assessment measured ~3.2x the default desk: a bound with room, to catch a regression
-expect perf_ratio <400
+# the assessment measured ~3.2x the default desk (here 2.6-3.3x, the mean over the window): a bound with room, to
+# catch a regression without the host's noise failing it
+expect perf_ratio <450
 key b6 up
 param ch2.throw 0
 param ch5.throw 0

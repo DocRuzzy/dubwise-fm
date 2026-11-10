@@ -183,6 +183,9 @@ enum {
                                * AudioThing Dub Filter's "impedance": each step rings as it clicks). A SETUP preference */
     P_JACK,                   /* 9.8: 1 the headphone jack known empty, so the speaker plays (the main loop's
                                * plat_headphones; not read yet: 0, as a line); not saved, not recorded */
+    P_THROW_SPR,              /* 9.15: black 1 held with a throw: how much of that throw goes to the spring too, by the
+                               * key's pressure. 0 none; else (channel + 1) << 7 | amount 0..127. A momentary (the song
+                               * records it, a stop lets it go); not saved */
     P_BK_END,
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..40 = HPF_HZ (the Altec's on 4, 8 .. 40) */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */

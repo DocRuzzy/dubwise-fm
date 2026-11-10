@@ -139,7 +139,7 @@ static struct {
     uint32_t pulses, key_flashes;        /* counted (tests) */
     int tier_seen;                       /* the guard tier last shown */
     int32_t spring_add;                  /* the throw black 1 added the spring to, -1 none */
-    int8_t dest_was;                     /* its destination before */
+    uint8_t spr_vel, spr_amt;            /* 9.15: black 1's velocity; the spring's share last sent (255: none yet) */
     int32_t turns[NE];                   /* detents since boot, per encoder */
     uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
     uint32_t foot_sig, centre_t;         /* what the footer shows (redrawn when it changes); the centre's last draw */
@@ -558,6 +558,7 @@ static const char *bk_name(int32_t step)          /* the Big Knob's step as it s
 }
 
 static int32_t held_mute(void);          /* (below: the mute key held, -1 none) */
+static void spring_add_tick(void);       /* (below, 9.15: black 1's pressure to the throw's spring) */
 static uint32_t held_mutes(void);        /* (below, 8.1: every mute key held, a bit a channel) */
 static void hold_edits(uint32_t m);      /* (the held keys for editing: their mutes as they were) */
 static void chfilt_off(uint32_t m);      /* (8.1: the held channels' filters out) */
@@ -763,6 +764,22 @@ static int32_t held_mute(void)          /* the mute key held (the lowest), -1 no
         if (dub.keys >> WK[ch] & 1u)
             return (int32_t)ch;
     return -1;
+}
+
+/* 9.15: black 1 held with a throw: how much of the throw goes to the spring too. Its velocity sets where it starts
+ * (half of it), leaning on it adds the rest: a light touch a little spring, a firm press all of it. Sent when it moves
+ * by 8 or more (the song's motion keeps each; 16 steps are plenty for a lean) */
+static void spring_add_tick(void)
+{
+    int32_t a;
+    if (dub.spring_add < 0)
+        return;
+    a = dub.spr_vel / 2 + (int32_t)touch_pressure(BK[0]);
+    a = a > 127 ? 127 : a;
+    if (dub.spr_amt != 255 && (a == dub.spr_amt || (a - dub.spr_amt < 8 && dub.spr_amt - a < 8 && a != 127 && a != 0)))
+        return;                              /* (the ends always reached) */
+    dub.spr_amt = (uint8_t)a;
+    ctl_set(P_THROW_SPR, ((dub.spring_add + 1) << 7) | a);
 }
 
 static int32_t held_throw(void)         /* the throw key held (the lowest), -1 none */
@@ -1227,10 +1244,11 @@ static void dub_input_hands(void)
             }
             if (k == 0u) {               /* the crash; with a throw held, the spring added to that throw */
                 int32_t tc = held_throw();
-                if (tc >= 0) {
+                if (tc >= 0) {           /* 9.15: how much spring by black 1's velocity, then its pressure */
                     dub.spring_add = tc;
-                    dub.dest_was = (int8_t)ctl_get(P_CH(tc, CHF_THROW_DEST));
-                    ctl_set(P_CH(tc, CHF_THROW_DEST), DEST_BOTH);
+                    dub.spr_vel = (uint8_t)(touch_vel(BK[0]) ? touch_vel(BK[0]) : 100u);
+                    dub.spr_amt = 255;
+                    spring_add_tick();
                     app_say("THROW", "PLUS SPRING");
                     continue;
                 }
@@ -1249,8 +1267,8 @@ static void dub_input_hands(void)
             ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 0);
             dub.dirty_foot = dub.dirty_centre = 1;
         } else if (!(keys & bit) && (dub.keys & bit) && k == 0u) {
-            if (dub.spring_add >= 0) {   /* the throw's destination as it was */
-                ctl_set(P_CH(dub.spring_add, CHF_THROW_DEST), dub.dest_was);
+            if (dub.spring_add >= 0) {   /* 9.15: the spring's share let go */
+                ctl_set(P_THROW_SPR, 0);
                 dub.spring_add = -1;
             }
             ctl_set(P_SPRING_KICK, 0);
@@ -1743,6 +1761,7 @@ void dub_draw(void)
     int drew = 0;
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     desk_tick();                         /* (8.1: a desk move since the save lights SAVE) */
+    spring_add_tick();                   /* (9.15: black 1's pressure, while it adds the spring to a throw) */
     {                                    /* 9.8: the headphone jack to the engine (OUTPUT AUTO), when it changes */
         int spk = plat_headphones() == 0;   /* (known empty only: not read yet is a line) */
         if (spk != ctl_get(P_JACK))

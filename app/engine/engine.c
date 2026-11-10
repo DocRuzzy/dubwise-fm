@@ -248,6 +248,7 @@ static inline void prof_mark(uint32_t part)      /* the time since the last mark
 }
 static void tier_track(uint32_t total16);
 static volatile uint32_t blk_peak;               /* 9.11: the costliest block's ticks since eng_block_peak_take */
+static volatile uint32_t blk_sum, blk_n;         /* 9.5: the blocks' ticks and count since eng_prof_reset */
 static void prof_block(void)                     /* the block done: averages and maxima */
 {
     uint32_t i, total = 0, blk = 0;
@@ -262,6 +263,8 @@ static void prof_block(void)                     /* the block done: averages and
     }
     if (blk > blk_peak)
         blk_peak = blk;
+    blk_sum += blk;                              /* (9.5: the mean since eng_prof_reset, for ratios that hold still) */
+    blk_n++;
     tier_track(total);
 }
 eng_prof_t eng_prof(uint32_t part) { return part < NPARTS ? prof[part] : prof[0]; }
@@ -276,7 +279,9 @@ void eng_prof_reset(void)
     uint32_t i;
     for (i = 0; i < NPARTS; i++)
         prof[i].max = 0;
+    blk_sum = blk_n = 0;
 }
+uint32_t eng_prof_mean(void) { return blk_n ? blk_sum / blk_n : 0; }   /* 9.5: a block's mean ticks since the reset */
 const char *eng_part_name(uint32_t part)
 {
     static const char *const N[NPARTS] = {"cmd", "ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8", "mix",
@@ -612,6 +617,9 @@ static void strips_update(void)                  /* the targets from the applied
         int thr = ev[P_CH(ch, CHF_THROW)] != 0, dest = ev[P_CH(ch, CHF_THROW_DEST)];
         float a = (float)ev[P_CH(ch, CHF_THROW_AMT)] * (1.0f / 127.0f);   /* (P2.9: as hard as it was hit) */
         float te = thr && dest != DEST_SPRING ? a : 0.0f, ts = thr && dest != DEST_ECHO ? a : 0.0f;
+        if (thr && ev[P_THROW_SPR] && (uint32_t)(ev[P_THROW_SPR] >> 7) == ch + 1u)   /* 9.15: black 1's pressure: */
+            ts = fm_maxf(ts, a * (float)(ev[P_THROW_SPR] & 127) * (1.0f / 127.0f));   /* this much to the spring too,
+                                                  * on top of the throw's own destination */
         ramp_to(&s->dry, ev[P_WET] ? 0.0f : g); /* drop to wet: the dry out, its sends kept */
         ramp_to(&s->echo, g * send(ev[P_CH(ch, CHF_ECHO_SEND)]) + te);
         ramp_to(&s->spring, g * send(ev[P_CH(ch, CHF_SPRING_SEND)]) + ts);
