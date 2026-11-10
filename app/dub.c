@@ -38,7 +38,16 @@
 #define CENTRE_H 76
 #define FOOT_Y 202
 #define FOOT_H 38
-#define PAGE_H 144                       /* a full page's canvas (the most a canvas holds), from STRIP_Y */
+#define PAGE_H 144                       /* a full page, from STRIP_Y */
+/* The canvas holds 76 rows (app.h, APP_CANVAS_PX; 144 until 2026-11-10: 32.6 KB of the pool back). A full page or the
+ * strips are drawn in two halves: the same drawing twice, each pass offset by its half (gfx.c's cv_oy) and clipped to
+ * it, then blitted. A body run twice must only draw: whatever it reads that can change (a meter) is read before */
+#define CV_ROWS 76
+#define CV_BANDS(h, bg)                                                                                                  \
+    for (int32_t cvb_ = 0, cvh_ = ((int32_t)(h) + 1) / 2; cvb_ < 2; cvb_++)                                             \
+        if ((cv_begin(240u, (uint32_t)cvh_, (bg)), cv_oy = -cvb_ * cvh_, cv_y0 = 0, cv_y1 = cvh_, 1))
+#define CV_BAND_BLIT(y) cv_blit(0, (uint32_t)((y) + cvb_ * cvh_))
+typedef char cv_bands_fit[(PAGE_H + 1) / 2 <= CV_ROWS && (STRIP_H + 1) / 2 <= CV_ROWS && CENTRE_H <= CV_ROWS ? 1 : -1];
 
 #define TAP_MS 300u                      /* shorter than this, a tap; two within it, a double tap */
 #define BLINK_MS 250u                    /* slow blink: cued */
@@ -141,6 +150,8 @@ static struct {
     uint32_t last_beat, last_cued, last_blink, last_meter_t;
     int32_t last_lands;
     uint8_t msg_up;
+    uint32_t fill_t;                     /* 6.7: OCT+'s press (0: not held) */
+    uint8_t fill_on, fill_latch, fill_skip;   /* FILL held by OCT+; latched; this release ignored */
 } dub;
 
 /* ------------------------------------------------------------------ state --- */
@@ -422,15 +433,77 @@ static void quant_step(int32_t d)
     app_say("QUANTISE", quant_name(q));
 }
 
+/* 6.7: OCT+ (on every page but STEPS) is the quantise's step on a tap, at its let-go; held 300 ms it's FILL, until its
+ * let-go. OCT- tapped while FILL is held latches it (a double tap would catch the quantise's quick taps); then a tap of
+ * OCT+ lets the latch go */
+#define FILL_HOLD_MS 300u
+static void fill_set(int on)
+{
+    if ((ctl_get(P_FILL) != 0) == (on != 0))
+        return;
+    ctl_set(P_FILL, on ? 1 : 0);
+    dub.dirty_hdr = 1;
+    app_say("FILL", on ? "ON" : "OFF");
+}
+static void fill_press(uint32_t now)
+{
+    dub.fill_t = now ? now : 1u;
+    dub.fill_skip = 0;
+    if (dub.fill_latch) {                /* a tap lets the latch go */
+        dub.fill_latch = 0;
+        dub.fill_skip = 1;
+        fill_set(0);
+    }
+}
+static int fill_latch_now(void)          /* OCT- pressed: 1 if it latched FILL (OCT+ holding it) */
+{
+    if (!dub.fill_on)
+        return 0;
+    dub.fill_latch = 1;
+    app_say("FILL", "LATCHED");
+    return 1;
+}
+static void fill_tick(uint32_t now)      /* (each input) OCT+ held long enough: FILL */
+{
+    static int32_t seen;
+    if (ctl_get(P_FILL) != seen) {       /* (FILL from a learned CC or the song's motion: the header too) */
+        seen = ctl_get(P_FILL);
+        dub.dirty_hdr = 1;
+    }
+    if (dub.fill_t && !dub.fill_on && !dub.fill_skip && now - dub.fill_t >= FILL_HOLD_MS) {
+        dub.fill_on = 1;
+        fill_set(1);
+    }
+}
+static void fill_release(void)
+{
+    if (!dub.fill_t)
+        return;
+    dub.fill_t = 0;
+    if (dub.fill_on) {                   /* a hold: FILL let go, unless latched */
+        dub.fill_on = 0;
+        if (!dub.fill_latch)
+            fill_set(0);
+    } else if (!dub.fill_skip)           /* a tap: the quantise's step */
+        quant_step(1);
+    dub.fill_skip = 0;
+}
+
+static const char *bk_name(int32_t step)          /* the Big Knob's step as it sounds now: a high-pass's or (7.5) a
+                                                  * low-pass's cutoff */
+{
+    return ctl_get(P_HPF_LP) && step > 0 && step <= HPF_STEPS ? hz_name(lpf_hz(step)) : hpf_name(step);
+}
+
 static int32_t held_mute(void);          /* (below: the mute key held, -1 none) */
 static void button_press(uint32_t k)
 {
     if ((k == B_OCTDN || k == B_OCTUP) && dub.page == PAGE_STEPS)
         steps_oct(k == B_OCTUP ? 1 : -1);   /* the STEPS page: its page of 16 */
-    else if (k == B_OCTDN)
+    else if (k == B_OCTDN && !fill_latch_now())
         quant_step(-1);
     else if (k == B_OCTUP)
-        quant_step(1);
+        fill_press(plat_ms());
     else if (k == B_SEQ && (dub.btn >> B_HOME & 1u)) {   /* HOME + SEQ, tapped: tap tempo */
         dub.home_used = 1;
         tap_tempo(plat_ms());
@@ -541,6 +614,15 @@ static void button_release(uint32_t k)
 {
     if (k == B_PLAY && ctl_get(P_SPIN))
         ctl_set(P_SPIN, 0);
+    if (k == B_OCTUP)
+        fill_release();                  /* (never a help card: held, OCT+ is FILL) */
+    if (k == B_SEL) {                    /* 7.5: the Big Knob pressed: high-pass or low-pass (the 9068B) */
+        ctl_set(P_HPF_LP, !ctl_get(P_HPF_LP));
+        set_dirty = 1;
+        dub.dirty_centre = 1;
+        app_say(roots_name("BIG KNOB"), ctl_get(P_HPF_LP) ? "LOW-PASS" : "HIGH-PASS");
+        return;
+    }
     if (help_ate_release(k))             /* its help card shown: nothing more */
         return;
     if (k == B_ENV && !dc.env_used) {    /* ENV: Dice fires, on its bank (5.6) */
@@ -798,7 +880,7 @@ static void encoder(uint32_t k, int32_t e)
         v = e > 0 ? (v / s + e) * s : ((v + s - 1) / s + e) * s;   /* (off the setting's grid: to it first) */
         ctl_set(P_HPF_STEP, v);
         dub.dirty_centre = 1;
-        app_say(roots_name("BIG KNOB"), hpf_name(ctl_get(P_HPF_STEP)));
+        app_say(roots_name("BIG KNOB"), bk_name(ctl_get(P_HPF_STEP)));
     } else if (k == EN_ALGO) {
         dub.focus = (dub.focus + e % (int32_t)NCH + (int32_t)NCH) % (int32_t)NCH;
         if (dub.sound)
@@ -854,11 +936,14 @@ static void encoder(uint32_t k, int32_t e)
     }
 }
 
+#include "smc.c"                         /* the SMC-Mixer as the desk (GPL-3.0-only; roadmap 6.5) */
+
 static void dub_input_hands(void);
 void dub_input(void)                     /* (what the hands change goes into the undo history) */
 {
     undo_live_set(1);
     dub_input_hands();
+    smc_tick();                          /* (the SMC-Mixer's: as the hands', 6.5) */
     undo_live_set(0);
 }
 
@@ -872,6 +957,7 @@ static void dub_input_hands(void)
     if (saver_input(&keys, &btn, now))   /* the screen saver up: a touch only wakes it */
         return;
     help_input(&keys, &btn, now);        /* a button held alone: its help card (help.c) */
+    fill_tick(now);
     if ((keys & ~dub.keys) || (btn & ~dub.btn)) {   /* a press: a new step of the undo history */
         static uint32_t presses;
         undo_mark(0x1000u + ++presses, now);
@@ -1149,6 +1235,10 @@ static void draw_header(void)            /* tempo, transport, the cycle bar, bar
             cv_rect(x + 3, 5, text_w(&FONT_T, c) + 4, 14, C_RED);
             x = cv_text(x + 5, 6, &FONT_T, c, C_BLACK);
         }
+        if (ctl_get(P_FILL)) {           /* FILL held (6.7) */
+            cv_rect(x + 3, 5, text_w(&FONT_T, "FILL") + 4, 14, C_HI);
+            x = cv_text(x + 5, 6, &FONT_T, "FILL", C_BLACK);
+        }
         if (ctl_get(P_LOCK)) {           /* the key lock's chip: LOCK, or CHD in chord mode */
             const char *c = ctl_get(P_LOCK) == LOCK_CHORD ? "CHD" : "LOCK";
             cv_rect(x + 3, 5, text_w(&FONT_T, c) + 4, 14, C_AMB);
@@ -1204,43 +1294,47 @@ static int32_t meter_px(float pk, int32_t h)     /* -48 .. 0 dBFS over the box's
 static void draw_strips(void)
 {
     uint32_t ch;
-    int solo_any = any_solo(1);
-    cv_begin(240, STRIP_H, C_BLACK);
-    for (ch = 0; ch < NCH; ch++) {
-        int32_t x = 1 + (int32_t)ch * 30, bx = x + 5, by = 30, bw = 18, bh = 46;
-        int on = audible(ch), soloed = eng_param(P_CH(ch, CHF_SOLO)) != 0;
-        int thrown = eng_param(P_CH(ch, CHF_THROW)) != 0;
-        char num[2] = {(char)('1' + ch), 0};
-        const char *dg = DEST_NAME[eng_param(P_CH(ch, CHF_THROW_DEST))];
-        if (thrown)                      /* a throw flashes its channel (spec 5.2) */
-            cv_rect(x + 4, 0, 20, 17, C_HI);
-        cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, thrown ? C_BLACK : on ? C_WHITE : C_GRAY);
-        cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
-        {                                /* its pattern (4.8): amber while one launched waits for its line */
-            uint32_t pw = (uint32_t)ctl_get(P_CH(ch, CHF_PAT)) & 3u;
-            char l[2] = {(char)('A' + pw), 0};
-            cv_text(x + 21, 3, &FONT_T, l, eng_pat(ch) != pw ? C_AMB : pw ? C_GRAY : C_DIM);
+    int solo_any = any_solo(1), blink = blink_on();
+    float pk[NCH];                       /* (read once: both halves draw the same meters) */
+    for (ch = 0; ch < NCH; ch++)
+        pk[ch] = eng_ch_peak(ch);
+    CV_BANDS(STRIP_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        for (ch = 0; ch < NCH; ch++) {
+            int32_t x = 1 + (int32_t)ch * 30, bx = x + 5, by = 30, bw = 18, bh = 46;
+            int on = audible(ch), soloed = eng_param(P_CH(ch, CHF_SOLO)) != 0;
+            int thrown = eng_param(P_CH(ch, CHF_THROW)) != 0;
+            char num[2] = {(char)('1' + ch), 0};
+            const char *dg = DEST_NAME[eng_param(P_CH(ch, CHF_THROW_DEST))];
+            if (thrown)                      /* a throw flashes its channel (spec 5.2) */
+                cv_rect(x + 4, 0, 20, 17, C_HI);
+            cv_text(x + (28 - text_w(&FONT_B, num)) / 2, 0, &FONT_B, num, thrown ? C_BLACK : on ? C_WHITE : C_GRAY);
+            cv_text(x + (28 - text_w(&FONT_T, CH_SHORT[ch])) / 2, 17, &FONT_T, CH_SHORT[ch], on ? C_GRAY : C_DIM);
+            {                                /* its pattern (4.8): amber while one launched waits for its line */
+                uint32_t pw = (uint32_t)ctl_get(P_CH(ch, CHF_PAT)) & 3u;
+                char l[2] = {(char)('A' + pw), 0};
+                cv_text(x + 21, 3, &FONT_T, l, eng_pat(ch) != pw ? C_AMB : pw ? C_GRAY : C_DIM);
+            }
+            if (on) {                        /* filled = playing; the meter brighter over it */
+                int32_t m = meter_px(pk[ch], bh);
+                cv_rect(bx, by, bw, bh, C_LINE);
+                if (m > 0)
+                    cv_rect(bx, by + bh - (m > bh ? bh : m), bw, m > bh ? bh : m, C_HI);
+            } else if (solo_any && !soloed && !eng_param(P_CH(ch, CHF_MUTE))) {
+                hatch(bx, by, bw, bh, C_DIM);    /* hatched = solo-muted */
+                outline(bx, by, bw, bh, C_DIM);
+            } else {
+                outline(bx, by, bw, bh, C_GRAY);   /* outlined = muted */
+            }
+            if (cued(ch) && blink)
+                outline(bx - 2, by - 2, bw + 4, bh + 4, C_WHITE);
+            cv_text(x + 3, by + bh + 3, &FONT_T, dg, thrown ? C_HI : C_DIM);   /* the throw's destination */
+            if (soloed)
+                cv_text(x + 19, by + bh + 3, &FONT_T, "S", C_AMB);
+            if ((int32_t)ch == dub.focus)
+                cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
         }
-        if (on) {                        /* filled = playing; the meter brighter over it */
-            int32_t m = meter_px(eng_ch_peak(ch), bh);
-            cv_rect(bx, by, bw, bh, C_LINE);
-            if (m > 0)
-                cv_rect(bx, by + bh - (m > bh ? bh : m), bw, m > bh ? bh : m, C_HI);
-        } else if (solo_any && !soloed && !eng_param(P_CH(ch, CHF_MUTE))) {
-            hatch(bx, by, bw, bh, C_DIM);    /* hatched = solo-muted */
-            outline(bx, by, bw, bh, C_DIM);
-        } else {
-            outline(bx, by, bw, bh, C_GRAY);   /* outlined = muted */
-        }
-        if (cued(ch) && blink_on())
-            outline(bx - 2, by - 2, bw + 4, bh + 4, C_WHITE);
-        cv_text(x + 3, by + bh + 3, &FONT_T, dg, thrown ? C_HI : C_DIM);   /* the throw's destination */
-        if (soloed)
-            cv_text(x + 19, by + bh + 3, &FONT_T, "S", C_AMB);
-        if ((int32_t)ch == dub.focus)
-            cv_rect(x + 3, STRIP_H - 2, 22, 2, C_GRAY);
+        CV_BAND_BLIT(STRIP_Y);
     }
-    cv_blit(0, STRIP_Y);
 }
 
 static void draw_echo(void)              /* the left half: the repeats as they fall (amber near unity, red past) */
@@ -1304,13 +1398,14 @@ static void draw_centre(void)
     } else {                             /* the Big Knob: its detents as an arc (10, 20 or 40), lit to the step */
         int32_t stp = eng_param(P_HPF_STEP), k, s = hpf_detent(ctl_get(P_HPF_RES)), nd = HPF_STEPS / s;
         int32_t dot = nd > 20 ? 3 : 5;
-        cv_text(126, 4, &FONT_XS, ctl_get(P_HPF_ON) == HPF_ON_ECHO ? "BIG KNOB: ECHO" : "BIG KNOB", C_GRAY);
+        cv_text(126, 4, &FONT_XS, ctl_get(P_HPF_ON) == HPF_ON_ECHO ? (ctl_get(P_HPF_LP) ? "BIG KNOB LP: ECHO"
+                                    : "BIG KNOB: ECHO") : ctl_get(P_HPF_LP) ? "BIG KNOB LP" : "BIG KNOB", C_GRAY);
         for (k = 1; k <= nd; k++) {
             float a = 3.14159265f * (1.0f - (float)(k - 1) / (float)(nd - 1));   /* left to right */
             int32_t x = 180 + (int32_t)(24.0f * fm_cosf(a)), y = 42 - (int32_t)(22.0f * fm_sinf(a));
             cv_rect(x - dot / 2, y - dot / 2, dot, dot, k * s <= stp ? C_HI : C_LINE);
         }
-        cv_text(180 - text_w(&FONT_B, hpf_name(stp)) / 2, 44, &FONT_B, hpf_name(stp), stp ? C_WHITE : C_DIM);
+        cv_text(180 - text_w(&FONT_B, bk_name(stp)) / 2, 44, &FONT_B, bk_name(stp), stp ? C_WHITE : C_DIM);
         lands_text(lands_in(), t);
         cv_text(126, 63, &FONT_T, eng_playing() ? "NEXT LINE" : "STOPPED: AT ONCE", C_DIM);
         if (eng_playing())

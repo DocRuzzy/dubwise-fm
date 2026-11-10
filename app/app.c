@@ -13,6 +13,7 @@
 #include "engine/fxv.h"
 #include "engine/motion.h"
 #include "engine/chordv.h"                  /* (the B-3's tables, built in the main loop: 5.15) */
+#include "engine/lpc.h"                     /* (the deejay voice's names: 6.6) */
 #include "engine/params.c"                  /* (GPL-3.0-only: the parameters and the main loop's side of them) */
 #include "engine/control.c"
 
@@ -38,7 +39,8 @@ static sound_t snd;
 static const uint16_t SET_FX[] = {P_ECHO_TONE, P_ECHO_HEAD2, P_SPRING_DECAY, P_SPRING_TONE, P_XS_E2S, P_XS_S2E,
                                     P_DIVE_DEPTH, P_DIVE_TIME, P_ECHO_WIDTH, P_PH_ON, P_PH_RATE, P_PH_DEPTH, P_PH_FB,
                                     P_PH_SHAPE, P_DRIVE_ON, P_DRIVE_AMT, P_DRIVE_MIX, P_SGATE_ON, P_SGATE_HOLD,
-                                    P_SGATE_REL, P_ECHO_PP, P_PH_MODE, P_PH_RATE2};
+                                    P_SGATE_REL, P_ECHO_PP, P_PH_MODE, P_PH_RATE2, P_ECHO_WOW, P_SPEAKER,
+                                    P_ECHO_HEAD3, P_DESK, P_HPF_LP, P_ECHO_TYPE};   /* (7.1, 7.4, 7.5, 7.9) */
 #define NSET_FX (sizeof SET_FX / sizeof SET_FX[0])
 typedef char set_fx_fits[NSET_FX <= 32u ? 1 : -1];
 static uint16_t scenes_dirty;            /* (arrange.c sets the bits; saved and cleared by SAVE) */
@@ -61,6 +63,8 @@ static int32_t gm_drum(uint32_t note)    /* GM drum note -> our channel, -1 none
     }
 }
 static void ml_cc_in(uint32_t ch, uint32_t cc, uint32_t v);
+static volatile uint8_t smc_active;      /* (smc.c: an SMC-Mixer on the USB host, 6.5) */
+static void smc_push(uint32_t pkt);
 static void midi_in(void)                /* audio interrupt: the packets that came in */
 {
     uint32_t pkt;
@@ -70,6 +74,10 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
         int on = (st & 0xF0u) == 0x90u && d2, off = (st & 0xF0u) == 0x80u || ((st & 0xF0u) == 0x90u && !d2);
         if (st != 0xF8u && st != 0xFEu)
             midi_count++;
+        if (smc_active && port == PORT_USB && st < 0xF0u) {   /* the SMC-Mixer: the desk's, not notes (smc.c) */
+            smc_push(pkt);
+            continue;
+        }
         if (st >= 0xF8u) {                   /* real time: the clock, Start, Continue, Stop (SETUP: MIDI CLOCK IN) */
 #ifdef PLAT_HOST
             eng_clock_in(st, eng_clock_now());   /* (the host: the script's time, not the computer's) */
@@ -436,6 +444,7 @@ void app_redraw(void)                    /* (APP_REDRAW: the screen mirror lost 
 /* AUTOSAVE (SETUP, on by default; the 2026-11 QoL review): what SAVE keeps, saved by itself once nothing has been
  * touched for 4 s, stopped, the sound died away (a flash write stops the sound for a moment) and nothing being
  * loaded. Quiet: SAVE's light going out says it. A failed one waits 30 s before the next try */
+static uint32_t hits_mark;                       /* (6.7 tests: hitsmark, hits) */
 static uint32_t as_fail_t;
 static void autosave_tick(void)
 {
@@ -527,6 +536,22 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         ctl_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1), st);
         return 1;
     }
+    if (!strcmp(cmd, "hitsmark")) {      /* hits counts from here (6.7) */
+        hits_mark = eng_seq_hits();
+        return 1;
+    }
+    if (!strcmp(cmd, "cond")) {          /* cond CH PAT I C: a step's CONDITION (6.7; 0..15), CH 1-8, PAT A-D, I from 1 */
+        char pc[8] = {0};
+        int ch = 1, i = 1, c = 0;
+        step_t st;
+        if (sscanf(plat_host_line, "%*s %d %7s %d %d", &ch, pc, &i, &c) < 4)
+            return 1;
+        ch = (ch - 1) & 7;
+        st = ctl_get_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1));
+        STEP_COND_SET(st, c);
+        ctl_step_at((uint32_t)ch, (uint32_t)(pc[0] - 'A') % NPAT, (uint32_t)(i - 1), st);
+        return 1;
+    }
     if (!strcmp(cmd, "capture")) {       /* capture A | B: from the next start to its stop (replay.txt) */
         int k = a[0] == 'B' ? 1 : 0;
         if (!cap[k].ev) {
@@ -570,6 +595,14 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     }
     if (!strcmp(cmd, "oldsteps")) {      /* the steps as saved before 5.8 (PST1, a drum's gate a length; patstore.c) */
         pst_oldsteps();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldmotion")) {     /* the motion as saved before 4,096 moves: 5,000 (motion.c) */
+        mot_oldsave();
+        return 1;
+    }
+    if (!strcmp(cmd, "oldsteps2")) {     /* the steps as saved before 6.7 (PST2), stray top bits on the kick's */
+        pst_oldsteps2();
         return 1;
     }
     if (!strcmp(cmd, "oldsound")) {      /* sounds saved before 5.3, and no patch library (patches.c) */
@@ -816,6 +849,8 @@ int app_expect(const char *what, int *got)
         *got = (int)eng_chord_last((uint32_t)(atoi(what + 8) - 1) % NCH);
     else if (!strcmp(what, "seq_hits"))
         *got = (int)eng_seq_hits();
+    else if (!strcmp(what, "hits"))         /* steps played since the last hitsmark (6.7) */
+        *got = (int)(eng_seq_hits() - hits_mark);
     else if (!strncmp(what, "perf_ch", 7))  /* perf_chN: channel N's average cost, tenths of a % of the device's block */
         *got = (int)(eng_prof((uint32_t)atoi(what + 7)).avg / 16.0 * 80.0 * 1000.0 / ENG_BLOCK_TICKS + 0.5);
     else if (!strcmp(what, "perf_pct")) {   /* the engine's average cost, as a % of the device's block (x80 rule) */

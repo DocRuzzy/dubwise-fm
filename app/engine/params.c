@@ -62,6 +62,7 @@ static const pdesc_t BASS_F[VB_N] = {
     [VB_DRIVE] = {"drive", 0, 127, 0},              /* 5.3: a soft clip before the filter */
     [VB_GLIDE] = {"glide", 0, 127, 0},              /* 5.3: 0 .. 300 ms from the last note to the next */
     [VB_MODEL] = {"model", 0, BASS_MODELS - 1, BASS_ROUND},  /* 5.7: ROUND, PLUCK, HOLLOW, STEPPERS */
+    [VB_SUBTONE] = {"sub tone", 0, SUB_N - 1, SUB_SINE},     /* 6.1: SINE, CLASSIC (heard on small speakers) */
 };
 static const pdesc_t SKANK_F[VS_N] = {
     [VS_INDEX] = {"index", 0, 127, 70},             /* the attack's brightness */
@@ -69,6 +70,7 @@ static const pdesc_t SKANK_F[VS_N] = {
     [VS_TONE] = {"tone", 0, 127, 60},               /* the band-pass's centre */
     [VS_RATIO] = {"ratio", 0, 1, 1},                /* 1:1, 1:3 (nasal) */
     [VS_ATTACK] = {"attack", 0, 127, 0},            /* 5.3: 0 a chop .. 30 ms in */
+    [VS_MODEL] = {"model", 0, 1, 0},                /* 7.8: FM (as built), PLUCK (Karplus-Strong strings, after the STK) */
 };
 static const pdesc_t ORGAN_F[VO_N] = {
     [VO_DRAWBAR] = {"drawbar", 0, 127, 60},         /* how much of the upper partials */
@@ -89,7 +91,8 @@ static const pdesc_t ORGAN_F[VO_N] = {
     [VO_PFAST] = {"perc fast", 0, 1, 0},
     [VO_VIBCH] = {"vib/chorus", 0, VIB_N - 1, VIB_OFF},   /* off, V1-3, C1-3 */
     [VO_ROTARY] = {"rotary", 0, ROT_N - 1, ROT_OFF},      /* off, slow, fast, brake */
-    [VO_ODRIVE] = {"drive", 0, 127, 0},
+    [VO_ODRIVE] = {"drive", 0, 127, 0},              /* 0 off; else setBfree's preamp, its character (v0.3) */
+    [VO_LESLIE] = {"leslie", 0, LES_N - 1, LES_LIGHT},   /* LIGHT, FULL (setBfree's whirl; Studio only) */
 };
 static const pdesc_t VOX_F[VX_N] = {
     [VX_PITCH] = {"pitch", 0, 127, 70},             /* the sirens: 200 Hz .. 1.2 kHz */
@@ -97,6 +100,11 @@ static const pdesc_t VOX_F[VX_N] = {
     [VX_DEPTH] = {"depth", 0, 127, 36},             /* 1 .. 24 semitones */
     [VX_WAVE] = {"wave", 0, 1, 0},                  /* sine, triangle */
     [VX_LIVE] = {"live", 0, 127, 0},                /* the live input (P2.8): 0 off, 100 as it comes, 127 +2 dB */
+    [VX_SAY] = {"say", 0, 16, 0},                   /* 6.6: 0 black 8 is BIM; 1..16 it says a shout (lpc_data.h) */
+    [VX_SAYPITCH] = {"say pitch", -12, 12, 0},      /* its pitch, semitones */
+    [VX_STUTTER] = {"stutter", 0, 127, 0},          /* a frame said again now and then */
+    [VX_CRUSH] = {"crush", 0, 5, 0},                /* the speech chip's DAC, fewer bits */
+    [VX_SHAPE] = {"shape", 0, 1, 0},                /* 7.1: the sirens' shape, CLASSIC (0, as before) or NJD */
 };
 static const pdesc_t LEAD_F[VL_N] = {
     [VL_INST] = {"inst", 0, INST_N - 1, INST_MELODICA},
@@ -105,6 +113,8 @@ static const pdesc_t LEAD_F[VL_N] = {
     [VL_RELEASE] = {"release", 0, 127, 40},         /* 30 .. 600 ms */
     [VL_VIBRATO] = {"vibrato", 0, 127, 40},         /* 0 .. 40 cents at 4.5 Hz, after 300 ms */
     [VL_DETUNE] = {"detune", -64, 63, 0},           /* 5.3: the melodica's reeds apart, 6 cents at 0, 1.5 .. 23 */
+    [VL_HORN] = {"horn", 0, HORN_N - 1, HORN_TRUMPET},   /* 7.7: HORN's horn: TRUMPET, SAX */
+    [VL_BLEND] = {"blend", 0, 127, 0},             /* 7.7: FM+HORN: 0 half each .. 127 all HORN; below 0 not used */
 };
 /* the MAIN macros (5.3; sound.c turns them into their raw targets), named "m." apart from the raw fields */
 static const pdesc_t MACRO_F[NCH][VM_N] = {
@@ -166,6 +176,8 @@ static const pdesc_t ECHO[P_ECHO_END - P_ECHO_TIME] = {
     [P_DIVE_DEPTH - P_ECHO_TIME] = {"dive.depth", 0, 127, 64},
     [P_DIVE_TIME - P_ECHO_TIME] = {"dive.time", 0, 127, 40},
     [P_ECHO_PP - P_ECHO_TIME] = {"echo.pp", 0, 1, 0},
+    [P_ECHO_HEAD3 - P_ECHO_TIME] = {"echo.head3", 0, 127, 0},
+    [P_ECHO_TYPE - P_ECHO_TIME] = {"echo.type", 0, ECHO_TYPE_N - 1, ECHO_TAPE},
     [P_ECHO_WIDTH - P_ECHO_TIME] = {"echo.width", 0, 127, 0},
 };
 static const pdesc_t SPRING[P_SPRING_END - P_SPRING_RET] = {
@@ -200,6 +212,7 @@ static const pdesc_t XS[P_XS_END - P_XS_E2S] = {
 static const pdesc_t HPF[P_HPF_END - P_HPF_STEP] = {
     {"hpf", 0, HPF_STEPS, 0},
     {"hpf.on", 0, HPF_ON_N - 1, HPF_ON_MIX},
+    {"hpf.lp", 0, 1, 0},
 };
 static const pdesc_t DESK[P_DESK_END - P_WET] = {
     {"wet", 0, 1, 0},
@@ -211,9 +224,13 @@ static const pdesc_t VOX[P_VOX_END - P_SIREN] = {
     {"shot", 0, 4095, 0},
 };
 static const pdesc_t TAILS = {"tails", 0, 1, 0};
+static const pdesc_t FILL = {"fill", 0, 1, 0};
+static const pdesc_t DESK_COL = {"desk", 0, DESK_N - 1, DESK_CLEAN};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
 static const pdesc_t DICE_LINE = {"dice.line", 0, 1, 0};
+static const pdesc_t ECHO_WOW = {"echo.wow", 0, 127, 40};   /* 6.3: a little, from a new project */
+static const pdesc_t SPEAKER = {"speaker", 0, OUT_N - 1, OUT_LINE};
 static const pdesc_t DICE_SEED = {"dice.seed", 0, 30000, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
 const char *tier_name(int32_t t)
@@ -244,14 +261,15 @@ static const float HPF_HZ[HPF_STEPS + 1] = {
     220.0f, 250.0f, 297.3f, 353.6f, 420.4f, 500.0f, 594.6f, 707.1f, 840.9f, 1000.0f, 1189.2f, 1414.2f, 1681.8f,
     2000.0f, 2213.4f, 2449.5f, 2710.8f, 3000.0f, 3408.7f, 3873.0f, 4400.6f, 5000.0f, 5533.4f, 6123.7f, 6777.0f, 7500.0f};
 float hpf_hz(int32_t step) { return step >= 0 && step <= HPF_STEPS ? HPF_HZ[step] : 0.0f; }
-const char *hpf_name(int32_t step)                /* "70 HZ", "1.2K", "7.5K", "OFF" (main loop: one buffer) */
+float lpf_hz(int32_t step)                        /* 7.5: 10 kHz x 0.025^((step - 1) / 39), the replica's span */
+{
+    return step >= 1 && step <= HPF_STEPS ? 10000.0f * fm_exp2f((float)(step - 1) * (-5.321928f / 39.0f)) : 0.0f;
+}
+const char *hz_name(float hz)                     /* "70 HZ", "1.2K", "7.5K" (main loop: one buffer) */
 {
     static char t[12];
     char d[8];
-    int32_t v, n = 0, i;
-    if (step <= 0 || step > HPF_STEPS)
-        return step == 0 ? "OFF" : "";
-    v = (int32_t)(HPF_HZ[step] + 0.5f);
+    int32_t v = (int32_t)(hz + 0.5f), n = 0, i;
     if (v < 1000) {
         for (i = 0; v || !i; v /= 10)
             d[i++] = (char)('0' + v % 10);
@@ -271,6 +289,12 @@ const char *hpf_name(int32_t step)                /* "70 HZ", "1.2K", "7.5K", "O
     }
     t[n] = 0;
     return t;
+}
+const char *hpf_name(int32_t step)                /* "70 HZ", "1.2K", "7.5K", "OFF" */
+{
+    if (step <= 0 || step > HPF_STEPS)
+        return step == 0 ? "OFF" : "";
+    return hz_name(HPF_HZ[step]);
 }
 
 int32_t hpf_detent(int32_t res) { return res == HPF_RES_40 ? 1 : res == HPF_RES_20 ? 2 : HPF_ALTEC; }
@@ -303,6 +327,12 @@ const pdesc_t *param_desc(uint32_t id)
         return &DICE_LINE;
     if (id == P_DICE_SEED)
         return &DICE_SEED;
+    if (id == P_ECHO_WOW)
+        return &ECHO_WOW;
+    if (id == P_SPEAKER)
+        return &SPEAKER;
+    if (id == P_DESK)
+        return &DESK_COL;
     if (id == P_DEV_LOAD)
         return &DEV_LOAD;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)
@@ -315,6 +345,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &DESK[id - P_WET];
     if (id == P_TAILS)
         return &TAILS;
+    if (id == P_FILL)
+        return &FILL;
     if (id >= P_SIREN && id < P_VOX_END)
         return &VOX[id - P_SIREN];
     if (id >= P_XS_E2S && id < P_XS_END)

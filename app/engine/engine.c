@@ -96,7 +96,7 @@ static volatile uint32_t crashes;
 static volatile int32_t echo_div_now;
 static volatile uint32_t lock_now = 0xFFFu;
 static bigknob_t bk, bkr;                        /* the Big Knob (P1.1), left and right */
-static int32_t bk_step = -1;                     /* its step set */
+static int32_t bk_step = -1, bk_lp;              /* its step set; 7.5: a low-pass */
 static volatile float out_peak;                  /* the output's, before MASTER (tests, meters)      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
@@ -145,6 +145,17 @@ typedef struct {
 } sev_t;
 static sev_t sev[NSEV];                          /* this sixteenth's steps, in time order */
 static uint32_t nsev;
+/* 7.4: DESK MCI, after Airwindows' ConsoleMC (Chris Johnson, MIT): each strip after its fader (MCI's fader came
+ * before its drive: "overdrives easily") through sin(), clamped to +-pi/2, a little hot and its level put back: a loud
+ * channel thickens, a quiet one passes as it is. Console's asin decode of the sum, and its Sinew, were built first and
+ * measured: -72 dB from CLEAN on the demo at the headroom they need (inaudible) for +9.5 % of a block, so left out.
+ * The returns pass clean. Studio only */
+#define DESK_DRIVE 1.6f
+static int desk_mci;
+static inline float desk_enc(float x)
+{
+    return fm_sin_pi(fm_clampf(DESK_DRIVE * x, -1.5707963f, 1.5707963f)) * (1.0f / DESK_DRIVE);
+}
 static int32_t held_note[NCH], off_at[NCH];      /* the note the sequencer holds (bass, lead, the B-3), its end */
 static int32_t last_tick = -1;                   /* the sixteenth last gathered since the start */
 static void seq_start(void);
@@ -548,6 +559,46 @@ static void strips_update(void)                  /* the targets from the applied
     }
 }
 
+static float thr_env;                            /* 6.4: 1 while a throw into the echo is held, then easing out (DUB-1) */
+
+/* 6.2 BASS+ (after Felucca's spk_bass and master low-cut, Leo Kuroshita / Hugelton Instruments, GPL-3.0-only, as
+ * daurade carries them): what the FM-1's speaker can't play (it gives almost nothing under ~50 Hz:
+ * docs/hardware.md), heard through its harmonics. The mix's lows under ~150 Hz (four one-poles) clipped at their own
+ * envelope (odd harmonics), band-passed ~220 Hz .. ~900 Hz and added, x1.5, to both sides; and the sides themselves
+ * cut 12 dB/oct under ~220 Hz (the speaker's cone flapping at nothing). A setting: LINE (off) for headphones, the
+ * line out and USB */
+static float sb_lp[4], sb_env, sb_h1, sb_h2, sb_hl, lc_l[2], lc_r[2];
+static void speaker_run(float *l, float *r, uint32_t n)
+{
+    uint32_t i, k;
+    for (i = 0; i < n; i++) {
+        float m = 0.5f * (l[i] + r[i]), a, t, u;
+        sb_lp[0] += (m - sb_lp[0]) * 0.02112f;   /* (692 / 32768: ~148 Hz) */
+        for (k = 1; k < 4u; k++)
+            sb_lp[k] += (sb_lp[k - 1u] - sb_lp[k]) * 0.02112f;
+        a = fm_fabsf(sb_lp[3]);
+        sb_env = a > sb_env ? sb_env + 0.25f * (a - sb_env) : undenorm(sb_env * (1.0f - 1.0f / 2048.0f));
+        t = fm_maxf(-sb_env, fm_minf(sb_env, 8.0f * sb_lp[3]));
+        sb_h1 += (t - sb_h1) * (1.0f / 32.0f);
+        u = t - sb_h1;
+        sb_h2 += (u - sb_h2) * (1.0f / 32.0f);
+        u -= sb_h2;
+        sb_hl += (u - sb_hl) * 0.125f;
+        lc_l[0] += (l[i] - lc_l[0]) * (1.0f / 32.0f);
+        l[i] -= lc_l[0];
+        lc_l[1] += (l[i] - lc_l[1]) * (1.0f / 32.0f);
+        l[i] = l[i] - lc_l[1] + 1.5f * sb_hl;
+        lc_r[0] += (r[i] - lc_r[0]) * (1.0f / 32.0f);
+        r[i] -= lc_r[0];
+        lc_r[1] += (r[i] - lc_r[1]) * (1.0f / 32.0f);
+        r[i] = r[i] - lc_r[1] + 1.5f * sb_hl;
+    }
+    for (k = 0; k < 4u; k++)
+        sb_lp[k] = undenorm(sb_lp[k]);
+    sb_h1 = undenorm(sb_h1), sb_h2 = undenorm(sb_h2), sb_hl = undenorm(sb_hl);
+    lc_l[0] = undenorm(lc_l[0]), lc_l[1] = undenorm(lc_l[1]), lc_r[0] = undenorm(lc_r[0]), lc_r[1] = undenorm(lc_r[1]);
+}
+
 static int echo_thrown(void)                     /* a throw into the echo held: the loop lifted */
 {
     uint32_t ch;
@@ -592,7 +643,9 @@ static void bus_update(void)                     /* the echo's and the voices' s
     t60 = echo_t60(ev[P_ECHO_FB]);
     c.g = fm_exp2f(-9.966f * (t / ECHO_RATE) / t60);   /* -60 dB after T60 */
     if (echo_thrown())
-        c.g = throw_lift(c.g);
+        thr_env = 1.0f;
+    c.g += (throw_lift(c.g) - c.g) * thr_env;    /* (6.4: the lift eases out after the throw, ~0.5 s, as DUB-1's
+                                                  * st_throw: the thrown word's repeats don't change mid-ring) */
     bus_echo_g = c.g;
     c.freeze = ev[P_ECHO_FREEZE] != 0;
     if (c.freeze)
@@ -608,8 +661,12 @@ static void bus_update(void)                     /* the echo's and the voices' s
     c.pingpong = ev[P_ECHO_PP] && tier_now == TIER_STUDIO;   /* (stereo: Studio only, as the width) */
     c.diffuse = tier_now < TIER_SEVEN;
     c.drive = tier_now >= TIER_SEVEN ? 1.8f : 1.0f;   /* Seven-inch: heavier tape saturation (the sound of it) */
-    if (echo_thrown() && c.head2 < 0.35f)
-        c.head2 = 0.35f;
+    if (c.head2 < 0.35f * thr_env)               /* (the 2T head with it) */
+        c.head2 = 0.35f * thr_env;
+    c.wow = (float)ev[P_ECHO_WOW] * (1.0f / 127.0f);   /* 6.3 */
+    c.head3 = send(ev[P_ECHO_HEAD3]);           /* 7.1 */
+    c.bbd = ev[P_ECHO_TYPE] == ECHO_BBD;         /* 7.9 */
+    desk_mci = ev[P_DESK] == DESK_MCI && tier_now == TIER_STUDIO;   /* 7.4 (Studio only) */
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev, tier_now);
@@ -621,7 +678,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
         float hz = 2000.0f + 5000.0f * (float)ev[P_SPRING_TONE] * (1.0f / 127.0f);
         sc.g = fm_exp2f(-9.966f * 0.04f / t60);
         sc.damp = 1.0f - fm_expf(-6.2831853f * hz / 22050.0f);
-        sc.naps = tier_now >= TIER_FOUR ? 6 : 12;
+        sc.naps = tier_now >= TIER_SEVEN ? 6 : tier_now >= TIER_FOUR ? 12 : 24;   /* (7.2) */
         sc.mono = tier_now >= TIER_FOUR;
         spring_config(&sc);
         ramp_to(&spring_ret, send(ev[P_SPRING_RET]));
@@ -673,10 +730,14 @@ static void bus_update(void)                     /* the echo's and the voices' s
         drive_on = ev[P_DRIVE_ON];
     }
     lock_now = lock_mask(ev, t_playing ? t_beat / 4u : 0u);
-    if (ev[P_HPF_STEP] != bk_step) {             /* a step: at once, unsmoothed (the detents are the sound) */
+    if (ev[P_HPF_STEP] != bk_step || ev[P_HPF_LP] != bk_lp) {   /* a step: at once, unsmoothed (the detents are the
+                                                                 * sound); 7.5: or the other filter */
+        float hz;
         bk_step = ev[P_HPF_STEP];
-        bigknob_step(&bk, hpf_hz(bk_step));
-        bigknob_step(&bkr, hpf_hz(bk_step));
+        bk_lp = ev[P_HPF_LP];
+        hz = bk_lp ? lpf_hz(bk_step) : hpf_hz(bk_step);
+        bigknob_step(&bk, hz, bk_lp);
+        bigknob_step(&bkr, hz, bk_lp);
     }
 }
 
@@ -897,6 +958,7 @@ static void seq_start(void)                      /* the transport's start (or th
     uint32_t ch;
     voices_start();                              /* (the noise from its seed: a replay the same, 5.1) */
     spring_start();                              /* (the crash's noise too) */
+    echo_wow_start();                            /* (6.3: the wow too) */
     for (ch = 0; ch < NCH; ch++) {
         pcur[ch].p = (uint8_t)(ev[P_CH(ch, CHF_PAT)] & 3);
         pcur[ch].org = 0;
@@ -943,6 +1005,7 @@ static void sev_add(int32_t t, uint32_t ch, uint32_t p, uint32_t i, uint32_t sb)
 }
 
 
+static uint8_t cond_pre[NCH];                    /* 6.7: PRE, each channel's last conditional step played (1) or not */
 /* channel ch's steps that land in [w0, w1), for those whose grid line is in [lo, hi), played from s */
 static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t w0, int32_t w1)
 {
@@ -956,8 +1019,18 @@ static void gather(uint32_t ch, const ppos_t *s, int32_t lo, int32_t hi, int32_t
         if (line < lo || line >= hi)
             continue;
         st = pat[ch][s->p][i];
-        if (!LVL(st) || !chance_plays(ch, s->p, (uint32_t)i, (uint32_t)(n / len), STEP_CHANCE(st), m.rsv))
+        if (n == 0)
+            cond_pre[ch] = 1;                    /* (a launch: the first PRE plays) */
+        if (!LVL(st))
             continue;
+        {                                        /* its CONDITION (6.7): PRE follows the last conditional step */
+            uint32_t c = STEP_COND(st);
+            int ok = cond_plays(ch, s->p, (uint32_t)i, (uint32_t)(n / len), c, m.rsv, ev[P_FILL] != 0, cond_pre[ch]);
+            if (c != COND_NONE)
+                cond_pre[ch] = (uint8_t)ok;
+            if (!ok)
+                continue;
+        }
         t = line + swing_fine(m, n) + st.off;
         if (t < w0 && line >= w0 && w0 == 0)     /* (at the very start, nothing before: early is on the one) */
             t = 0;
@@ -1018,7 +1091,7 @@ static void seq_hit(const sev_t *e)              /* a step, now */
             vrel(ch, held_note[ch]);
             held_note[ch] = -1;
         }
-        ctrig(ch, chord, st.note, vel);
+        ctrig(ch, chord, STEP_NOTE(st), vel);
         chord_last[ch] = chord;
         if (ch == CH_ORGAN && ev[P_VOICE(CH_ORGAN, VO_MODEL)] == ORG_B3) {   /* the B-3 held for its gate (5.15): a
                                                   * step, or the gate's length; the bubble a stab, as built */
@@ -1031,9 +1104,9 @@ static void seq_hit(const sev_t *e)              /* a step, now */
             vrel(ch, held_note[ch]);
             held_note[ch] = -1;
         }
-        trig(ch, st.note, vel);
+        trig(ch, STEP_NOTE(st), vel);
         if (ch == CH_BASS || ch == CH_LEAD) {    /* held for its gate: the bass a step (staccato), the lead two */
-            held_note[ch] = st.note;
+            held_note[ch] = (int8_t)STEP_NOTE(st);
             off_at[ch] = e->t + (st.gate ? 4 * (int32_t)st.gate : grid_fine(m.grid) * (ch == CH_LEAD ? 2 : 1));
         }
     }
@@ -1439,7 +1512,7 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         if (s->dry.left | s->echo.left | s->spring.left) {   /* a gain moving: per sample */
             for (i = 0; i < n; i++) {
                 float x = buf[i], d = ramp_next(&s->dry) * x;
-                dry[i] += d;
+                dry[i] += desk_mci ? desk_enc(d) : d;
                 ebus[i] += ramp_next(&s->echo) * x;
                 sbus[i] += ramp_next(&s->spring) * x;
                 pk = fm_maxf(pk, fm_fabsf(d));
@@ -1450,11 +1523,18 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             float gd = s->dry.g, ge = s->echo.g, gs = s->spring.g;
             if (gd != 0.0f) {
                 uint32_t k = stem_col(ch);
-                for (i = 0; i < n; i++) {
-                    float d = gd * buf[i];
-                    dry[i] += d;
-                    pk = fm_maxf(pk, fm_fabsf(d));
-                }
+                if (desk_mci)
+                    for (i = 0; i < n; i++) {
+                        float d = gd * buf[i];
+                        dry[i] += desk_enc(d);
+                        pk = fm_maxf(pk, fm_fabsf(d));
+                    }
+                else
+                    for (i = 0; i < n; i++) {
+                        float d = gd * buf[i];
+                        dry[i] += d;
+                        pk = fm_maxf(pk, fm_fabsf(d));
+                    }
                 if (stem_mode != STEMS_OFF)
                     for (i = 0; i < n; i++)
                         stem_add(i, k, gd * buf[i]);
@@ -1544,6 +1624,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             bigknob_run(&bk, dry, n);
             bigknob_run(&bkr, dryr, n);
         }
+        if (ev[P_SPEAKER] == OUT_SPEAKER)       /* 6.2: BASS+ for the FM-1's own speaker */
+            speaker_run(dry, dryr, n);
         for (i = 0; i < n; i++) {
             float y = dry[i], yr = dryr[i];
             op = fm_maxf(op, fm_maxf(fm_fabsf(y), fm_fabsf(yr)));
@@ -1590,6 +1672,8 @@ void eng_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         n = ENG_BLOCK;
     prof_t = plat_ticks24();
     blk_t24 = eng_clock_now();
+    if (!echo_thrown())                          /* 6.4: the throw's lift eases out, ~0.5 s (a time constant of 0.2) */
+        thr_env = undenorm(thr_env * fm_expf(-(float)n / (0.2f * 44100.0f)));
     drain();
     pat_sync();
     strips_update();
@@ -1720,7 +1804,7 @@ float eng_echo_g(void)
         return 1.0f;
     {
         float g = fm_exp2f(-9.966f * (t / ECHO_RATE) / echo_t60(ev[P_ECHO_FB]));
-        return echo_thrown() ? throw_lift(g) : g;
+        return g + (throw_lift(g) - g) * (echo_thrown() ? 1.0f : thr_env);
     }
 }
 int eng_playing(void) { return t_playing; }

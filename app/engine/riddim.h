@@ -35,6 +35,16 @@ enum { REP_OFF, REP_FLAM, REP_2, REP_3, REP_4, REP_N };
 static inline int is_drum(uint32_t ch) { return ch == CH_KICK || ch == CH_SNARE || ch == CH_HATS; }
 static inline int32_t lock_tune(step_t s) { return (int32_t)((int8_t)(s.gate << 4)) >> 4; }   /* -8..+7 */
 static inline int32_t lock_decay(step_t s) { return (int32_t)((int8_t)(s.gate & 0xF0u)) >> 4; }
+/* 6.7 (docs/plan-6.7-conditions.md): a step's CONDITION, 5.9's CHANCE grown to 16 values. Bits 0-1 are CHANCE's (an
+ * older save's CHANCE reads as the same condition), bit 2 the level byte's bit 7, bit 3 the note's bit 7 (a MIDI note
+ * is 0..127): every reader of a step's note goes through STEP_NOTE */
+enum { COND_NONE, COND_75, COND_50, COND_25, COND_1ST, COND_NOT1ST, COND_1_2, COND_2_2, COND_1_4, COND_2_4, COND_3_4,
+       COND_4_4, COND_PRE, COND_NOTPRE, COND_FILL, COND_NOTFILL, COND_N };
+#define STEP_COND(s) ((((uint32_t)(s).lvl >> 2) & 3u) | (((uint32_t)(s).lvl >> 5) & 4u) | (((uint32_t)(uint8_t)(s).note >> 4) & 8u))
+#define STEP_COND_SET(s, c) ((s).lvl = (uint8_t)(((s).lvl & 0x73u) | (((uint32_t)(c) & 3u) << 2) | (((uint32_t)(c) & 4u) << 5)), \
+                             (s).note = (int8_t)(((uint32_t)(uint8_t)(s).note & 0x7Fu) | (((uint32_t)(c) & 8u) << 4)))
+#define STEP_NOTE(s) ((int32_t)((uint32_t)(uint8_t)(s).note & 0x7Fu))
+#define STEP_NOTE_SET(s, n) ((s).note = (int8_t)(((uint32_t)(uint8_t)(s).note & 0x80u) | ((uint32_t)(n) & 0x7Fu)))
 /* (shared by the engine, which plays it, and the STEPS page, which marks the steps that will skip this loop) */
 /* 5.9: a step's CHANCE, decided by its pattern's SEED, the step and the loop since the launch: the same launches play
  * the same notes, and a captured song replays as it was */
@@ -49,6 +59,25 @@ static inline int chance_plays(uint32_t ch, uint32_t p, uint32_t i, uint32_t loo
     h *= 2246822519u;
     h ^= h >> 13;
     return h % 100u < PCT[c & 3u];
+}
+/* 6.7: a condition's verdict on pass `loop` (0 the first since the launch); fill: FILL held; pre: the channel's last
+ * conditional step played (PRE). The page and the engine both ask this */
+static inline int cond_plays(uint32_t ch, uint32_t p, uint32_t i, uint32_t loop, uint32_t c, uint32_t seed, int fill,
+                             int pre)
+{
+    switch (c) {
+    case COND_NONE: return 1;
+    case COND_75: case COND_50: case COND_25: return chance_plays(ch, p, i, loop, c, seed);
+    case COND_1ST: return loop == 0u;
+    case COND_NOT1ST: return loop != 0u;
+    case COND_1_2: return loop % 2u == 0u;
+    case COND_2_2: return loop % 2u == 1u;
+    case COND_1_4: case COND_2_4: case COND_3_4: case COND_4_4: return loop % 4u == c - COND_1_4;
+    case COND_PRE: return pre;
+    case COND_NOTPRE: return !pre;
+    case COND_FILL: return fill;
+    default: return !fill;
+    }
 }
 static inline uint8_t locks_pack(int32_t tune, int32_t decay) { return (uint8_t)(((uint32_t)decay & 15u) << 4 | ((uint32_t)tune & 15u)); }
 
@@ -96,14 +125,16 @@ uint32_t lvl_vel(uint32_t lvl);                  /* a level's velocity */
 /* a step as one command value (cmdq.h CMD_STEP): level 2 bits, note 7, off 8, gate 8, CHANCE 2 and REPEAT 3 (5.8, 5.9) */
 static inline int32_t step_pack(step_t s)
 {
-    return (int32_t)(s.lvl & 3u) | (int32_t)(s.note & 0x7F) << 2 | (int32_t)(uint8_t)s.off << 9
-           | (int32_t)s.gate << 17 | (int32_t)((s.lvl >> 2) & 0x1Fu) << 25;
+    return (int32_t)((uint32_t)(s.lvl & 3u) | (uint32_t)(s.note & 0x7F) << 2 | (uint32_t)(uint8_t)s.off << 9
+                     | (uint32_t)s.gate << 17 | (uint32_t)((s.lvl >> 2) & 0x1Fu) << 25 | (uint32_t)(s.lvl >> 7) << 30
+                     | ((uint32_t)(uint8_t)s.note >> 7) << 31);   /* (6.7: the condition's bits 2 and 3 in 30, 31) */
 }
 static inline step_t step_unpack(int32_t v)
 {
     step_t s;
-    s.lvl = (uint8_t)((v & 3) | ((v >> 25) & 0x1F) << 2);
-    s.note = (int8_t)((v >> 2) & 0x7F);
+    uint32_t u = (uint32_t)v;
+    s.lvl = (uint8_t)((u & 3u) | ((u >> 25) & 0x1Fu) << 2 | ((u >> 30) & 1u) << 7);
+    s.note = (int8_t)(((u >> 2) & 0x7Fu) | (u >> 31) << 7);
     s.off = (int8_t)(uint8_t)((v >> 9) & 0xFF);
     s.gate = (uint8_t)((v >> 17) & 0xFF);
     return s;

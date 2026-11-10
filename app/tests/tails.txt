@@ -3,7 +3,8 @@
 # (another firmware's endless decay). srcN_db: voice N's own level over the last block, before its strip (a muted
 # voice still shows). The longest decays (voices.c, chordv.c, fxv.c): kick 1,600 ms (BOOM, 5.7; SINE 1,000), rim 600 (SYNDRUM; CROSS 200), open hat 800, bass 60
 # after its release (1,500 while held), skank 200, organ 300, lead 600 after its release, a siren ~200 after its key (a 28 ms time constant),
-# a one-shot 1.5 s at most. Each check is at that time plus ~100 ms.
+# a one-shot 1.5 s at most, a deejay shout (6.6; SAY at its most, with STUTTER) 1.9 s. Each check is at that time plus
+# ~100 ms.
 wait 600
 listen
 param rec.offset 0
@@ -38,7 +39,7 @@ expect src8_db <-60
 key b7 down
 wait 50
 key b7 up
-wait 1600
+wait 2100
 expect src8_db <-60
 # steals: a second note takes the voice; its release ends it (the first's release never comes)
 midi 90 21 7F
@@ -127,7 +128,7 @@ expect src8_db <-60
 key b7 down
 wait 50
 key b7 up
-wait 1600
+wait 2100
 expect src8_db <-60
 # steals: a second note takes the voice; its release ends it (the first's release never comes)
 midi 90 21 7F

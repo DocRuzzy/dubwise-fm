@@ -75,8 +75,8 @@ step 6 A 9 0
 wait 400
 param v6.perc 0
 param v6.perc_fast 0
-# the rotary, FAST: the level moves at the rotors' rates (horn ~6.7 Hz); the horn's side stereo in Studio,
-# the low end mono. The note held 3 s, measured over its second half (the glide up is over)
+# the rotary, FAST: setBfree's speeds (horn 7.06 Hz, drum 5.96, each at its own pace: v0.3); the horn's side stereo
+# in Studio, the low end mono. The note held 3 s
 param v6.rotary 2
 wait 50
 wav b3-fast.wav
@@ -84,20 +84,20 @@ tap PLAY
 wait 3000
 tap PLAY
 wavstop
-expect rotor_horn >640
-expect rotor_horn <700
-expect rotor_drum >330
-expect rotor_drum <590
+expect rotor_horn >690
+expect rotor_horn <720
+expect rotor_drum >280
+expect rotor_drum <596
 wait 400
-# SLOW: the horn ~0.83 Hz, the drum ~0.67, each at its own pace (the horn there in ~2 s, the drum still on its way)
+# SLOW: the horn 0.67 Hz, the drum 0.60, each at its own pace (the horn there at once, the drum still on its way)
 param v6.rotary 1
 tap PLAY
 wait 2000
-expect rotor_horn <120
-expect rotor_drum >150
+expect rotor_horn <80
+expect rotor_drum >100
 wait 4000
 tap PLAY
-expect rotor_drum <130
+expect rotor_drum <75
 wait 400
 wav b3-slow.wav
 tap PLAY
@@ -113,8 +113,18 @@ tap PLAY
 expect rotor_horn <5
 expect rotor_drum <20
 wait 400
-# Four-track: the horn's movement summed (no side)
+# the FULL Leslie (setBfree's whirl, v0.3): Studio, FAST; its level as the LIGHT one's (within 1.5 dB), the low end
+# mono, the horn's side stereo (narrow: these chords sit mostly under the horn's ~300 Hz, so the drum carries them)
 param v6.rotary 2
+param v6.leslie 1
+wait 3000
+wav b3-full.wav
+tap PLAY
+wait 3000
+tap PLAY
+wavstop
+wait 400
+# Four-track: FULL falls back to LIGHT, the horn heard from one microphone (no side)
 param tier.lock 2
 wait 3000
 wav b3-four.wav
@@ -123,14 +133,23 @@ wait 3000
 tap PLAY
 wavstop
 wait 400
-# the cost (tenths of a % of a device block; measured 2026-11-09: tone 2.8 %, rotary 1.6, scanner 0.7, drive 0.6),
-# the note held throughout: Studio with everything on (rotary FAST, scanner C3, perc, drive), bound at about twice
-# that (host jitter); Seven-inch (no Doppler, no scanner) no dearer
+# the cost (tenths of a % of a device block, the x80 rule; measured 2026-11-10: everything on with the FULL Leslie
+# ~15 %, with the LIGHT one ~8.6 %, Seven-inch ~6 %), the note held throughout: Studio with everything on (rotary FAST,
+# scanner C3, perc, drive), FULL then LIGHT, bound at about 1.5 and 1.7 times that (host jitter); Seven-inch (no
+# Doppler, no scanner, FULL not there) no dearer
 step 6 A 9 2 0 0 255
 param tier.lock 1
 param v6.vib/chorus 6
 param v6.perc 1
 param v6.drive 60
+tap PLAY
+wait 500
+perf reset
+wait 3000
+expect perf_ch6 <220
+tap PLAY
+wait 400
+param v6.leslie 0
 tap PLAY
 wait 500
 perf reset
@@ -217,7 +236,8 @@ param tier.lock 0
 #wav b3-plain.wav peak<-1 dc<-40 rms>-40 side<-150 tail>-40
 #wav b3-16.wav peak<-1 dc<-40 rms>-45 hf<-40
 #wav b3-16-1.wav peak<-1 dc<-40 hf>-36
-#wav b3-perc.wav peak<-1 dc<-40 peak>-20 crest>13
+#wav b3-perc.wav peak<-1 dc<-40 click<-30
 #wav b3-fast.wav peak<-1 dc<-40 click<-30 side>-80 side_lo<-80
 #wav b3-slow.wav peak<-1 dc<-40 side_lo<-80
 #wav b3-four.wav peak<-1 dc<-40 side<-150
+#wav b3-full.wav peak<-1 dc<-40 click<-30 side>-100 side_lo<-90 rms>-34 rms<-31

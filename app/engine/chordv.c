@@ -6,6 +6,7 @@
 #include "fastmath.h"
 #include "dsp.h"
 #include "plat.h"                                /* PLAT_POOL */
+#include "leslie.h"                              /* the FULL Leslie (v0.3) */
 
 #define SR 44100.0f
 #define INV_SR (1.0f / 44100.0f)
@@ -24,7 +25,21 @@ static struct {                                  /* the skank */
     cv_t v[NV];
     float vel, index, ik, ak, ratio, hp_a, lp_a, hx, hy, ly, aenv, arate;   /* aenv: ATTACK's swell (5.3) */
     int on;
+    int pluck;                                   /* 7.8: MODEL PLUCK */
+    uint32_t mute_at, t;                         /* (PLUCK: the half-rate sample its strings are damped, this one) */
 } sk;
+/* 7.8: PLUCK, Karplus-Strong strings after the STK's Plucked (Perry R. Cook and Gary P. Scavone, MIT-style; its pluck
+ * and loop, in C): a string a note of the chord, filled at the pluck with noise through a one-pole (pole 0.999 - 0.15
+ * x the velocity: harder, brighter), 0.6 of its own output fed back as it fills; then its loop: a two-point average at
+ * 0.995 + f x 5e-6 a pass. DECAY is how long they ring before the fretting hand mutes them (the loop's gain to 0.6):
+ * the chop. Half rate, as the FM skank; the strings int16 in the pool (a pluck starts loud: no tiny values to lose) */
+#define KS_N 256u                                /* 22,050 / 256: down to 86 Hz */
+static PLAT_POOL int16_t ks_line[NV][KS_N];
+static struct {
+    uint32_t w;
+    float d, g, x1;
+} ks[NV];
+static uint32_t ks_rng = 0x1F123BB5u;
 
 static struct {                                  /* the organ */
     cv_t v[NV];
@@ -43,7 +58,7 @@ static struct {                                  /* the organ */
 #define B3_HR (SR * 0.5f)
 static PLAT_POOL int16_t b3tab[2][3][B3_N];
 static volatile uint32_t b3cur;                  /* the pair's half the render reads */
-static float b3gain = 1.0f;
+static float b3gain = 1.0f, b3unit = 1.0f;     /* (b3unit: a drawbar at 8 in the table's units: the percussion's) */
 static const uint8_t B3_H[9] = {1, 3, 2, 4, 6, 8, 10, 12, 16};   /* 16' 5 1/3' 8' 4' 2 2/3' 2' 1 3/5' 1 1/3' 1' */
 
 void chordv_b3_build(const int8_t bars[9])      /* (main loop) the registration into the half not being read */
@@ -68,6 +83,8 @@ void chordv_b3_build(const int8_t bars[9])      /* (main loop) the registration 
         }
         for (i = 0; i < B3_N; i++)
             b3tab[w][b][i] = (int16_t)(acc[i] / peak * 32000.0f);
+        if (b == 0u)
+            b3unit = (32000.0f / 32768.0f) / peak;   /* (a drawbar at 8, in the table's units: the percussion's) */
     }
     b3gain = sum > 0.0f ? fm_minf(1.0f, 0.35f + sum * 0.12f) : 0.0f;   /* (more drawbars out: louder, as on the
                                                                          * real one) */
@@ -81,14 +98,21 @@ static struct {
     uint32_t pn;                                 /* percussion strikes (tests) */                                    /* the sequencer holds the chord (its gate); a pad's dies at once */
     float ph[NV], pph[NV], penv, pk, plev, pmul;    /* the notes' phases; the percussion's */
     int perc;                                    /* PERC_* */
-    float vdepth, vmix;                          /* the scanner: depth (samples), 1 vibrato / 0.5 chorus, 0 off */
-    float vph, drive;
-    int rot;                                     /* ROT_* */
-    float hf, df, hph, dph, lp, hk, dk, sl1, sl2;          /* the rotors' speeds (Hz), phases; the split; glides */
+    float vdepth, vmix, voff;                    /* the scanner: depth and offset (samples), 1 vibrato / 0.71 chorus, 0 off */
+    float vph;
+    int rot, full;                               /* ROT_*; the FULL Leslie (setBfree's: Studio only) */
+    float hf, df, hph, dph, lp, sl1, sl2;        /* the LIGHT rotary: the rotors' speeds (Hz), phases; the split */
     int stereo, doppler, scanner;                /* (the tier's) */
+    float pdec, normal;                          /* percussion's decay a sample; the sound with it on */
+    float atk[NV][64], aprev[NV];                /* the key click: each note's contact-bounce envelope (setBfree's) */
+    uint32_t ai[NV], rng;
+    float clickd;                                /* how much they bounce (CLICK) */
+    int od;                                      /* the overdrive: on (DRIVE above 0) */
+    float od_chr, od_fb, od_fb2, od_sag, od_z, od_z1, od_gf;   /* setBfree's preamp: character, its two bass
+                                                  * filters' poles, the sag, the filters' memories, the feedback */
 } b3;
 #define B3_DL 64u
-#define PERC_LEV 0.9f                            /* the percussion against a full table (as loud as a bar at 8) */
+#define LES_GAIN 0.8f                            /* the FULL Leslie against the LIGHT one, by level (measured: organ.txt, FAST) */
 static PLAT_POOL float b3v[B3_DL], b3hl[B3_DL];             /* the scanner's and the horn's delay lines */
 static uint32_t b3vw, b3hw;
 static PLAT_POOL float og_side[256];                       /* (ENG_BLOCK) the horn's side, this block */
@@ -111,6 +135,8 @@ void chordv_init(void)
 {
     static const int8_t REG[9] = ORG_REG;
     sk.on = og.on = 0;
+    b3.rng = 0x1F123BB5u;
+    les_init();
     chordv_b3_build(REG);                        /* (the default registration, until the main loop's) */
     chordv_b3_build(REG);
 }
@@ -128,6 +154,8 @@ void chordv_config(const int16_t *ev, int tier)
     sk.ik = t60k(30.0f);
     sk.ak = t60k(lin(ev[P_VOICE(CH_SKANK, VS_DECAY)], 60.0f, 200.0f));
     sk.ratio = ev[P_VOICE(CH_SKANK, VS_RATIO)] ? 3.0f : 1.0f;
+    sk.pluck = ev[P_VOICE(CH_SKANK, VS_MODEL)] != 0;   /* 7.8 */
+    sk.mute_at = (uint32_t)(lin(ev[P_VOICE(CH_SKANK, VS_DECAY)], 60.0f, 200.0f) * 0.001f * SR * 0.5f);
     sk.arate = ev[P_VOICE(CH_SKANK, VS_ATTACK)]   /* 5.3: 0 a chop (at once) .. 30 ms in, a half-rate sample's step */
                    ? 2.0f / (lin(ev[P_VOICE(CH_SKANK, VS_ATTACK)], 0.5f, 30.0f) * 0.001f * SR)
                    : 1.0f;
@@ -145,23 +173,47 @@ void chordv_config(const int16_t *ev, int tier)
     og.det = lin(ev[P_VOICE(CH_ORGAN, VO_DETUNE)], 0.0f, 0.004f);   /* 5.3: +-7 cents at most */
     b3.model = ev[P_VOICE(CH_ORGAN, VO_MODEL)];
     b3.perc = ev[P_VOICE(CH_ORGAN, VO_PERC)];
-    b3.pk = t60k(ev[P_VOICE(CH_ORGAN, VO_PFAST)] ? 220.0f : 900.0f);
-    b3.pk *= b3.pk;                              /* (a half-rate sample's) */
+    /* percussion as setBfree's (setBfree-fm1's measurements, v0.3): its decay per sample of the plug-in, 0.9999 (slow)
+     * or 0.9995 (fast) at 48 kHz: -41.7 / -208 dB a second; "normal" volume: the whole sound 0.605 while it's on */
+    b3.pdec = ev[P_VOICE(CH_ORGAN, VO_PFAST)] ? 0.998912f : 0.999782f;   /* (a half-rate sample's) */
+    b3.normal = b3.perc ? 0.60512f : 1.0f;
     b3.pmul = b3.perc == PERC_3RD ? 6.0f : 4.0f;  /* the 2nd (4') or the 3rd (2 2/3'), over the 16' */
-    {
+    {   /* the scanner as setBfree's: a delay of 1 + A + A sin, A = 3, 6, 9 samples of 48 kHz, at 7.25 Hz; the chorus
+         * mixes with 1 / sqrt(2) (here in samples of the half rate) */
         int v = ev[P_VOICE(CH_ORGAN, VO_VIBCH)];
-        static const float D[4] = {0.0f, 5.5f, 11.0f, 20.0f};   /* V1-3, C1-3: ~0.25, 0.5, 0.9 ms of depth */
-        b3.vdepth = v > VIB_OFF ? D[v > VIB_V3 ? v - VIB_V3 : v] : 0.0f;
-        b3.vmix = v >= VIB_C1 ? 0.5f : v > VIB_OFF ? 1.0f : 0.0f;
+        static const float A[4] = {0.0f, 1.378f, 2.756f, 4.134f};
+        b3.vdepth = v > VIB_OFF ? A[v > VIB_V3 ? v - VIB_V3 : v] : 0.0f;
+        b3.voff = 0.459f;
+        b3.vmix = v >= VIB_C1 ? 0.70711f : v > VIB_OFF ? 1.0f : 0.0f;
     }
-    b3.drive = lin(ev[P_VOICE(CH_ORGAN, VO_ODRIVE)], 0.0f, 4.0f);
+    {   /* the overdrive: setBfree's preamp, its character the DRIVE (0 off); its two bass filters' poles at the half
+         * rate (squared) */
+        int32_t c = ev[P_VOICE(CH_ORGAN, VO_ODRIVE)];
+        float fb, fb2;
+        b3.od = c > 0;
+        if (c < 32)
+            fb = 0.58212f, fb2 = 0.99899f + (0.58212f - 0.99899f) * (float)c * (1.0f / 31.0f);
+        else if (c < 64)
+            fb = 0.58212f + (0.99899f - 0.58212f) * (float)(c - 32) * (1.0f / 31.0f), fb2 = 0.58212f;
+        else
+            fb = 0.99899f, fb2 = 0.58212f + (0.99899f - 0.58212f) * (float)(c - 64) * (1.0f / 63.0f);
+        b3.od_fb = fb * fb;
+        b3.od_fb2 = fb2 * fb2;
+    }
+    b3.clickd = fm_minf(1.0f, og.click * 4.0f);  /* CLICK: how much the contacts bounce */
     b3.rot = ev[P_VOICE(CH_ORGAN, VO_ROTARY)];
-    b3.hk = -1.0f / (0.6f * B3_HR);              /* the glides (a sample's log): the horn ~0.6 s to its speed, the drum
-                                                  * ~3 s */
-    b3.dk = -1.0f / (3.0f * B3_HR);
+    b3.full = ev[P_VOICE(CH_ORGAN, VO_LESLIE)] == LES_FULL && tier == TIER_STUDIO;
     b3.stereo = tier == TIER_STUDIO;             /* (the stereo horn: Studio only, open question 5) */
     b3.doppler = tier < TIER_SEVEN;              /* (Seven-inch: the rotary's AM only, no scanner) */
     b3.scanner = tier < TIER_SEVEN;
+}
+
+static uint32_t b3_rand(void)                    /* (the key click's: xorshift, the same clicks on a replay) */
+{
+    b3.rng ^= b3.rng << 13;
+    b3.rng ^= b3.rng >> 17;
+    b3.rng ^= b3.rng << 5;
+    return b3.rng;
 }
 
 void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
@@ -182,9 +234,51 @@ void chordv_trig(uint32_t ch, int32_t chord, int32_t voicing, uint32_t vel)
         sk.vel = v;
         sk.aenv = sk.arate >= 1.0f ? 1.0f : 0.0f;   /* (ATTACK 0: at once, as built) */
         sk.on = 1;
+        if (sk.pluck) {                          /* 7.8: each string plucked: filled with the pick's noise */
+            float pole = 0.999f - v * 0.15f, gain = v * 0.5f;
+            sk.t = 0;
+            for (i = 0; i < NV; i++) {
+                float f = sk.v[i].f, len = 22050.0f / f - 0.5f, y = 0.0f, last = 0.0f;
+                uint32_t k, n;
+                if (len > (float)(KS_N - 2u))
+                    len = (float)(KS_N - 2u);
+                ks[i].d = len;
+                ks[i].g = fm_minf(0.995f + f * 0.000005f, 0.99999f);
+                ks[i].x1 = 0.0f;
+                n = (uint32_t)len;
+                for (k = 0; k < KS_N; k++)
+                    ks_line[i][k] = 0;
+                for (k = 0; k < n; k++) {        /* (as the STK: the line run once round, the pick's noise in) */
+                    float nz;
+                    ks_rng ^= ks_rng << 13;
+                    ks_rng ^= ks_rng >> 17;
+                    ks_rng ^= ks_rng << 5;
+                    nz = (float)(int32_t)ks_rng * (1.0f / 2147483648.0f);
+                    y = gain * (1.0f - pole) * nz + pole * y;
+                    last = fm_clampf(0.6f * last + y, -1.99f, 1.99f);
+                    ks_line[i][k] = (int16_t)(last * 16384.0f);
+                }
+                ks[i].w = n % KS_N;
+            }
+        }
     } else if (ch == CH_ORGAN) {
         if (b3.model == ORG_B3 && b3.perc && (!og.on || og.v[0].amp < 0.05f))
             b3.penv = 1.0f, b3.pn++;             /* (percussion single-triggered: not over a chord still sounding) */
+        if (b3.model == ORG_B3)
+            for (i = 0; i < NV; i++) {           /* the key click as setBfree's (tonegen.c, attack "click"): each
+                                                  * note's contacts close after a random wait and bounce for 16..80
+                                                  * samples (of 44.1 kHz) at 1 - 0.5 random, then a two-point average;
+                                                  * CLICK scales the bounce and the wait */
+                uint32_t burst = 8u + b3_rand() % 32u, start = (uint32_t)((float)(b3_rand() % (64u - burst)) * b3.clickd), j;
+                float e, prev = 0.0f;
+                for (j = 0; j < 64u; j++) {
+                    e = j < start ? 0.0f : j < start + burst ? 1.0f - 0.5f * b3.clickd * (float)(b3_rand() & 0xFFFFu) * (1.0f / 65536.0f) : 1.0f;
+                    b3.atk[i][j] = 0.5f * (prev + e);
+                    prev = b3.atk[i][j];
+                }
+                b3.ai[i] = 0;
+                b3.aprev[i] = 0.0f;
+            }
         chord_notes(chord, voicing, 55, notes);  /* mid: from G3 */
         for (i = 0; i < NV; i++) {
             og.v[i].f = midi_hz(notes[i]);
@@ -240,6 +334,27 @@ static int render_skank(float *o, uint32_t n)
             continue;
         }
         sk_odd = 0;
+        if (sk.pluck) {                          /* 7.8: the strings */
+            float g_mute = sk.t >= sk.mute_at ? 0.6f : 1.0f;
+            sk.t++;
+            for (k = 0; k < nv_skank; k++) {
+                float d = ks[k].d, fr, x, y2;
+                int32_t di = (int32_t)d;
+                uint32_t a, b;
+                fr = d - (float)di;
+                a = (ks[k].w + KS_N - (uint32_t)di) % KS_N;
+                b = a == 0u ? KS_N - 1u : a - 1u;
+                x = ((float)ks_line[k][a] + fr * (float)(ks_line[k][b] - ks_line[k][a])) * (1.0f / 16384.0f);
+                s += x;
+                x *= ks[k].g * g_mute;
+                y2 = 0.5f * (x + ks[k].x1);       /* the loop's two-point average */
+                ks[k].x1 = x;
+                ks_line[k][ks[k].w] = (int16_t)(fm_clampf(y2, -1.99f, 1.99f) * 16384.0f);
+                ks[k].w = ks[k].w + 1u == KS_N ? 0u : ks[k].w + 1u;
+            }
+            s *= 6.4f;                           /* (FM's loudness) */
+            sk.v[0].amp = sk.t >= sk.mute_at + 2205u ? 0.0f : 1.0f;   /* (over 0.1 s after the mute: done) */
+        } else
         for (k = 0; k < nv_skank; k++) {
             cv_t *v = &sk.v[k];
             v->pm = wrap(v->pm + v->f * sk.ratio * inv2);
@@ -267,28 +382,61 @@ static int render_skank(float *o, uint32_t n)
     return 1;
 }
 
+static inline float od_t(float x) { return 1.0f / (1.0f + x * x); }
+/* the overdrive (v0.3): setBfree's preamp (b_overdrive/overdrive.c), after setBfree-fm1's integer port (organ_od.h,
+ * R-Jeb, GPL-2.0-or-later), in floats: the input gain and its sag, a bass filter, the transfer curve 1 / (1 + x^2)
+ * around a bias that sags with the level, a second bass filter, the global feedback. Its two FIRs (interpolation and
+ * decimation, setBfree's oversampling) are left out at the half rate: their DC gain (0.646 each) is kept */
+static float b3_od(float x)
+{
+    float xin = x * 3.5675f, bias, nrm, u, v, ex, tm;
+    b3.od_sag = fm_minf(1024.0f, b3.od_sag * 0.9910f + fm_fabsf(xin));
+    bias = 0.5347f - 0.0094f * b3.od_sag;
+    nrm = 1.0f - od_t(bias);
+    u = 0.646f * xin + 0.6214f * b3.od_gf;
+    tm = u - b3.od_z;
+    b3.od_z = undenorm(u + b3.od_z * b3.od_fb);
+    ex = tm;
+    v = ex < 0.0f ? od_t(ex - bias) - 1.0f + nrm : 1.0f - nrm - od_t(ex + bias);
+    tm = v + b3.od_z1 * b3.od_fb2;
+    v = tm - b3.od_z1;
+    b3.od_z1 = undenorm(tm);
+    b3.od_gf = v;
+    return v * (0.646f * 0.8795f);
+}
+
 static int render_b3(float *o, uint32_t n)       /* the B-3 (5.15), at half rate like the bubble */
 {
     uint32_t i, k, cur = b3cur;
-    float ak2 = og.ak * og.ak, ck2 = og.ck * og.ck, inv = 1.0f / B3_HR;
-    float th = b3.rot == ROT_FAST ? 6.7f : b3.rot == ROT_SLOW ? 0.83f : 0.0f;   /* the rotors' targets (BRAKE: 0) */
-    float td = b3.rot == ROT_FAST ? 5.8f : b3.rot == ROT_SLOW ? 0.67f : 0.0f;
-    float lpa = 1.0f - fm_expf(-6.2831853f * 800.0f * inv), inc[NV];
+    float ak2 = og.ak * og.ak, inv = 1.0f / B3_HR;
+    /* the LIGHT rotary's rotors: setBfree's speeds, each at its own pace (horn up 0.16 s, down 0.32 s; drum up 4.1 s,
+     * down 1.4 s; v0.3, setBfree-fm1's figures). BRAKE: to a stop */
+    float th = b3.rot == ROT_FAST ? 7.056f : b3.rot == ROT_SLOW ? 0.672f : 0.0f;
+    float td = b3.rot == ROT_FAST ? 5.955f : b3.rot == ROT_SLOW ? 0.600f : 0.0f;
+    float lpa = 1.0f - fm_expf(-6.2831853f * 800.0f * inv), inc[NV], plev[NV];
     float sha = 1.0f - fm_expf(-6.2831853f * 500.0f * inv);   /* the side's high-pass: the low end mono (Width) */
     const int16_t *tab[NV];
-    float gain = b3gain * og.vel * 0.2f * (1.0f / 32768.0f);
+    float gain = b3gain * og.vel * 0.2f;
+    int full = b3.full && b3.rot != ROT_OFF;
+    float m = (float)(n / 2u), hc, hs, dc, ds, hrc, hrs, drc, drs, vc, vs, vrc, vrs;
     og_side_on = b3.rot != ROT_OFF && b3.stereo && n <= 256u;
-    float m = (float)(n / 2u), hc, hs, dc, ds, hrc, hrs, drc, drs;
-    b3.hf = th + (b3.hf - th) * fm_expf(b3.hk * m);           /* the rotors to their speeds (a block's glide; silent too: a cabinet
-                                                  * spins on) */
-    b3.df = td + (b3.df - td) * fm_expf(b3.dk * m);
+    b3.hf = th + (b3.hf - th) * fm_expf(-m * inv / (th > b3.hf ? 0.161f : 0.321f));   /* (a block's glide; silent
+                                                  * too: a cabinet spins on) */
+    b3.df = td + (b3.df - td) * fm_expf(-m * inv / (td > b3.df ? 4.127f : 1.371f));
     hc = fm_sin_turns(b3.hph + 0.25f), hs = fm_sin_turns(b3.hph);   /* each rotor a phasor, turned a sample at a time */
     dc = fm_sin_turns(b3.dph + 0.25f), ds = fm_sin_turns(b3.dph);
     hrc = fm_sin_turns(b3.hf * inv + 0.25f), hrs = fm_sin_turns(b3.hf * inv);
     drc = fm_sin_turns(b3.df * inv + 0.25f), drs = fm_sin_turns(b3.df * inv);
+    vc = fm_sin_turns(b3.vph + 0.25f), vs = fm_sin_turns(b3.vph);   /* the scanner's sine, 7.25 Hz */
+    vrc = fm_sin_turns(7.25f * inv + 0.25f), vrs = fm_sin_turns(7.25f * inv);
     b3.hph = wrap(b3.hph + b3.hf * inv * m);
     b3.dph = wrap(b3.dph + b3.df * inv * m);
+    b3.vph = wrap(b3.vph + 7.25f * inv * m);
+    if (full)
+        les_block(n / 2u, b3.rot == ROT_FAST ? 2 : b3.rot == ROT_SLOW ? 1 : 0);
     if (!og.on) {
+        if (full)
+            les_spin(n / 2u);                    /* (its rotors spin on) */
         og_last = 0.0f;
         og_odd = 0;
         og_side_on = 0;
@@ -298,10 +446,13 @@ static int render_b3(float *o, uint32_t n)       /* the B-3 (5.15), at half rate
         float f16 = og.v[k].f * 0.5f * (1.0f + og.det * (float)((int32_t)k - 1));
         inc[k] = f16 * inv;
         tab[k] = b3tab[cur][f16 * 16.0f < 10000.0f ? 0u : f16 * 8.0f < 10000.0f ? 1u : 2u];
+        /* percussion as setBfree's: 11 x its harmonic at a drawbar's level, through a first difference at 48 kHz
+         * (the higher the note, the louder): 2 sin(pi f / 48000) */
+        plev[k] = 11.0f * b3unit * 2.0f * fm_sin_turns(fm_minf(0.25f, f16 * b3.pmul * (0.5f / 48000.0f)));
     }
     for (i = 0; i < n; i++) {
         float s = 0.0f, y, side = 0.0f;
-        int perc = b3.perc && b3.penv > 1e-4f, click = og.cenv > 1e-4f;
+        int perc = b3.perc && b3.penv > 1e-4f;
         if (!og_odd) {
             o[i] = og_last;
             if (og_side_on)
@@ -312,41 +463,49 @@ static int render_b3(float *o, uint32_t n)       /* the B-3 (5.15), at half rate
         og_odd = 0;
         for (k = 0; k < NV; k++) {               /* the notes: a table read at the 16' pitch */
             const int16_t *t = tab[k];
-            float p, fr, a;
+            float p, fr, a, e = b3.ai[k] < 64u ? b3.atk[k][b3.ai[k]++] : 1.0f;   /* (the key click's bounce) */
             uint32_t j;
             b3.ph[k] = wrap(b3.ph[k] + inc[k]);
             p = b3.ph[k] * (float)B3_N;
             j = (uint32_t)p;
             fr = p - (float)j;
             a = (float)t[j & (B3_N - 1u)];
-            s += (a + ((float)t[(j + 1u) & (B3_N - 1u)] - a) * fr) * og.v[k].amp;
-            if (perc) {                          /* the percussion: its harmonic, decaying */
+            s += (a + ((float)t[(j + 1u) & (B3_N - 1u)] - a) * fr) * (1.0f / 32768.0f) * og.v[k].amp * e;
+            if (perc) {                          /* the percussion: its harmonic, decaying; and, as setBfree's, the
+                                                  * first difference of the key's bounce under it: a click */
+                float ps;
                 b3.pph[k] = wrap(b3.pph[k] + inc[k] * b3.pmul);
-                s += PERC_LEV * 32768.0f * b3.penv * fm_sin_turns(b3.pph[k]);
+                ps = fm_sin_turns(b3.pph[k]) * b3.penv;
+                s += plev[k] * e * ps + 11.0f * b3unit * 0.5f * (e - b3.aprev[k]) * ps;
             }
-            if (click) {                         /* the key click (as the bubble's) */
-                og.pk[k] = wrap(og.pk[k] + 24.0f * inc[k]);
-                s += 32768.0f * og.click * og.cenv * fm_sin_turns(og.pk[k]);
-            }
+            b3.aprev[k] = e;
             if (!b3.held)                        /* (held: the tonewheels sound on; let go: DECAY) */
                 og.v[k].amp *= ak2;
         }
-        s *= gain;
-        b3.penv = undenorm(b3.penv * b3.pk);
-        og.cenv = undenorm(og.cenv * ck2);
-        if (b3.vmix > 0.0f && b3.scanner) {      /* the scanner: vibrato, or chorus (with the dry) */
-            float v;
+        s *= gain * b3.normal;
+        b3.penv = undenorm(b3.penv * b3.pdec);
+        if (b3.vmix > 0.0f && b3.scanner) {      /* the scanner (setBfree's): vibrato, or chorus with the dry */
+            float v, t = vc * vrc - vs * vrs;
+            vs = vs * vrc + vc * vrs;
+            vc = t;
             b3v[b3vw] = s;
-            b3.vph = wrap(b3.vph + 6.9f * inv);
-            v = b3_read(b3v, b3vw, 1.0f + b3.vdepth * (1.0f - 2.0f * fm_fabsf(b3.vph - 0.5f)));   /* (a triangle,
-                                                  * as the scanner's sweep across its taps) */
+            v = b3_read(b3v, b3vw, b3.voff + b3.vdepth + b3.vdepth * vs);
             b3vw = (b3vw + 1u) & (B3_DL - 1u);
-            s = b3.vmix >= 1.0f ? v : 0.5f * (s + v);
+            s = b3.vmix >= 1.0f ? v : b3.vmix * (s + v);
         }
-        if (b3.drive > 0.0f)                     /* drive into the cabinet */
-            s = s * (1.0f + b3.drive) / (1.0f + b3.drive * fm_fabsf(s));
-        if (b3.rot != ROT_OFF) {                 /* the rotary: drum below 800 Hz, horn above */
-            float drum, horn, am, l, r, t;
+        if (b3.od)                               /* into the preamp (its level as setBfree's mono: x 3.5) */
+            s = b3_od(s * 3.5f) * (1.0f / 3.5f);
+        if (full) {                              /* the FULL Leslie (setBfree's whirl: Studio only) */
+            float l, r;
+            les_tick(s, &l, &r);
+            s = 0.5f * (l + r) * LES_GAIN;
+            side = 0.5f * (l - r) * LES_GAIN;    /* (the drum is mono: only the horn here; and its lows off) */
+            b3.sl1 = undenorm(b3.sl1 + sha * (side - b3.sl1));
+            side -= b3.sl1;
+            b3.sl2 = undenorm(b3.sl2 + sha * (side - b3.sl2));
+            side -= b3.sl2;
+        } else if (b3.rot != ROT_OFF) {          /* the LIGHT rotary: drum below 800 Hz, horn above */
+            float drum, horn, am, l, r, t, gl, gr;
             t = hc * hrc - hs * hrs;             /* (the phasors a sample on) */
             hs = hs * hrc + hc * hrs;
             hc = t;
@@ -358,23 +517,28 @@ static int render_b3(float *o, uint32_t n)       /* the B-3 (5.15), at half rate
             drum = b3.lp * (1.0f + 0.2f * ds);
             horn = s - b3.lp;
             am = hs;
+            gl = 0.2f + 0.4f * (1.0f + am);      /* the horn a beam: 14 dB between facing a microphone and away */
+            gr = 0.2f + 0.4f * (1.0f - am);
             b3hl[b3hw] = horn;
             if (b3.doppler) {                    /* two mics facing each other across the horn: its delay and level
                                                   * move opposite ways in each */
-                l = b3_read(b3hl, b3hw, 16.0f + 11.0f * am) * (1.0f + 0.3f * am);
-                r = b3_read(b3hl, b3hw, 16.0f - 11.0f * am) * (1.0f - 0.3f * am);
+                l = b3_read(b3hl, b3hw, 16.0f + 11.0f * am) * gl;
+                r = b3_read(b3hl, b3hw, 16.0f - 11.0f * am) * gr;
             } else
-                l = r = horn * (1.0f + 0.3f * am);
+                l = horn * gl, r = horn * gr;
             b3hw = (b3hw + 1u) & (B3_DL - 1u);
-            s = drum + 0.5f * (l + r);
-            if (og_side_on) {                    /* (the split's one pole leaves lows in the horn: two more on its
+            if (b3.stereo) {                     /* (Studio: both microphones; else one, as a 7-inch heard it) */
+                s = drum + 0.5f * (l + r);
+                if (og_side_on) {                /* (the split's one pole leaves lows in the horn: two more on its
                                                   * side, 12 dB/oct under 500 Hz) */
-                side = 0.5f * (l - r);
-                b3.sl1 = undenorm(b3.sl1 + sha * (side - b3.sl1));
-                side -= b3.sl1;
-                b3.sl2 = undenorm(b3.sl2 + sha * (side - b3.sl2));
-                side -= b3.sl2;
-            }
+                    side = 0.5f * (l - r);
+                    b3.sl1 = undenorm(b3.sl1 + sha * (side - b3.sl1));
+                    side -= b3.sl1;
+                    b3.sl2 = undenorm(b3.sl2 + sha * (side - b3.sl2));
+                    side -= b3.sl2;
+                }
+            } else
+                s = drum + l;
         }
         y = s;
         o[i] = 0.5f * (og_last + y);

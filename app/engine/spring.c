@@ -8,7 +8,8 @@
 #include "dsp.h"
 
 #define NSPR 2
-#define NAPS 12                                  /* all-passes a spring */
+#define NAPS 24                                  /* all-passes a spring, at most (7.2: 24 in Studio, the chirp twice as
+                                                  * long; 12 at Four-track, 6 at Seven-inch) */
 #define APK 2                                    /* their stretch: z^-2 */
 #define AP_A 0.62f                               /* their coefficient: the chirp's strength */
 static const uint16_t LEN[NSPR] = {816, 948};    /* 37 and 43 ms at 22,050 Hz */
@@ -40,6 +41,9 @@ static hp4_t side_hp;                            /* the difference, high-passed 
 #define SIDE_A 0.9582f                           /* exp(-2 pi 150 / 22050) */
 static uint32_t phase;
 static float crash_env, crash_amp;               /* the strike: its burst */
+#define SHAKE_N 18                               /* 7.2: the strike's shake, a half-sine 0.8 ms long (Surge XT's chowdsp
+                                                  * spring, GPL-3.0: its idea), which the chirp turns into the drip */
+static uint32_t shake_k = SHAKE_N;
 static uint32_t rng = 0x9E3779B9u;
 static uint32_t quiet;                           /* half-rate samples in a row with silence in and (almost) out */
 static float lim_env, lim_g = 1.0f;              /* the return's limiter (-6 dBFS, as the echo's) */
@@ -76,6 +80,7 @@ void spring_init(void)
     half_r = th1 = th2 = 0.0f;
     hp4_clear(&side_hp);
     crash_env = crash_amp = 0.0f;
+    shake_k = SHAKE_N;
     quiet = IDLE_AFTER;                          /* (idle from the start) */
 }
 
@@ -87,6 +92,7 @@ void spring_crash(float amount)
 {
     crash_amp = amount;
     crash_env = 1.0f;
+    shake_k = 0;
     th1 = 0.25f * amount * fm_sinf(TH_W);        /* (the resonator started: amount x sin, decaying) */
     th2 = 0.0f;
     quiet = 0;
@@ -103,6 +109,10 @@ static float half_step(float x)                  /* one 22,050 Hz sample: in, th
     if (crash_env > 1e-4f) {                     /* (noise only: the thump, below, carries no DC into the loops) */
         y += crash_amp * crash_env * noise();
         crash_env *= 0.9925f;
+    }
+    if (shake_k < SHAKE_N) {                     /* the shake: the tank jolted once */
+        y += 1.5f * crash_amp * fm_sin_turns((float)shake_k * (0.5f / (float)SHAKE_N));
+        shake_k++;
     }
     if (th1 != 0.0f || th2 != 0.0f) {
         float t = 2.0f * TH_R * fm_cosf(TH_W) * th1 - TH_R * TH_R * th2;
@@ -182,7 +192,7 @@ void spring_run(const float *in, float *out, float *outr, uint32_t n)
             ur[ui] = half_r;
             out[i] = hb_int(ul);
             outr[i] = hb_int(ur);
-            if (in[i] == 0.0f && fm_fabsf(u) < 1e-6f && crash_env < 1e-4f && th1 == 0.0f)
+            if (in[i] == 0.0f && fm_fabsf(u) < 1e-6f && crash_env < 1e-4f && th1 == 0.0f && shake_k >= SHAKE_N)
                 quiet++;                         /* counting the quiet: in silent, out under -120 dB */
             else
                 quiet = 0;

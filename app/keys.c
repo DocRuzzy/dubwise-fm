@@ -149,53 +149,54 @@ static void keys_draw(int all)
     if (!all && sig == ks.sig)
         return;
     ks.sig = sig;
-    cv_begin(240, PAGE_H, C_BLACK);      /* (a canvas holds 144 rows: the rest of the area below, cleared) */
-    cv_text(6, 2, &FONT_XS, ks.bank ? "CHORD LANE" : "KEY & LOCK", C_GRAY);
-    /* the twelve pitch classes: root bright, the allowed set amber, the rest dark */
-    for (i = 0; i < 12u; i++) {
-        int32_t x = 6 + (int32_t)i * 19, on = (int32_t)(m >> i & 1u);
-        uint16_t c = ctl_get(P_LOCK) != LOCK_OFF && (int32_t)i == root ? C_HI : on ? C_AMB : C_LINE;
-        cv_rect(x, 20, 17, 16, c);
-        cv_text(x + (17 - text_w(&FONT_T, pitch_name((int32_t)i))) / 2, 22, &FONT_T, pitch_name((int32_t)i),
-                on ? C_BLACK : C_DIM);
-    }
-    if (!ks.bank) {
-        static const char *const L[4] = {"KEY", "SCALE", "LOCK", "OCTAVE"};
-        for (i = 0; i < 4u; i++) {
-            int32_t y = 46 + (int32_t)i * 26;
-            t[0] = 0;
-            if (i == 0u)
-                text_cat(t, pitch_name(ctl_get(P_KEY_ROOT)));
-            else if (i == 1u)
-                text_cat(t, scale_name(ctl_get(P_SCALE)));
-            else if (i == 2u)
-                text_cat(t, MODE[ctl_get(P_LOCK)]);
-            else {
-                text_cat(t, ctl_get(P_KB_OCT) >= 3 ? "+" : "");
-                int_text(ctl_get(P_KB_OCT) - 3, n);
-                text_cat(t, n);
-            }
-            cv_text(8, y, &FONT_XS, L[i], C_GRAY);
-            cv_text(80, y - 2, &FONT_B, t, i == 2u && ctl_get(P_LOCK) ? C_HI : C_WHITE);
+    CV_BANDS(PAGE_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        cv_text(6, 2, &FONT_XS, ks.bank ? "CHORD LANE" : "KEY & LOCK", C_GRAY);
+        /* the twelve pitch classes: root bright, the allowed set amber, the rest dark */
+        for (i = 0; i < 12u; i++) {
+            int32_t x = 6 + (int32_t)i * 19, on = (int32_t)(m >> i & 1u);
+            uint16_t c = ctl_get(P_LOCK) != LOCK_OFF && (int32_t)i == root ? C_HI : on ? C_AMB : C_LINE;
+            cv_rect(x, 20, 17, 16, c);
+            cv_text(x + (17 - text_w(&FONT_T, pitch_name((int32_t)i))) / 2, 22, &FONT_T, pitch_name((int32_t)i),
+                    on ? C_BLACK : C_DIM);
         }
-    } else {
-        int32_t len = ctl_get(P_CHORD_LEN), cur = (int32_t)(ui_bar() % (uint32_t)len);
-        for (i = 0; i < (uint32_t)len; i++) {   /* the lane: 8 a row */
-            int32_t x = 6 + (int32_t)(i % 8u) * 29, y = 46 + (int32_t)(i / 8u) * 30;
-            chord_text(ctl_get(P_CHORD0 + (int32_t)i), t);
-            if ((int32_t)i == cur && eng_playing())
-                cv_rect(x, y, 27, 24, C_LINE);
-            if ((int32_t)i == ks.slot) {
-                cv_rect(x, y, 27, 1, C_WHITE);
-                cv_rect(x, y + 23, 27, 1, C_WHITE);
+        if (!ks.bank) {
+            static const char *const L[4] = {"KEY", "SCALE", "LOCK", "OCTAVE"};
+            for (i = 0; i < 4u; i++) {
+                int32_t y = 46 + (int32_t)i * 26;
+                t[0] = 0;
+                if (i == 0u)
+                    text_cat(t, pitch_name(ctl_get(P_KEY_ROOT)));
+                else if (i == 1u)
+                    text_cat(t, scale_name(ctl_get(P_SCALE)));
+                else if (i == 2u)
+                    text_cat(t, MODE[ctl_get(P_LOCK)]);
+                else {
+                    text_cat(t, ctl_get(P_KB_OCT) >= 3 ? "+" : "");
+                    int_text(ctl_get(P_KB_OCT) - 3, n);
+                    text_cat(t, n);
+                }
+                cv_text(8, y, &FONT_XS, L[i], C_GRAY);
+                cv_text(80, y - 2, &FONT_B, t, i == 2u && ctl_get(P_LOCK) ? C_HI : C_WHITE);
             }
-            cv_text(x + 2, y + 4, &FONT_XS, t, (int32_t)i == cur ? C_HI : C_GRAY);
+        } else {
+            int32_t len = ctl_get(P_CHORD_LEN), cur = (int32_t)(ui_bar() % (uint32_t)len);
+            for (i = 0; i < (uint32_t)len; i++) {   /* the lane: 8 a row */
+                int32_t x = 6 + (int32_t)(i % 8u) * 29, y = 46 + (int32_t)(i / 8u) * 30;
+                chord_text(ctl_get(P_CHORD0 + (int32_t)i), t);
+                if ((int32_t)i == cur && eng_playing())
+                    cv_rect(x, y, 27, 24, C_LINE);
+                if ((int32_t)i == ks.slot) {
+                    cv_rect(x, y, 27, 1, C_WHITE);
+                    cv_rect(x, y + 23, 27, 1, C_WHITE);
+                }
+                cv_text(x + 2, y + 4, &FONT_XS, t, (int32_t)i == cur ? C_HI : C_GRAY);
+            }
+            cv_text(8, 112, &FONT_XS, "NOW", C_GRAY);
+            chord_text(chord_now(), t);
+            cv_text(40, 108, &FONT_B, t, C_HI);   /* (FONT_M has capitals only) */
         }
-        cv_text(8, 112, &FONT_XS, "NOW", C_GRAY);
-        chord_text(chord_now(), t);
-        cv_text(40, 108, &FONT_B, t, C_HI);   /* (FONT_M has capitals only) */
+        CV_BAND_BLIT(STRIP_Y);
     }
-    cv_blit(0, STRIP_Y);
     lcd_fill(0, STRIP_Y + PAGE_H, 240, FOOT_Y - STRIP_Y - PAGE_H, C_BLACK);
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);

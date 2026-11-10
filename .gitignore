@@ -4,3 +4,8 @@ app/web/words/
 __pycache__/
 *.pyc
 .DS_Store
+
+# reference recordings dropped in for analysis (not ours to distribute): only the guide is kept
+samples/**
+!samples/**/
+!samples/**/*.md

@@ -68,14 +68,15 @@ static const help_card_t HELP[] = {
     {B_SAVE, PAGE_STEPS, "SAVE  (STEPS)",
      {"TAP: SAVE THE PROJECT.", "SAVE + WHITE 1-4: COPY THE", "PATTERN INTO A-D."}},
     {B_OCTDN, HELP_NONE, "OCT- / OCT+",
-     {"QUANTISE: WHERE A CHANGE LANDS.", "BEAT, 1-32 BARS, CYCLE.", "THE RUNWAY COUNTS DOWN TO IT."}},
+     {"QUANTISE: WHERE A CHANGE LANDS.", "BEAT, 1-32 BARS, CYCLE.", "THE RUNWAY COUNTS DOWN TO IT.",
+      "OCT+ HELD: FILL (FILL STEPS", "PLAY, !FILL ONES DON'T).", "+ OCT-: FILL LATCHED."}},
     {B_OCTUP, HELP_NONE, "OCT- / OCT+",
      {"QUANTISE: WHERE A CHANGE LANDS.", "BEAT, 1-32 BARS, CYCLE.", "THE RUNWAY COUNTS DOWN TO IT."}},
     {B_SEL, HELP_NONE, "SELECT",
-     {"TURN: THE BIG KNOB, A STEPPED", "HIGH-PASS (10, 20 OR 40", "STEPS: SETUP).", "HOME + TURN: TEMPO.",
-      "IN SETUP: THE ROW."}},
+     {"TURN: THE BIG KNOB, A STEPPED", "HIGH-PASS (10, 20 OR 40", "STEPS: SETUP).", "PRESS: HIGH-PASS OR LOW-PASS.",
+      "HOME + TURN: TEMPO.", "IN SETUP: THE ROW."}},
     {B_ENV, PAGE_STEPS, "ENV  (STEPS)",
-     {"HELD + A WHITE KEY: A DRUM", "STEP'S REPEAT: FLAM, X2-X4.", "BLACK 11 + A WHITE: CHANCE", "(100, 75, 50, 25%).",
+     {"HELD + A WHITE KEY: A DRUM", "STEP'S REPEAT: FLAM, X2-X4.", "BLACK 11 + A WHITE: ITS", "CONDITION: %, 1ST, PRE, FILL.",
       "HOME + ENV: RESEED THE", "PATTERN'S CHANCES.", "A DRUM STEP HELD: K1 DECAY,", "K2 TUNE (ITS LOCKS)."}},
     {B_ENV, HELP_NONE, "ENV",
      {"DICE (EDIT TO ITS LAST BANK):", "ENV FIRES: ROLL OR MUTATE.", "K1 AMOUNT, K2 MODE,", "K4 THE LAST 8 RESULTS.",
@@ -181,7 +182,8 @@ static int help_input(uint32_t *keys, uint32_t *btn, uint32_t now)
     *btn &= ~help.bswallow;
     kp = *keys & ~dub.keys;
     bp = *btn & ~dub.btn;
-    if (bp && !kp && *btn == bp && !*keys && !(bp & (bp - 1u))) {   /* one button, on its own */
+    if (bp && !kp && *btn == bp && !*keys && !(bp & (bp - 1u))
+        && !(bp == 1u << B_OCTUP && dub.page != PAGE_STEPS)) {   /* one button, on its own (OCT+ held: FILL, 6.7) */
         uint32_t k = 0;
         while (!(bp >> k & 1u))
             k++;
@@ -214,13 +216,14 @@ static void help_draw(void)              /* in the page's place (the header stay
     if (help.drawn)
         return;
     help.drawn = 1;
-    cv_begin(240, PAGE_H, C_BLACK);
-    cv_rect(0, 0, 240, 1, C_LINE);
-    cv_text(6, 4, &FONT_XS, "HELP", C_GRAY);
-    cv_text(6, 18, &FONT_B, c->title, C_HI);
-    for (i = 0; i < HELP_LINES && c->line[i]; i++)
-        cv_text(8, 42 + (int32_t)i * 11, &FONT_T, c->line[i], C_WHITE);
-    cv_blit(0, STRIP_Y);
+    CV_BANDS(PAGE_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        cv_rect(0, 0, 240, 1, C_LINE);
+        cv_text(6, 4, &FONT_XS, "HELP", C_GRAY);
+        cv_text(6, 18, &FONT_B, c->title, C_HI);
+        for (i = 0; i < HELP_LINES && c->line[i]; i++)
+            cv_text(8, 42 + (int32_t)i * 11, &FONT_T, c->line[i], C_WHITE);
+        CV_BAND_BLIT(STRIP_Y);
+    }
     lcd_fill(0, STRIP_Y + PAGE_H, 240, FOOT_Y - STRIP_Y - PAGE_H, C_BLACK);
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);

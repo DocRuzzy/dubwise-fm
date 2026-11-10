@@ -5,16 +5,16 @@
  * item. Part of the unity build: dub.c includes it. Saved with SAVE (but the test tones). */
 
 enum { SU_CYCLE, SU_RUNWAY, SU_KEYS, SU_NUM, SU_TICK, SU_REDUCED, SU_SAVER, SU_LEAD, SU_LOCK_MIDI, SU_HPF_ON, SU_HPF_RES, SU_THROW_VEL, SU_CLOCK,
-       SU_TIER, SU_PERF, SU_AUTOSAVE, SU_REC_QUANT, SU_REC_MODE, SU_REC_OFFSET, SU_REC_CLICK, SU_STEMS, SU_LEARN, SU_USB_PORT, SU_DICE_LINE, SU_HELP, SU_TONES, SU_SHOTS, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_KIT, SU_DEMO, SU_STEPPERS, SU_NEW, SU_N };
+       SU_TIER, SU_PERF, SU_AUTOSAVE, SU_REC_QUANT, SU_REC_MODE, SU_REC_OFFSET, SU_REC_CLICK, SU_STEMS, SU_LEARN, SU_USB_PORT, SU_DICE_LINE, SU_HELP, SU_TONES, SU_SHOTS, SU_OUTPUT, SU_DESK, SU_SLOT_SAVE, SU_SLOT_LOAD, SU_KIT, SU_DEMO, SU_STEPPERS, SU_NEW, SU_N };
 static const char *const SU_NAME[SU_N] = {"CYCLE", "RUNWAY", "RUNWAY ON KEYS", "COUNTDOWN NUMERALS", "CUE TICK",
                                           "REDUCED MOTION", "SCREEN SAVER", "CUE LEAD", "LOCK MIDI IN", "BIG KNOB ON", "BIG KNOB STEPS",
                                           "THROW VELOCITY", "MIDI CLOCK", "GUARD TIER",
                                           "PERFORMANCE", "AUTOSAVE", "REC QUANTISE", "REC MODE", "REC OFFSET", "CLICK", "USB STEMS", "MIDI LEARN", "USB PORT",
-                                          "DICE ON LINE", "HELP", "TEST TONES", "ONE SHOTS", "SAVE TO SLOT", "LOAD SLOT", "LOAD KIT", "DEMO SONG", "UK STEPPERS",
+                                          "DICE ON LINE", "HELP", "TEST TONES", "ONE SHOTS", "OUTPUT", "DESK", "SAVE TO SLOT", "LOAD SLOT", "LOAD KIT", "DEMO SONG", "UK STEPPERS",
                                           "NEW PROJECT"};
 static const uint16_t SU_ID[SU_N] = {P_CYCLE, P_RUNWAY, P_RUNWAY_KEYS, P_RUNWAY_NUM, P_TICK, P_REDUCED, P_SAVER, P_LEAD,
                                      P_LOCK_MIDI, P_HPF_ON, P_HPF_RES, P_THROW_VEL, P_CLOCK, P_TIER_LOCK, 0, P_AUTOSAVE, P_REC_QUANT, P_REC_MODE,
-                                     P_REC_OFFSET, P_REC_CLICK, P_USB_STEMS, 0, P_USB_PORT, P_DICE_LINE, 0, P_DEV_TONES, 0, 0, 0, 0, 0, 0, 0};
+                                     P_REC_OFFSET, P_REC_CLICK, P_USB_STEMS, 0, P_USB_PORT, P_DICE_LINE, 0, P_DEV_TONES, 0, P_SPEAKER, P_DESK, 0, 0, 0, 0, 0, 0};
 static int32_t su_cur;
 static uint8_t sh_user;                          /* (shots.c: 5.14) */
 static int sh_factory(void);
@@ -33,6 +33,10 @@ static void su_value(uint32_t i, char *t)        /* (t: 24 bytes) */
         text_cat(t, v == 0 && i == SU_RUNWAY ? " BAR" : " BARS");
     } else if (i == SU_SLOT_SAVE || i == SU_SLOT_LOAD) {
         slot_value(t, i == SU_SLOT_LOAD);
+    } else if (i == SU_OUTPUT) {                 /* 6.2: BASS+ for the FM-1's own speaker */
+        text_cat(t, v == OUT_SPEAKER ? "SPEAKER (BASS+)" : "LINE");
+    } else if (i == SU_DESK) {                   /* 7.4: the desk's colour (Studio only) */
+        text_cat(t, v == DESK_MCI ? (eng_tier() ? "MCI (STUDIO ONLY)" : "MCI") : "CLEAN");
     } else if (i == SU_SHOTS) {                  /* your own one-shots (5.14) */
         text_cat(t, sh_user ? "YOURS (K2: FACTORY)" : "FACTORY");
     } else if (i == SU_HELP) {                   /* every help card (5.11) */
@@ -187,25 +191,26 @@ static void setup_draw(int all)          /* the list in the strips' and centre's
     if (!all && sig == su_sig)
         return;
     su_sig = sig;
-    cv_begin(240, PAGE_H, C_BLACK);      /* (a canvas holds 144 rows: the rest of the area below, cleared) */
-    cv_text(6, 2, &FONT_XS, "SETUP", C_GRAY);
-    {                                    /* where in the list: the rows scroll with the cursor */
-        char a[8], b[8];
-        int_text(su_cur + 1, a);
-        int_text(SU_N, b);
-        text_cat(a, "/");
-        text_cat(a, b);
-        cv_text(234 - text_w(&FONT_XS, a), 2, &FONT_XS, a, C_DIM);
+    CV_BANDS(PAGE_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        cv_text(6, 2, &FONT_XS, "SETUP", C_GRAY);
+        {                                    /* where in the list: the rows scroll with the cursor */
+            char a[8], b[8];
+            int_text(su_cur + 1, a);
+            int_text(SU_N, b);
+            text_cat(a, "/");
+            text_cat(a, b);
+            cv_text(234 - text_w(&FONT_XS, a), 2, &FONT_XS, a, C_DIM);
+        }
+        for (i = su_top(); i < SU_N && i < su_top() + SU_ROWS; i++) {
+            int32_t y = 16 + (int32_t)(i - su_top()) * 10, cur = (int32_t)i == su_cur;
+            if (cur)
+                cv_rect(0, y - 1, 240, 10, C_LINE);
+            cv_text(10, y, &FONT_T, SU_NAME[i], cur ? C_WHITE : C_GRAY);
+            su_value(i, t);
+            cv_text(232 - text_w(&FONT_T, t), y, &FONT_T, t, cur ? C_HI : C_AMB);
+        }
+        CV_BAND_BLIT(STRIP_Y);
     }
-    for (i = su_top(); i < SU_N && i < su_top() + SU_ROWS; i++) {
-        int32_t y = 16 + (int32_t)(i - su_top()) * 10, cur = (int32_t)i == su_cur;
-        if (cur)
-            cv_rect(0, y - 1, 240, 10, C_LINE);
-        cv_text(10, y, &FONT_T, SU_NAME[i], cur ? C_WHITE : C_GRAY);
-        su_value(i, t);
-        cv_text(232 - text_w(&FONT_T, t), y, &FONT_T, t, cur ? C_HI : C_AMB);
-    }
-    cv_blit(0, STRIP_Y);
     lcd_fill(0, STRIP_Y + PAGE_H, 240, FOOT_Y - STRIP_Y - PAGE_H, C_BLACK);
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);

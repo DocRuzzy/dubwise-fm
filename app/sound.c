@@ -162,6 +162,8 @@ static void organ_tick(void)                     /* every frame: the B-3's regis
     for (k = 0; k < 9u; k++) {
         int32_t v = REG[k] + ctl_get(P_VOICE(CH_ORGAN, VO_DB0 + k));
         b[k] = (int8_t)(v < 0 ? 0 : v > 8 ? 8 : v);
+        if (k == 8u && ctl_get(P_VOICE(CH_ORGAN, VO_PERC)))
+            b[k] = 0;                            /* (percussion takes the 1' drawbar's place, as on the organ: v0.3) */
         moved |= b[k] != last[k];
     }
     if (!moved)
@@ -182,9 +184,9 @@ static int organ_bar(uint32_t id, int32_t v, char *t)   /* a drawbar's field sho
 
 static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value as its name (5.7), 0: not one */
 {
-    static const char *const K[KICK_MODELS] = {"SINE", "THUMP", "BOOM"}, *const R[RIM_MODELS] = {"CROSS", "SNARE",
-                                                                                                    "SYNDRUM"};
-    static const char *const H[HAT_MODELS] = {"METAL", "NOISE"}, *const B[BASS_MODELS] = {"ROUND", "PLUCK", "HOLLOW",
+    static const char *const K[KICK_MODELS] = {"SINE", "THUMP", "BOOM", "808"}, *const R[RIM_MODELS] = {"CROSS", "SNARE",
+                                                                                                    "SYNDRUM", "808"};
+    static const char *const H[HAT_MODELS] = {"METAL", "NOISE", "808"}, *const B[BASS_MODELS] = {"ROUND", "PLUCK", "HOLLOW",
                                                                                           "STEPPERS"};
     if (v < 0)
         return 0;
@@ -212,6 +214,24 @@ static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value
     }
     if (id == P_VOICE(CH_ORGAN, VO_PFAST))
         return v ? "FAST" : "SLOW";
+    if (id == P_VOICE(CH_VOX, VX_SAY))           /* (6.6: the shout's name; OFF: black 8 is BIM) */
+        return v ? lpc_name(v - 1) : "OFF";
+    if (id == P_VOICE(CH_LEAD, VL_INST) && v < INST_N) {   /* (7.3: REED) */
+        static const char *const I[INST_N] = {"MELODICA", "BRASS", "REED", "HORN", "FM+HORN"};
+        return I[v];
+    }
+    if (id == P_VOICE(CH_SKANK, VS_MODEL))       /* (7.8) */
+        return v ? "PLUCK" : "FM";
+    if (id == P_VOICE(CH_LEAD, VL_HORN) && v < HORN_N)   /* (7.7) */
+        return v ? "SAX" : "TRUMPET";
+    if (id == P_VOICE(CH_VOX, VX_SHAPE))         /* (7.1) */
+        return v ? "NJD" : "CLASSIC";
+    if (id == P_VOICE(CH_BASS, VB_SUBTONE))      /* (6.1) */
+        return v ? "CLASSIC" : "SINE";
+    if (id == P_VOICE(CH_ORGAN, VO_LESLIE))      /* (v0.3: FULL is setBfree's, Studio only) */
+        return v ? "FULL" : "LIGHT";
+    if (id == P_VOICE(CH_ORGAN, VO_ODRIVE) && v == 0)
+        return "OFF";
     return 0;
 }
 

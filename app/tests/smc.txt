@@ -1,0 +1,85 @@
+# The SMC-Mixer as the desk (roadmap 6.5; app/smc.c, after hortator-bt's): on the USB host, a device named SMC-...
+# Faders the strips' levels (soft takeover), MUTE / SOLO on the line, REC a throw while held, SELECT the focus, knobs
+# the Big Knob / echo / spring / sends / tempo, PLAY / STOP / REC; the LEDs and the levels fed back.
+wait 600
+listen
+param usb.port 1
+wait 100
+usbh plug SMC-Mixer
+wait 400
+said SMC-MIXER THE DESK
+expect usbh 2
+# the LEDs on connecting: the focus (SELECT 1) lit, STOP lit, PLAY off; the levels sent (strip 1: 100)
+expect_out USBH 90 18 7F
+expect_out USBH 90 5D 7F
+expect_out USBH 90 5E 00
+expect_out USBH E0 64 64
+# fader 1: far from the level (100) it does nothing; within 2 it picks it up, then follows
+usbh midi E0 00 30
+wait 30
+expect ui.ch1.level 100
+usbh midi E0 00 63
+wait 30
+expect ui.ch1.level 99
+usbh midi E0 00 50
+wait 30
+expect ui.ch1.level 80
+# a fader's run is one undo step (HOME + REC), and the mixer is sent the level back (its fader unpicked)
+press HOME
+wait 20
+tap REC
+wait 30
+release HOME
+wait 30
+expect ui.ch1.level 100
+expect_out USBH E0 64 64
+# knobs: 3 ECHO FB, five clicks up (2 a click); 8 TEMPO, three clicks down (a tenth each)
+param echo.fb 60
+usbh midi B0 12 05
+wait 30
+expect ui.echo.fb 70
+said ECHO FB 70
+usbh midi B0 17 43
+wait 30
+expect ui.tempo 747
+# MUTE 2 (stopped: at once), its LED; SOLO 3
+usbh midi 90 11 7F
+wait 30
+expect ui.ch2.mute 1
+said MUTE SNARE
+usbh midi 90 11 00
+wait 30
+expect_out USBH 90 11 7F
+usbh midi 90 0A 7F
+wait 30
+expect ui.ch3.solo 1
+usbh midi 90 0A 00
+usbh midi 90 0A 7F
+wait 30
+expect ui.ch3.solo 0
+# REC 3: a throw while held, its LED
+usbh midi 90 02 7F
+wait 30
+expect ui.ch3.throw 1
+expect_out USBH 90 02 7F
+usbh midi 90 02 00
+wait 30
+expect ui.ch3.throw 0
+expect_out USBH 90 02 00
+# SELECT 5: the focus, its LED (and 1's off)
+usbh midi 90 1C 7F
+wait 30
+expect focus 5
+expect_out USBH 90 1C 7F
+expect_out USBH 90 18 00
+# PLAY, STOP
+usbh midi 90 5E 7F
+wait 50
+expect ui.play 1
+expect_out USBH 90 5E 7F
+usbh midi 90 5D 7F
+wait 50
+expect ui.play 0
+# a keyboard that isn't an SMC still plays notes
+usbh unplug
+wait 200

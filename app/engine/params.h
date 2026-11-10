@@ -26,12 +26,12 @@ enum { VK_TUNE, VK_SWEEP, VK_PTIME, VK_DECAY, VK_CLICK, VK_DRIVE, VK_CTONE, VK_M
 enum { VR_TUNE, VR_DECAY, VR_NOISE, VR_INDEX, VR_DROP, VR_HPF, VR_MODEL, VR_N };                  /* rim / snare */
 enum { VH_TONE, VH_CLOSED, VH_OPEN, VH_NOISE, VH_HPF, VH_MODEL, VH_N };                           /* hats */
 enum { VB_INDEX, VB_IDECAY, VB_DECAY, VB_CUTOFF, VB_RATIO, VB_SUB, VB_SUSTAIN, VB_FEEDBACK, VB_DRIVE, VB_GLIDE,
-       VB_MODEL, VB_N };                                                                          /* bass */
-enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_N };                        /* skank (P1.6) */
+       VB_MODEL, VB_SUBTONE, VB_N };                                                                          /* bass */
+enum { VS_INDEX, VS_DECAY, VS_TONE, VS_RATIO, VS_ATTACK, VS_MODEL, VS_N };   /* 7.8: MODEL FM (0) or PLUCK */                        /* skank (P1.6) */
 enum { VO_DRAWBAR, VO_DECAY, VO_CLICK, VO_DETUNE, VO_MODEL, VO_DB0, VO_DB1, VO_DB2, VO_DB3, VO_DB4, VO_DB5, VO_DB6,
-       VO_DB7, VO_DB8, VO_PERC, VO_PFAST, VO_VIBCH, VO_ROTARY, VO_ODRIVE, VO_N };      /* organ: bubble, B-3 (5.15) */
-enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */
-enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };        /* lead: melodica / brass (P2.2) */
+       VO_DB7, VO_DB8, VO_PERC, VO_PFAST, VO_VIBCH, VO_ROTARY, VO_ODRIVE, VO_LESLIE, VO_N };      /* organ: bubble, B-3 (5.15) */
+enum { VX_PITCH, VX_RATE, VX_DEPTH, VX_WAVE, VX_LIVE, VX_SAY, VX_SAYPITCH, VX_STUTTER, VX_CRUSH, VX_SHAPE, VX_N };   /* vox / fx: the sirens (P2.1); LIVE: the input (P2.8) */
+enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_HORN, VL_BLEND, VL_N };   /* 7.7: HORN's horn, FM+HORN's blend */        /* lead: melodica / brass (P2.2) */
 /* the MAIN macros (roadmap 5.3, spec 4.9): four a channel (not the vox: its MAIN is the siren's own four), stored as
  * the voice's last four fields; -64..63, 0 every target at its default. The engine never reads them: turning one
  * rewrites its raw targets (sound.c) */
@@ -39,9 +39,9 @@ enum { VL_INST, VL_BRIGHT, VL_ATTACK, VL_RELEASE, VL_VIBRATO, VL_DETUNE, VL_N };
  * loads as it was made. One that can't be needs a version and a converter, planned first (CLAUDE.md). Every voice
  * field's range fits int8 (a patch keeps them so: patches.txt checks, voice_int8). */
 /* the voice models (5.7; the MODEL field, 0 the one built first: neutral at 0) */
-enum { KICK_SINE, KICK_THUMP, KICK_BOOM, KICK_MODELS };
-enum { RIM_CROSS, RIM_SNARE, RIM_SYNDRUM, RIM_MODELS };
-enum { HAT_METAL, HAT_NOISE, HAT_MODELS };
+enum { KICK_SINE, KICK_THUMP, KICK_BOOM, KICK_808, KICK_MODELS };   /* 7.6: 808, after Plaits */
+enum { RIM_CROSS, RIM_SNARE, RIM_SYNDRUM, RIM_808, RIM_MODELS };
+enum { HAT_METAL, HAT_NOISE, HAT_808, HAT_MODELS };
 enum { BASS_ROUND, BASS_PLUCK, BASS_HOLLOW, BASS_STEPPERS, BASS_MODELS };
 enum { ORG_BUBBLE, ORG_B3, ORG_MODELS };
 /* 5.15 (docs/plan-5.15-organ.md): the B-3's nine drawbars are stored as offsets from the default registration, full
@@ -50,9 +50,13 @@ enum { ORG_BUBBLE, ORG_B3, ORG_MODELS };
 enum { PERC_OFF, PERC_2ND, PERC_3RD, PERC_N };
 enum { VIB_OFF, VIB_V1, VIB_V2, VIB_V3, VIB_C1, VIB_C2, VIB_C3, VIB_N };
 enum { ROT_OFF, ROT_SLOW, ROT_FAST, ROT_BRAKE, ROT_N };
+enum { LES_LIGHT, LES_FULL, LES_N };
+enum { OUT_LINE, OUT_SPEAKER, OUT_N };          /* 6.2 */
+enum { SUB_SINE, SUB_CLASSIC, SUB_N };          /* 6.1: the bass's sub: a sine, or sine + 1/3 3rd + 1/5 5th */            /* the rotary: ours, or setBfree's whirl (Studio only; v0.3) */
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
-enum { INST_MELODICA, INST_BRASS, INST_N };
+enum { INST_MELODICA, INST_BRASS, INST_REED, INST_HORN, INST_LAYER, INST_N };   /* 7.3 REED; 7.7 HORN, FM+HORN layered */
+enum { HORN_TRUMPET, HORN_SAX, HORN_N };
 /* the chord channels' steps hold a voicing, not a note: the notes are the chord lane's (P_CHORD0..) */
 enum { VOICING_LO, VOICING_MID, VOICING_HI, VOICING_N };
 /* a chord code (root x 8 + quality) voiced: three notes from base up (MIDI), the root's octave by the voicing */
@@ -112,6 +116,12 @@ enum {
     P_CLICK = 0x030,          /* the click on every beat now (the UI's: a count-in, a recording; never saved) */
     P_DICE_LINE = 0x031,      /* 1: a Dice fire waits for the quantise line (5.6; SETUP; saved in the settings' spare byte) */
     P_DICE_SEED = 0x032,      /* Dice's generator seeded with this (tests; 0: from the clock; never saved) */
+    P_ECHO_WOW = 0x033,       /* 6.3: the tape's wow and flutter on the echo's repeats, 0..127 (0 none; saved in the
+                               * settings' FX bytes, an older save's 0: none) */
+    P_DESK = 0x035,           /* 7.4: DESK_CLEAN, DESK_MCI (Airwindows' Console: sin() a strip, asin on the sum; Studio
+                               * only; saved in the settings' spare bytes) */
+    P_SPEAKER = 0x034,        /* 6.2: OUT_LINE, OUT_SPEAKER (BASS+: the lows heard through their harmonics on the
+                               * FM-1's own speaker; saved as the FX bytes, an older save's 0: LINE) */
     P_DEV_LOAD = 0x03E,       /* development: this much % added to the measured load (the guard's host tests) */
     P_DEV_TONES = 0x03F,      /* development: a test tone on every channel (host tests of the mixer) */
 };
@@ -125,6 +135,8 @@ enum { LOCK_OFF, LOCK_SCALE, LOCK_CHORD, LOCK_N };
 enum { TIER_STUDIO, TIER_FOUR, TIER_SEVEN, TIER_N };
 enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };
 enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };
+enum { DESK_CLEAN, DESK_MCI, DESK_N };
+enum { ECHO_TAPE, ECHO_BBD, ECHO_TYPE_N };
 enum { REC_FEEL, REC_HALF, REC_GRID, REC_QUANT_N };
 enum { STEMS_CHANNELS, STEMS_BUSES, STEMS_OFF, STEMS_N };
 enum { USBPORT_COMPUTER, USBPORT_KEYBOARD, USBPORT_N };
@@ -156,6 +168,8 @@ enum {
     P_DIVE_TIME,              /* 0..127: the glide, 0.1 .. 3 s */
     P_ECHO_WIDTH,             /* 0 mono; 1..127: the right side 8 .. 16 ms later (P1.5) */
     P_ECHO_PP,                /* 1: ping-pong (P3.1): odd repeats left, even right (above 150 Hz; the lows centred) */
+    P_ECHO_HEAD3,             /* 7.1: the 3T head in the return, 0..127 (the RE-201's 1 : 2 : 3; 0 in older saves: off) */
+    P_ECHO_TYPE,              /* 7.9: ECHO_TAPE (0, as built), ECHO_BBD (a bucket brigade: darker as it's longer) */
     P_ECHO_END,
     P_SPRING_RET = 0x0D0,     /* the spring's return (P1.2), 0..127 */
     P_SPRING_DECAY,           /* its decay: 0.5 .. 6 s */
@@ -164,6 +178,7 @@ enum {
     P_SPRING_END,
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..40 = HPF_HZ (the Altec's on 4, 8 .. 40) */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */
+    P_HPF_LP,                 /* 7.5: 1, the Big Knob a low-pass (the Altec 9068B, the 9069B's sibling): its press */
     P_HPF_END,
     P_WET = 0x0E4,            /* 1: drop to wet (black 5, held): the dry desk out, the returns on (spec 4.1) */
     P_DNB,                    /* 1: drum and bass (black 11, held): skank, organ, lead and vox out, sends too */
@@ -172,6 +187,8 @@ enum {
     P_XS_E2S = 0x0E8,         /* cross-sends (P1.3): the echo's return into the spring, 0..127 */
     P_XS_S2E,                 /* the spring's return into the echo, 0..127 (the two together capped: a loop) */
     P_XS_END,
+    P_FILL = 0x0EB,           /* 6.7: FILL held (OCT+ held, or learned): the FILL steps play, the !FILL ones don't. A
+                               * momentary (the song's motion captures it); never saved */
     P_SIREN = 0x0EC,          /* the siren held (black 6 / 7, roadmap 5.1): 0 none, else (SIREN_A or B) + 1 | velocity << 4;
                                * a parameter, so the song's motion captures it (a momentary, as a throw) */
     P_SHOT,                   /* a one-shot fired (black 8-10): shot (0..7, + 8 backwards) | velocity << 4 | a toggle << 11
@@ -209,6 +226,8 @@ enum { DRIVE_OFF, DRIVE_BASS, DRIVE_MIX, DRIVE_N };
 #define HPF_STEPS 40                             /* the fine grid; the Altec's ten on every 4th (HPF_ALTEC) */
 #define HPF_ALTEC 4
 float hpf_hz(int32_t step);                          /* a step's cutoff, Hz (0: off) */
+float lpf_hz(int32_t step);                          /* 7.5: as a low-pass, 10 kHz (1) down to 250 Hz (40) */
+const char *hz_name(float hz);                       /* "250 HZ", "2.5K" (main loop: one buffer) */
 const char *hpf_name(int32_t step);                  /* "500 HZ", "1K", "OFF" */
 int32_t hpf_detent(int32_t res);                     /* fine steps a detent moves at HPF_RES_* (4, 2, 1) */
 uint32_t quant_beats(int32_t q);                     /* 1, 4, 8 .. 128 (4/4); QUANT_CYCLE: the UI's (cycle) */

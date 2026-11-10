@@ -12,7 +12,7 @@
 typedef struct {
     float g;                                     /* the loops' feedback (from DECAY) */
     float damp;                                  /* their low-pass coefficient (from TONE) */
-    int naps;                                    /* all-passes a spring: 12; 6 at the Four-track tier and down */
+    int naps;                                    /* all-passes a spring: 24; 12 at Four-track, 6 at Seven-inch (7.2) */
     int mono;                                    /* 1: the two springs summed (the Four-track tier and down) */
 } spring_cfg_t;
 

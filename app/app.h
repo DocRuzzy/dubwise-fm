@@ -7,6 +7,8 @@
 #include "plat.h"
 
 #define APP_NAME "DUBWISE"
+#define APP_CANVAS_PX (240u * 76u)         /* the canvas: 76 rows (the centre's); full pages and the strips in two halves
+                                             * (dub.c, CV_BANDS), the saver in four bands. 144 rows until 2026-11-10 */
 #define APP_SPLASH_RGB RGB(242, 120, 72)
 #define APP_SPLASH                         /* app_splash (saver.c): the echo rings, drawn at boot */
 #define APP_TICK                           /* app_tick: the MIDI clock's sends, on time */

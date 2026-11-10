@@ -254,56 +254,57 @@ static void arr_draw(int all)
     if (!all && sig == arr.sig)
         return;
     arr.sig = sig;
-    cv_begin(240, PAGE_H, C_BLACK);
-    cv_text(6, 2, &FONT_XS, "SCENES", C_GRAY);
-    if (cued_mask())
-        cv_text(70, 2, &FONT_XS, "CUED", C_WHITE);
-    for (k = 0; k < NSCENES; k++) {             /* 2 rows of 8: number, P for patterns, the last recalled lit */
-        int32_t x = 6 + (int32_t)(k % 8u) * 29, y = 20 + (int32_t)(k / 8u) * 34;
-        int used = scenes[k].used, cur = (int32_t)k == arr.cur;
-        cv_rect(x, y, 26, 30, cur && used ? C_HI : used ? C_LINE : C_BLACK);
-        if (!used) {
-            cv_rect(x, y, 26, 1, C_LINE);
-            cv_rect(x, y + 29, 26, 1, C_LINE);
+    CV_BANDS(PAGE_H, C_BLACK) {                 /* (in two halves: the canvas holds 76 rows) */
+        cv_text(6, 2, &FONT_XS, "SCENES", C_GRAY);
+        if (cued_mask())
+            cv_text(70, 2, &FONT_XS, "CUED", C_WHITE);
+        for (k = 0; k < NSCENES; k++) {             /* 2 rows of 8: number, P for patterns, the last recalled lit */
+            int32_t x = 6 + (int32_t)(k % 8u) * 29, y = 20 + (int32_t)(k / 8u) * 34;
+            int used = scenes[k].used, cur = (int32_t)k == arr.cur;
+            cv_rect(x, y, 26, 30, cur && used ? C_HI : used ? C_LINE : C_BLACK);
+            if (!used) {
+                cv_rect(x, y, 26, 1, C_LINE);
+                cv_rect(x, y + 29, 26, 1, C_LINE);
+            }
+            int_text((int32_t)k + 1, t);
+            cv_text(x + 3, y + 2, &FONT_XS, t, cur && used ? C_BLACK : used ? C_WHITE : C_DIM);
+            if (used && scenes[k].scope == SCOPE_PATTERNS)
+                cv_text(x + 16, y + 14, &FONT_T, "P", cur ? C_BLACK : C_AMB);
         }
-        int_text((int32_t)k + 1, t);
-        cv_text(x + 3, y + 2, &FONT_XS, t, cur && used ? C_BLACK : used ? C_WHITE : C_DIM);
-        if (used && scenes[k].scope == SCOPE_PATTERNS)
-            cv_text(x + 16, y + 14, &FONT_T, "P", cur ? C_BLACK : C_AMB);
-    }
-    {                                    /* the song: 32 bars around where it is, captured bars, markers, here */
-        int32_t len = ctl_get(P_SONG_LEN), here = (int32_t)song_bar_ui(), first = here - 8, b;
-        static const char *const MODE[SONG_N] = {"OFF", "ONCE", "LOOP"};
-        char u[24];
-        if (first < 0)
-            first = 0;
-        u[0] = 0;
-        text_cat(u, "SONG ");
-        text_cat(u, MODE[ctl_get(P_SONG_MODE)]);
-        cv_text(6, 92, &FONT_XS, u, ctl_get(P_SONG_MODE) ? C_HI : C_GRAY);
-        if (ctl_get(P_SONG_REC))
-            cv_text(100, 92, &FONT_XS, "REC", C_RED);
-        int_text(here + 1, t);
-        u[0] = 0;
-        text_cat(u, "BAR ");
-        text_cat(u, t);
-        text_cat(u, "/");
-        int_text(len, t);
-        text_cat(u, t);
-        cv_text(234 - text_w(&FONT_XS, u), 92, &FONT_XS, u, C_GRAY);
-        for (b = first; b < first + 32 && b < SONG_BARS; b++) {
-            int32_t x = 6 + (b - first) * 7, y = 112;
-            uint16_t c = b >= len ? C_BLACK : (song[b].flags & BAR_SET) ? C_AMB : C_LINE;
-            cv_rect(x, y, 6, 14, c);
-            if (song[b].flags & BAR_SECTION)
-                cv_rect(x, y - 4, 2, 22, C_WHITE);
-            if (mot_n[b] && b < len)        /* motion inside the bar */
-                cv_rect(x + 1, y + 6, 4, 2, C_WHITE);
-            if (b == here)
-                cv_rect(x, y + 16, 6, 3, C_WHITE);
+        {                                    /* the song: 32 bars around where it is, captured bars, markers, here */
+            int32_t len = ctl_get(P_SONG_LEN), here = (int32_t)song_bar_ui(), first = here - 8, b;
+            static const char *const MODE[SONG_N] = {"OFF", "ONCE", "LOOP"};
+            char u[24];
+            if (first < 0)
+                first = 0;
+            u[0] = 0;
+            text_cat(u, "SONG ");
+            text_cat(u, MODE[ctl_get(P_SONG_MODE)]);
+            cv_text(6, 92, &FONT_XS, u, ctl_get(P_SONG_MODE) ? C_HI : C_GRAY);
+            if (ctl_get(P_SONG_REC))
+                cv_text(100, 92, &FONT_XS, "REC", C_RED);
+            int_text(here + 1, t);
+            u[0] = 0;
+            text_cat(u, "BAR ");
+            text_cat(u, t);
+            text_cat(u, "/");
+            int_text(len, t);
+            text_cat(u, t);
+            cv_text(234 - text_w(&FONT_XS, u), 92, &FONT_XS, u, C_GRAY);
+            for (b = first; b < first + 32 && b < SONG_BARS; b++) {
+                int32_t x = 6 + (b - first) * 7, y = 112;
+                uint16_t c = b >= len ? C_BLACK : (song[b].flags & BAR_SET) ? C_AMB : C_LINE;
+                cv_rect(x, y, 6, 14, c);
+                if (song[b].flags & BAR_SECTION)
+                    cv_rect(x, y - 4, 2, 22, C_WHITE);
+                if (mot_n[b] && b < len)        /* motion inside the bar */
+                    cv_rect(x + 1, y + 6, 4, 2, C_WHITE);
+                if (b == here)
+                    cv_rect(x, y + 16, 6, 3, C_WHITE);
+            }
         }
+        CV_BAND_BLIT(STRIP_Y);
     }
-    cv_blit(0, STRIP_Y);
     lcd_fill(0, STRIP_Y + PAGE_H, 240, FOOT_Y - STRIP_Y - PAGE_H, C_BLACK);
     cv_begin(240, FOOT_H, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);
@@ -346,7 +347,10 @@ static int arr_expect(const char *what, int *got)
         *got = (int)mot_total();
     else if (!strncmp(what, "mot_bar", 7))     /* mot_barN: bar N's moves */
         *got = mot_n[(atoi(what + 7) - 1) % SONG_BARS];
-    else if (!strcmp(what, "mot_drops"))
+    else if (!strncmp(what, "motv", 4) && strchr(what, '_')) {   /* motvB_I: bar B's move I's value (from 1; 7.x) */
+        mot_ev_t e;
+        *got = mot_get((uint32_t)atoi(what + 4) - 1u, (uint32_t)atoi(strchr(what, '_') + 1) - 1u, &e) ? e.v : -1;
+    } else if (!strcmp(what, "mot_drops"))
         *got = (int)mot_drops;
     else
         return 0;

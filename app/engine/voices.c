@@ -5,6 +5,9 @@
 #include "params.h"
 #include "fastmath.h"
 #include "dsp.h"
+#include "d808.h"                                /* 7.6: the 808 models, after Plaits */
+#include "plat.h"                                /* PLAT_POOL (7.3: the reed's tables) */
+#include "horn_data.h"                           /* 7.7: HORN's bell and horns, fitted (tools/brass/) */
 
 #define SR 44100.0f
 #define INV_SR (1.0f / 44100.0f)
@@ -66,6 +69,15 @@ static float lk_take(uint32_t ch, float *tmul)   /* (voice_trig) the locks for t
     return d;
 }
 
+/* 7.6: the 808 models (d808.c). Their knobs, from each channel's own: KICK TUNE (the pitch, 40..70 Hz), SWEEP (the
+ * attack's FM), DECAY (up to ~1 s), CLICK (the tone), DRIVE (the self-FM's punch); RIM TUNE (150..350 Hz), INDEX (the
+ * tone: 2 modes, then 5), DECAY (up to ~0.6 s), NOISE (snappy); HAT TONE (the squares' base, 300..800 Hz), HPF (the
+ * colour), NOISE (noisiness), CLOSED / OPEN as now */
+static int m808[3];                              /* the kick, rim and hat on their 808 model */
+static d808_kick_cfg_t k808;
+static d808_snare_cfg_t s808;
+static d808_hat_cfg_t h808;
+
 /* ------------------------------------------------------------------- hats --- */
 static struct {
     float p[4], amp, h1x, h1y, h2x, h2y, vel;
@@ -79,6 +91,7 @@ static const float HAT_R[4] = {1.0f, 1.48f, 2.27f, 3.6f};
 static struct {
     float pc, pm, ps, ienv, amp, lp1, lp2, vel, f, target, mfb, ft;
     float index, ik, ak, rk, att, ratio, sub, sus, lp_a, fb, drive, gk;
+    int classic;                                 /* 6.1: the sub's tone: + 1/3 its 3rd + 1/5 its 5th */
     int32_t note;                                /* held, -1 none (released: ringing out) */
     int on;
 } bass;
@@ -90,10 +103,28 @@ static struct {
 #define DOUBLE_N 530u                            /* 12 ms */
 static struct {
     float pc, pc2, pm, mprev, f, amp, vel, vib, scoop, t;
-    float inst, bright, att, rel, vdepth, spread;
+    float bright, att, rel, vdepth, spread;
+    int inst;                                    /* INST_MELODICA, INST_BRASS, INST_REED (7.3), HORN, LAYER (7.7) */
+    int horn;                                    /* (7.7) HORN_TRUMPET, HORN_SAX */
+    float blend;                                 /* (7.7) FM+HORN: HORN's share, 0.5 .. 1 */
     int32_t note;                                /* held, -1 none */
     int on;
 } lead;
+/* 7.3: REED, a free-reed melodica after Puranik & Scavone's harmonium model (DAFx-23, CC-BY: its structure, no code):
+ * the reed's air flow, rising while the tongue opens and cut off as it passes the plate (one jump a period, rich in
+ * odd and even harmonics; PolyBLEP keeps the jump clean), into the instrument's body (three resonances; the paper finds
+ * the enclosure shapes the tone more than the reed). The breath sets how far the reed swings (louder: a shorter, brighter
+ * pulse) and pulls the pitch a hair (a free reed goes sharp as the pressure falls). The body's resonances are estimates
+ * (no melodica measurements are published): 1.1, 2.5 and 4.2 kHz */
+typedef struct { float b0, b1, b2, a1, a2, z1, z2; } bq_t;
+static bq_t reed_bq[3];
+static void bq_peak(bq_t *q, float hz, float qf, float db);
+static void reed_tables(void);
+static void horn_tables(void);
+static void horn_config(void);
+static void bq_lpf(bq_t *q, float hz, float qf);
+static float reed_air;                           /* the breath's noise, low-passed */
+static uint32_t reed_rng = 0x2545F491u;
 static float dbl[DOUBLE_N];
 static uint32_t dbl_pos;
 
@@ -104,6 +135,9 @@ void voices_start(void)                          /* the transport's start: the n
 
 void voices_init(void)
 {
+    d808_init();
+    reed_tables();
+    horn_tables();
     lead.on = 0;
     lead.note = -1;
     lead.amp = 0.0f;
@@ -177,6 +211,21 @@ void voices_config(const int16_t *ev, int tier)
         hat.hp_a = 0.37f;
         hat.gain = 2.4f;
     }
+    m808[CH_KICK] = ev[P_VOICE(CH_KICK, VK_MODEL)] == KICK_808;   /* 7.6 */
+    k808.f0 = lin(ev[P_VOICE(CH_KICK, VK_TUNE)], 40.0f, 70.0f);
+    k808.attack_fm = lin(ev[P_VOICE(CH_KICK, VK_SWEEP)], 0.0f, 1.0f);
+    k808.decay = lin(ev[P_VOICE(CH_KICK, VK_DECAY)], 0.0f, 0.55f);
+    k808.tone = lin(ev[P_VOICE(CH_KICK, VK_CLICK)], 0.0f, 1.0f);
+    k808.self_fm = lin(ev[P_VOICE(CH_KICK, VK_DRIVE)], 0.0f, 1.0f);
+    m808[CH_SNARE] = ev[P_VOICE(CH_SNARE, VR_MODEL)] == RIM_808;
+    s808.f0 = lin(ev[P_VOICE(CH_SNARE, VR_TUNE)], 150.0f, 350.0f);
+    s808.tone = lin(ev[P_VOICE(CH_SNARE, VR_INDEX)], 0.0f, 1.0f);
+    s808.decay = lin(ev[P_VOICE(CH_SNARE, VR_DECAY)], 0.0f, 0.5f);
+    s808.snappy = lin(ev[P_VOICE(CH_SNARE, VR_NOISE)], 0.0f, 1.0f);
+    m808[CH_HATS] = ev[P_VOICE(CH_HATS, VH_MODEL)] == HAT_808;
+    h808.f0 = hat.f;
+    h808.tone = (float)(ev[P_VOICE(CH_HATS, VH_HPF)] + 64) * (1.0f / 127.0f);
+    h808.noisiness = hat.noise_l;
     /* bass: INDEX 0..2.5, IDECAY 10..150 ms, DECAY 80..1500 ms, CUTOFF 300..2500 Hz, RATIO 1:1 / 2:1, SUB, SUSTAIN */
     bass.index = lin(ev[P_VOICE(CH_BASS, VB_INDEX)], 0.0f, 2.5f);
     bass.ik = t60k(lin(ev[P_VOICE(CH_BASS, VB_IDECAY)], 10.0f, 150.0f));
@@ -189,6 +238,7 @@ void voices_config(const int16_t *ev, int tier)
     bass.sus = lin(ev[P_VOICE(CH_BASS, VB_SUSTAIN)], 0.0f, 1.0f);
     bass.fb = lin(ev[P_VOICE(CH_BASS, VB_FEEDBACK)], 0.0f, 0.6f);   /* 5.3: capped (sound.txt: the sine stays) */
     bass.drive = lin(ev[P_VOICE(CH_BASS, VB_DRIVE)], 0.0f, 5.0f);
+    bass.classic = ev[P_VOICE(CH_BASS, VB_SUBTONE)] == SUB_CLASSIC;
     switch (ev[P_VOICE(CH_BASS, VB_MODEL)]) {    /* 5.7: the models are settings of the one voice (no cost) */
     case BASS_PLUCK:                             /* a brighter pluck: its index doubled (capped), the filter open */
         bass.index = bass.index * 2.5f > 3.5f ? 3.5f : bass.index * 2.5f;
@@ -212,13 +262,23 @@ void voices_config(const int16_t *ev, int tier)
     bass.gk = ev[P_VOICE(CH_BASS, VB_GLIDE)] ? 1.0f - fm_expf(-1.0f / (lin(ev[P_VOICE(CH_BASS, VB_GLIDE)], 1.0f, 300.0f)
                                                                          * 0.001f * SR * 0.5f * 0.25f))
                                              : 1.0f;            /* (a one-pole a half-rate sample, ~T/4: there in T) */
-    lead.inst = ev[P_VOICE(CH_LEAD, VL_INST)] ? 1.0f : 0.0f;
+    lead.inst = ev[P_VOICE(CH_LEAD, VL_INST)];
+    lead.horn = ev[P_VOICE(CH_LEAD, VL_HORN)] == HORN_SAX ? HORN_SAX : HORN_TRUMPET;
+    lead.blend = 0.5f + 0.5f * (float)ev[P_VOICE(CH_LEAD, VL_BLEND)] * (1.0f / 127.0f);
+    horn_config();
     lead.bright = lin(ev[P_VOICE(CH_LEAD, VL_BRIGHT)], 0.3f, 3.0f);
     lead.att = 1.0f / (lin(ev[P_VOICE(CH_LEAD, VL_ATTACK)], 10.0f, 150.0f) * 0.001f * SR);
     lead.rel = t60k(lin(ev[P_VOICE(CH_LEAD, VL_RELEASE)], 30.0f, 600.0f));
     lead.spread = ev[P_VOICE(CH_LEAD, VL_DETUNE)] ? 0.0035f * fm_exp2f((float)ev[P_VOICE(CH_LEAD, VL_DETUNE)] * (1.0f / 32.0f))
                                                   : 0.0035f;   /* 5.3: 6 cents at 0 */
     lead.vdepth = lin(ev[P_VOICE(CH_LEAD, VL_VIBRATO)], 0.0f, 40.0f) * (1.0f / 1200.0f);   /* octaves */
+    if (lead.inst == INST_REED) {                /* (7.3: the body, fitted 2026-11-10 to 34 melodica notes; BRIGHT
+                                                  * slides its low-pass an octave either way and its upper resonance
+                                                  * +-4 dB; at 64, as measured) */
+        float b = ((float)ev[P_VOICE(CH_LEAD, VL_BRIGHT)] - 64.0f) * (1.0f / 63.0f);
+        bq_lpf(&reed_bq[0], 1992.0f * fm_exp2f(b), 2.60f);   /* (refitted with the puff, 12 real notes) */
+        bq_peak(&reed_bq[1], 3749.0f * fm_exp2f(0.5f * b), 1.37f, 11.4f + 4.0f * b);
+    }
     (void)tier;
 }
 
@@ -228,6 +288,10 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
     switch (ch) {
     case CH_KICK:                                /* phase 0: the sine starts from zero, no click */
         kick.dinv = lk_take(CH_KICK, &kick.tmul);
+        if (m808[CH_KICK]) {                     /* 7.6 */
+            d808_kick_trig(&k808, v, kick.tmul, kick.dinv);
+            break;
+        }
         kick.ph = kick.pm = 0.0f;
         kick.penv = kick.cenv = kick.tenv = 1.0f;
         kick.amp = 1.0f;
@@ -238,6 +302,10 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
         if (!rim.on)                             /* (from silence: its high-pass from rest too, 5.1) */
             rim.hp_x = rim.hp_y = 0.0f;
         rim.dinv = lk_take(CH_SNARE, &rim.tmul);
+        if (m808[CH_SNARE]) {                    /* 7.6 */
+            d808_snare_trig(&s808, v, rim.tmul, rim.dinv);
+            break;
+        }
         rim.pc = rim.pm = rim.p2 = 0.0f;
         rim.denv = 1.0f;
         rim.ienv = rim.amp = rim.nenv = 1.0f;
@@ -257,6 +325,11 @@ void voice_trig(uint32_t ch, int32_t note, uint32_t vel)
             hat.k = note == 46 ? hat.ko : hat.kc;
             if (d != 1.0f)
                 hat.k = fm_powf(hat.k, d);
+            if (m808[CH_HATS]) {                 /* 7.6 */
+                h808.k = hat.k;
+                d808_hat_trig(&h808, v);
+                break;
+            }
         }
         hat.amp = 1.0f;
         hat.vel = v;
@@ -447,7 +520,7 @@ static int render_bass(float *o, uint32_t n)
             m = (bass.index * bass.ienv + 0.04f) * mm;
         } else
             m = (bass.index * bass.ienv + 0.04f) * fm_sin_turns(bass.pm);   /* a pluck, then nearly a pure sine */
-        s = fm_sin_turns(bass.pc + m * 0.15915494f) + bass.sub * fm_sin_turns(bass.ps);
+        s = fm_sin_turns(bass.pc + m * 0.15915494f);
         if (bass.drive > 0.0f)                   /* DRIVE (5.3): a soft clip before the filter */
             s = s * (1.0f + bass.drive) / (1.0f + bass.drive * 0.5f * fm_fabsf(s));
         /* the envelope: up in 2 ms, then down to the sustain while held, released in 60 ms */
@@ -463,7 +536,20 @@ static int render_bass(float *o, uint32_t n)
         }
         bass.lp1 = undenorm(bass.lp1 + lp2a * (s - bass.lp1));
         bass.lp2 = undenorm(bass.lp2 + lp2a * (bass.lp1 - bass.lp2));
-        y = bass.lp2 * bass.amp * bass.vel * 0.5f;
+        /* the sub, after the drive and the filter (6.1, after kwasub and rupture: it stays clean, and the drive
+         * doesn't beat against it); CLASSIC adds a third of its 3rd and a fifth of its 5th, so a small speaker hears
+         * it (rupture's classic sub) */
+        s = bass.lp2;
+        if (bass.sub > 0.0f) {
+            float u = fm_sin_turns(bass.ps);
+            if (bass.classic) {
+                float p3 = bass.ps * 3.0f, p5 = bass.ps * 5.0f;
+                u += (1.0f / 3.0f) * fm_sin_turns(p3 - (float)(int32_t)p3) + 0.2f * fm_sin_turns(p5 - (float)(int32_t)p5);
+                u *= 0.75f;                      /* (its peak as the sine's) */
+            }
+            s += bass.sub * u;
+        }
+        y = s * bass.amp * bass.vel * 0.5f;
         o[i] = 0.5f * (bass_last + y);
         bass_last = y;
         bass.ienv *= ik2;
@@ -474,6 +560,222 @@ static int render_bass(float *o, uint32_t n)
         bass.amp = 0.0f;
     }
     return 1;
+}
+
+static void bq_peak(bq_t *q, float hz, float qf, float db)   /* RBJ's peaking EQ (coefficients only; state kept) */
+{
+    float a = fm_exp2f(db * (1.0f / 12.0412f)), w = 6.2831853f * hz * INV_SR, al = fm_sinf(w) / (2.0f * qf),
+          c = fm_cosf(w), a0 = 1.0f / (1.0f + al / a);
+    q->b0 = (1.0f + al * a) * a0;
+    q->b1 = -2.0f * c * a0;
+    q->b2 = (1.0f - al * a) * a0;
+    q->a1 = q->b1;
+    q->a2 = (1.0f - al / a) * a0;
+}
+static void bq_lpf(bq_t *q, float hz, float qf)   /* RBJ's low-pass (7.3's fitted body) */
+{
+    float w = 6.2831853f * fm_minf(hz, 18000.0f) * INV_SR, al = fm_sinf(w) / (2.0f * qf), c = fm_cosf(w),
+          a0 = 1.0f / (1.0f + al);
+    q->b0 = 0.5f * (1.0f - c) * a0;
+    q->b1 = (1.0f - c) * a0;
+    q->b2 = q->b0;
+    q->a1 = -2.0f * c * a0;
+    q->a2 = (1.0f - al) * a0;
+}
+static void bq_hpf(bq_t *q, float hz, float qf)   /* RBJ's high-pass (7.7's bell) */
+{
+    float w = 6.2831853f * hz * INV_SR, al = fm_sinf(w) / (2.0f * qf), c = fm_cosf(w), a0 = 1.0f / (1.0f + al);
+    q->b0 = 0.5f * (1.0f + c) * a0;
+    q->b1 = -(1.0f + c) * a0;
+    q->b2 = q->b0;
+    q->a1 = -2.0f * c * a0;
+    q->a2 = (1.0f - al) * a0;
+}
+static void bq_bpf(bq_t *q, float hz, float qf)   /* RBJ's band-pass, 0 dB peak (7.7's breath) */
+{
+    float w = 6.2831853f * hz * INV_SR, al = fm_sinf(w) / (2.0f * qf), c = fm_cosf(w), a0 = 1.0f / (1.0f + al);
+    q->b0 = al * a0;
+    q->b1 = 0.0f;
+    q->b2 = -al * a0;
+    q->a1 = -2.0f * c * a0;
+    q->a2 = (1.0f - al) * a0;
+}
+static inline float bq_run(bq_t *q, float x)    /* transposed direct form II */
+{
+    float y = q->b0 * x + q->z1;
+    q->z1 = undenorm(q->b1 * x - q->a1 * y + q->z2);
+    q->z2 = undenorm(q->b2 * x - q->a2 * y);
+    return y;
+}
+/* 7.3, refitted 2026-11-10 by ear and measure: the reed's air comes in a short puff, a half-sine open 8 % (blown hard)
+ * to 15 % (soft) of each cycle: its harmonics level to about the 12th, then a cliff (the real ones' brightness and
+ * buzz; the first REED's flow, open half the cycle, was dull). The puff band-limited exactly: its Fourier series, in a
+ * table an octave of notes (the top note's harmonics under 20 kHz), two widths, built at boot into the pool */
+#define REED_GAIN 2.8f
+#define HORN_GAIN 1.0f                           /* (7.7: BRASS's loudness; set from measurements) */
+#define RT_N 1024u
+#define RT_OCT 6u                                /* tables for notes up to 130, 260 .. 4,160 Hz */
+static PLAT_POOL int16_t reed_tab[2][RT_OCT][RT_N];
+static const float RT_DELTA[2] = {0.15f, 0.08f}; /* soft, hard */
+static float reed_sample(float d, uint32_t K, float ph)   /* the puff's Fourier series to harmonic K, at phase ph */
+{
+    float a = 3.14159265f / d, acc = 0.0f;
+    uint32_t k;
+    for (k = 1; k <= K; k++) {
+        /* c_k = integral over the puff of sin(pi t / d) e^(-i 2 pi k t) = a (1 + e^(-i w d)) / (a^2 - w^2) */
+        float wk = 6.2831853f * (float)k, den = a * a - wk * wk, re, im, kp = (float)k * ph;
+        if (fm_fabsf(den) < 1e-3f * a * a) {   /* (w = a: the limit, -i d / 2) */
+            re = 0.0f;
+            im = -0.5f * d;
+        } else {
+            re = a * (1.0f + fm_cosf(wk * d)) / den;
+            im = -a * fm_sinf(wk * d) / den;
+        }
+        kp -= (float)(int32_t)kp;
+        acc += 2.0f * (re * fm_sin_turns(kp + 0.25f >= 1.0f ? kp - 0.75f : kp + 0.25f) - im * fm_sin_turns(kp));
+    }
+    return acc;
+}
+static void reed_tables(void)                    /* (boot; no scratch: each sample summed in place, scaled by the
+                                                  * puff's own peak, at its middle) */
+{
+    uint32_t w, o, n;
+    for (w = 0; w < 2u; w++)
+        for (o = 0; o < RT_OCT; o++) {
+            float d = RT_DELTA[w], top = 65.0f * (float)(2u << o);
+            uint32_t K = (uint32_t)(20000.0f / top);
+            float sc = 27000.0f / reed_sample(d, K, 0.5f * d);
+            for (n = 0; n < RT_N; n++) {
+                float v = reed_sample(d, K, (float)n * (1.0f / (float)RT_N)) * sc;
+                reed_tab[w][o][n] = (int16_t)(v > 32767.0f ? 32767.0f : v < -32768.0f ? -32768.0f : v);
+            }
+        }
+}
+static inline float reed_read(const int16_t *t, float ph)
+{
+    float x = ph * (float)RT_N;
+    uint32_t i = (uint32_t)x;
+    float fr = x - (float)i, a = (float)t[i & (RT_N - 1u)], b = (float)t[(i + 1u) & (RT_N - 1u)];
+    return (a + fr * (b - a)) * (1.0f / 30000.0f);   /* (the scale's 27,000 at the puff's peak; as before, 30,000) */
+}
+static inline uint32_t reed_oct(float f)         /* the table whose top note is at or over f */
+{
+    uint32_t o = 0;
+    float top = 130.0f;
+    while (o + 1u < RT_OCT && f > top) {
+        top *= 2.0f;
+        o++;
+    }
+    return o;
+}
+
+/* 7.7: HORN, a horn fitted to recordings of real trumpets and saxophones (Freesound; tools/brass/): a source whose
+ * harmonics fall off less steeply the harder it is blown (two tables, soft and loud, crossfaded by the breath: the
+ * blare), each horn's own uneven pattern of harmonics, into a bell (a high-pass, a resonance, a low-pass, fitted on 17
+ * notes); and what makes a held note alive, at the amounts measured on them: the pitch wandering ~3.5 cents (2 Hz) and
+ * jittering ~1.2 (30 Hz), the level ~0.9 dB, and breath noise pulsed once a cycle. Tables an octave apart, band-limited,
+ * built at boot into the pool. FM+HORN layers it with BRASS (BLEND: 0 half each, 127 all HORN) */
+#define HT_N 512u
+#define HT_OCT 5u                                /* notes up to 130 .. 2,080 Hz (the lead's top: C7 shares the last) */
+static PLAT_POOL int16_t horn_tab[HORN_N][2][HT_OCT][HT_N];
+static float horn_rms[HORN_N][2][HT_OCT];
+static void horn_tables(void)                    /* (boot) */
+{
+    uint32_t h, d, o, n, k;
+    for (h = 0; h < HORN_N; h++)
+        for (d = 0; d < 2u; d++)
+            for (o = 0; o < HT_OCT; o++) {
+                float top = 65.0f * (float)(2u << o), pk = 0.0f, ms = 0.0f, sc;
+                uint32_t K = (uint32_t)(18000.0f / top);
+                for (n = 0; n < HT_N; n++) {     /* (a first pass for the peak, a second to write: no scratch) */
+                    float v = 0.0f;
+                    for (k = 1; k <= K; k++) {
+                        float db = -HORN_SLOPE[h][d] * fm_log2f((float)k)
+                                   + (float)(k <= HORN_NK ? HORN_RES[2u * h + d][k - 1u] : -15);
+                        v += fm_exp2f(db * 0.16609640f) * fm_sin_turns((float)(k * n % HT_N) * (1.0f / (float)HT_N) + 0.25f
+                                                                      - (float)((k * n % HT_N) * 4u >= 3u * HT_N));
+                    }
+                    pk = fm_maxf(pk, fm_fabsf(v));
+                }
+                sc = 27000.0f / pk;
+                for (n = 0; n < HT_N; n++) {
+                    float v = 0.0f;
+                    for (k = 1; k <= K; k++) {
+                        float db = -HORN_SLOPE[h][d] * fm_log2f((float)k)
+                                   + (float)(k <= HORN_NK ? HORN_RES[2u * h + d][k - 1u] : -15);
+                        v += fm_exp2f(db * 0.16609640f) * fm_sin_turns((float)(k * n % HT_N) * (1.0f / (float)HT_N) + 0.25f
+                                                                      - (float)((k * n % HT_N) * 4u >= 3u * HT_N));
+                    }
+                    v *= sc;
+                    horn_tab[h][d][o][n] = (int16_t)v;
+                    ms += (v * (1.0f / 27000.0f)) * (v * (1.0f / 27000.0f));
+                }
+                horn_rms[h][d][o] = fm_sqrtf(ms / (float)HT_N);
+            }
+}
+static struct {
+    float ph, ws, wf, ls, nz;                    /* phase; the wander, the jitter, the level's wander (one-poles) */
+    uint32_t rng;
+    bq_t hp, pk, lp, nbp;                        /* the bell; the breath's band */
+    int set;
+} horn = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0x7F4A7C15u, {0}, {0}, {0}, {0}, 0};
+static void bq_hpf(bq_t *q, float hz, float qf);
+static void bq_bpf(bq_t *q, float hz, float qf);
+static void horn_config(void)                    /* (7.7: the bell's, fixed; the breath's band) */
+{
+    if (horn.set)
+        return;
+    bq_hpf(&horn.hp, HORN_HP_HZ, HORN_HP_Q);
+    bq_peak(&horn.pk, HORN_PK_HZ, HORN_PK_Q, HORN_PK_DB);
+    bq_lpf(&horn.lp, HORN_LP_HZ, HORN_LP_Q);
+    bq_bpf(&horn.nbp, 2500.0f, 0.7f);
+    horn.set = 1;
+}
+static inline float horn_rnd(void)
+{
+    horn.rng ^= horn.rng << 13;
+    horn.rng ^= horn.rng >> 17;
+    horn.rng ^= horn.rng << 5;
+    return (float)(int32_t)horn.rng * (1.0f / 2147483648.0f);
+}
+static inline uint32_t horn_oct(float f)
+{
+    uint32_t o = 0;
+    float top = 130.0f;
+    while (o + 1u < HT_OCT && f > top) {
+        top *= 2.0f;
+        o++;
+    }
+    return o;
+}
+static float horn_tick(float f, float hard, uint32_t type)   /* one sample of the horn at f (its own movement on top) */
+{
+    /* white noise through one-poles; (1 - a) / (1 + a)'s root, its spread, divided out: 2 Hz 0.0185, 30 Hz 0.0718, 1.5 Hz
+     * 0.0164 (at 44.1 kHz) */
+    float cents, lev, x, s, t;
+    uint32_t o;
+    horn.ws += (horn_rnd() - horn.ws) * 0.000285f;
+    horn.wf += (horn_rnd() - horn.wf) * 0.00427f;
+    horn.ls += (horn_rnd() - horn.ls) * 0.000214f;
+    cents = 3.5f * horn.ws * (1.0f / 0.0119f) + 1.2f * horn.wf * (1.0f / 0.0462f);
+    lev = 1.0f + 0.25f * horn.ls * (1.0f / 0.0103f);
+    f *= 1.0f + cents * 0.000577623f;            /* (cents to a ratio: ln 2 / 1200) */
+    horn.ph = wrap(horn.ph + f * INV_SR);
+    o = horn_oct(f);
+    x = horn.ph * (float)HT_N;
+    {
+        uint32_t i = (uint32_t)x;
+        float fr = x - (float)i;
+        const int16_t *a = horn_tab[type][0][o], *b = horn_tab[type][1][o];
+        float sa = (float)a[i & (HT_N - 1u)] + fr * (float)(a[(i + 1u) & (HT_N - 1u)] - a[i & (HT_N - 1u)]);
+        float sb = (float)b[i & (HT_N - 1u)] + fr * (float)(b[(i + 1u) & (HT_N - 1u)] - b[i & (HT_N - 1u)]);
+        s = ((1.0f - hard) * sa + hard * sb) * (1.0f / 27000.0f);
+    }
+    t = 0.5f + 0.5f * fm_sin_turns(horn.ph + 0.25f >= 1.0f ? horn.ph - 0.75f : horn.ph + 0.25f);
+    horn.nz = horn_rnd() * t * t;                /* the breath, pulsed as the lips (the reed) open each cycle */
+    s += bq_run(&horn.nbp, horn.nz) * horn_rms[type][1][o] * fm_exp2f(HORN_NOISE_DB[type] * 0.16609640f) * 2.5f;
+    s = bq_run(&horn.lp, bq_run(&horn.pk, bq_run(&horn.hp, s)));
+    return s * lev;
 }
 
 static int render_lead(float *o, uint32_t n)
@@ -493,12 +795,41 @@ static int render_lead(float *o, uint32_t n)
         if (lead.t > 0.3f)                       /* vibrato, after 300 ms (the player's breath settles) */
             vib = lead.vdepth * fm_sin_turns(lead.vib);
         lead.vib = wrap(lead.vib + 4.5f * INV_SR);
-        if (lead.inst > 0.5f) {                  /* brass: a scoop up into the note, the index with the loudness */
+        if (lead.inst == INST_REED) {            /* 7.3: the free reed */
+            float hard = env * (0.4f + 0.6f * lead.vel), dt, air;   /* (how hard it's blown: the puff's width) */
+            uint32_t oc;
+            f *= fm_exp2f(vib + 0.003f * (1.0f - env));   /* (sharp as the breath falls: ~2 Hz at A4) */
+            dt = f * INV_SR;
+            oc = reed_oct(f * (1.0f + lead.spread));
+            lead.pc = wrap(lead.pc + dt);
+            lead.pc2 = wrap(lead.pc2 + dt * (1.0f + lead.spread));   /* a second reed a few cents up (DETUNE) */
+            s = (1.0f - hard) * (reed_read(reed_tab[0][oc], lead.pc) + reed_read(reed_tab[0][oc], lead.pc2))
+                + hard * (reed_read(reed_tab[1][oc], lead.pc) + reed_read(reed_tab[1][oc], lead.pc2));
+            s *= 0.3f;
+            reed_rng ^= reed_rng << 13;
+            reed_rng ^= reed_rng >> 17;
+            reed_rng ^= reed_rng << 5;
+            air = (float)(int32_t)reed_rng * (1.0f / 2147483648.0f);
+            reed_air += (air - reed_air) * 0.3f;  /* the breath past the reed, faint */
+            s += 0.012f * reed_air * env;
+            s = bq_run(&reed_bq[1], bq_run(&reed_bq[0], s));
+            s *= REED_GAIN;                      /* (the FM melodica's loudness) */
+        } else if (lead.inst == INST_BRASS || lead.inst == INST_HORN || lead.inst == INST_LAYER) {
+            /* brass: a scoop up into the note, the index with the loudness (7.7: HORN, or both layered) */
             lead.scoop *= 0.9994f;               /* ~40 ms */
             f *= fm_exp2f(vib - lead.scoop * (1.0f / 12.0f));
-            lead.pc = wrap(lead.pc + f * INV_SR);
-            idx = lead.bright * env * (0.4f + 0.6f * lead.vel);
-            s = fm_sin_turns(lead.pc + idx * 0.15915494f * fm_sin_turns(lead.pc));
+            if (lead.inst != INST_HORN) {
+                lead.pc = wrap(lead.pc + f * INV_SR);
+                idx = lead.bright * env * (0.4f + 0.6f * lead.vel);
+                s = fm_sin_turns(lead.pc + idx * 0.15915494f * fm_sin_turns(lead.pc));
+            } else
+                s = 0.0f;
+            if (lead.inst != INST_BRASS) {       /* the horn: blown as hard as the breath and the velocity */
+                float h = horn_tick(f, fm_minf(1.0f, env * (0.3f + 0.7f * lead.vel) * lead.bright * (1.0f / 1.66f)),
+                                    (uint32_t)lead.horn) * HORN_GAIN;
+                s = lead.inst == INST_HORN ? h : 1.4f * ((1.0f - lead.blend) * s + lead.blend * h);   /* (the layer's
+                                                  * two only partly alike: 1.4 back to one's loudness) */
+            }
             {                                    /* the doubling: a second player, 12 ms behind */
                 float d = dbl[dbl_pos];
                 dbl[dbl_pos] = s;
@@ -527,15 +858,25 @@ static int render_lead(float *o, uint32_t n)
     return 1;
 }
 
+#define KICK_808_GAIN 2.3f                       /* (7.6: levels matched to the other models: SINE's peak, CROSS's, METAL's RMS) */
+#define RIM_808_GAIN 0.8f
+#define HAT_808_GAIN 0.42f
+static int d808_mix(int (*m)(float *, uint32_t, float, int), int (*ours)(float *, uint32_t), float gain, float *o,
+                    uint32_t n)                  /* (the 808 added into the channel's own buffer: no scratch of its own) */
+{
+    int a = ours(o, n);
+    return m(o, n, gain, a) | a;
+}
+
 int voice_render(uint32_t ch, float *o, uint32_t n)
 {
     switch (ch) {
-    case CH_KICK:
-        return render_kick(o, n);
+    case CH_KICK:                                /* (7.6: an 808 hit rings on if the model changes under it) */
+        return d808_mix(d808_kick_render, render_kick, KICK_808_GAIN, o, n);
     case CH_SNARE:
-        return render_rim(o, n);
+        return d808_mix(d808_snare_render, render_rim, RIM_808_GAIN, o, n);
     case CH_HATS:
-        return render_hats(o, n);
+        return d808_mix(d808_hat_render, render_hats, HAT_808_GAIN, o, n);
     case CH_BASS:
         return render_bass(o, n);
     case CH_LEAD:

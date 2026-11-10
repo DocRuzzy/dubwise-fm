@@ -14,7 +14,9 @@
 #define NSLOTS 4u
 #define SLOT_BYTES 0x8000u
 static const uint32_t SLOT_AT[NSLOTS] = {0x97000u, 0x9F000u, 0xA7000u, 0xBD000u};
-#define SLOT_MAGIC 0x334C5344u                   /* "DSL3" (5.8, 5.9: steps as PST2; a pattern's SEED kept) */
+#define SLOT_MAGIC 0x344C5344u                   /* "DSL4" (6.7: steps as PST3, the CONDITION) */
+#define SLOT_MAGIC3 0x334C5344u                  /* "DSL3" (5.8, 5.9: steps as PST2; a pattern's SEED kept): the top bits
+                                                  * cleared */
 #define SLOT_MAGIC2 0x324C5344u                  /* "DSL2" (the session): the same layout, its drum gates cleared */
 #define SLOT_MAGIC1 0x314C5344u                  /* "DSL1" (before it) */
 typedef struct {
@@ -29,7 +31,7 @@ typedef char slot_fits[SLOT_FIXED + sizeof(slot_head_t) < SLOT_BYTES ? 1 : -1];
 
 static int slot_head_ok(const slot_head_t *h)    /* a whole slot of either form */
 {
-    uint32_t fixed = h->magic == SLOT_MAGIC || h->magic == SLOT_MAGIC2 ? SLOT_FIXED : h->magic == SLOT_MAGIC1 ? SLOT_FIXED1 : 0u;
+    uint32_t fixed = h->magic == SLOT_MAGIC || h->magic == SLOT_MAGIC3 || h->magic == SLOT_MAGIC2 ? SLOT_FIXED : h->magic == SLOT_MAGIC1 ? SLOT_FIXED1 : 0u;
     return fixed && h->moves <= SLOT_BYTES && h->len == fixed + h->moves * (uint32_t)sizeof(mot_ev_t)
            && h->len <= SLOT_BYTES - sizeof *h;
 }
@@ -58,7 +60,7 @@ static const slot_head_t *slot_head(uint32_t s)  /* the slot's header in the fla
         return 0;
     for (i = 0; i < sizeof h; i++)
         ((uint8_t *)&h)[i] = p[i];
-    return (h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC2 || h.magic == SLOT_MAGIC1) && h.len <= SLOT_BYTES - sizeof h
+    return (h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC3 || h.magic == SLOT_MAGIC2 || h.magic == SLOT_MAGIC1) && h.len <= SLOT_BYTES - sizeof h
            ? &h : 0;
 }
 
@@ -146,6 +148,7 @@ static int slot_load(uint32_t s)
     p = plat_data(SLOT_AT[s]) + sizeof h;
     if (!slot_head_ok(&h) || slot_sum(2166136261u, p, h.len) != h.sum)
         return 0;
+    demo_live = 0;                               /* (another song: the demo's tour stops) */
     for (i = 0; i < P_NIDS; i++)                 /* the project's parameters (the device's stay) */
         if (project_param(i))
             ctl_set(i, (int16_t)(p[2u * i] | p[2u * i + 1u] << 8));
@@ -182,7 +185,7 @@ static int slot_load(uint32_t s)
                 m.len = p[0];
                 m.grid = p[1];
                 m.swing = p[2];
-                m.rsv = h.magic == SLOT_MAGIC ? p[3] : 0u;   /* (the SEED, 5.9) */
+                m.rsv = h.magic == SLOT_MAGIC || h.magic == SLOT_MAGIC3 ? p[3] : 0u;   /* (the SEED, 5.9) */
                 ctl_meta_set(ch, i, m);
             }
         for (ch = 0; ch < NCH; ch++)
@@ -190,8 +193,9 @@ static int slot_load(uint32_t s)
                 uint32_t k;
                 for (k = 0; k < NSTEPS; k++, p += 4) {
                     step_t st;
-                    st.lvl = h.magic == SLOT_MAGIC ? p[0] : (uint8_t)(p[0] & 3u);   /* (DSL2: the converter, as PST1's) */
-                    st.note = (int8_t)p[1];
+                    st.lvl = h.magic == SLOT_MAGIC ? p[0] : h.magic == SLOT_MAGIC3 ? (uint8_t)(p[0] & 0x7Fu)
+                             : (uint8_t)(p[0] & 3u);   /* (DSL3, DSL2: the converters, as PST2's and PST1's) */
+                    st.note = (int8_t)(h.magic == SLOT_MAGIC ? p[1] : p[1] & 0x7Fu);
                     st.off = (int8_t)p[2];
                     st.gate = h.magic == SLOT_MAGIC2 && is_drum(ch) ? 0u : p[3];
                     if (STEP_REPEAT(st) >= REP_N)

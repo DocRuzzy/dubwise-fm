@@ -19,7 +19,7 @@
 #define SV_ORANGE RGB(242, 120, 72)
 #define SV_PAPER RGB(236, 226, 204)              /* the flyer */
 #define SV_INK RGB(28, 28, 32)
-#define SV_BAND 120                              /* the screen in two bands (the canvas holds 144 rows) */
+#define SV_BAND 60                               /* the screen in four bands (the canvas holds 76 rows) */
 
 static struct {
     uint32_t last;                               /* the last touch, ms */

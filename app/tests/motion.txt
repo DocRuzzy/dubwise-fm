@@ -107,3 +107,14 @@ release SAVE
 wait 30
 said MOTION CLEARED
 expect mot_total 0
+# a save from before the pool held 4,096 moves (5,000 in bars 1-40, 125 each): as many as fit load, the song's first
+# bars first (125 moves take 16 chunks of 8, so 32 bars fill the 512 chunks: 4,000 moves), the rest dropped and counted
+oldmotion
+reboot
+wait 600
+expect mot_total 4000
+expect mot_drops 1000
+expect motv1_1 0
+expect motv20_7 19006
+expect motv32_125 31124
+expect motv33_1 -1

@@ -26,6 +26,9 @@ typedef struct {
     int diffuse;                                 /* 1: the in-loop all-passes (off at the Seven-inch tier) */
     float drive;                                 /* the tape's saturation: 1, more at Seven-inch */
     int pingpong;                                /* P3.1: the loop from 2T (gain g^2), odd repeats left, even right */
+    float wow;                                   /* 6.3: the tape's wow and flutter, 0..1 (0 none) */
+    float head3;                                 /* 7.1: the 3T head's level in the output (beyond the tape: its end) */
+    int bbd;                                     /* 7.9: a bucket brigade: the loop and the return through its filters */
 } echo_cfg_t;
 
 void echo_init(void);
@@ -36,3 +39,4 @@ void echo_config(const echo_cfg_t *c);           /* the audio interrupt, before 
 void echo_run(const float *in, float *outl, float *outr, uint32_t n);
 float echo_gr(void);                             /* the return limiter's gain now (1: not limiting) */
 float echo_t_now(void);                          /* the slewed time, line samples */
+void echo_wow_start(void);                       /* 6.3: the wow from its start (a replay the same) */

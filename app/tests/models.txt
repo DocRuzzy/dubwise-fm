@@ -1,5 +1,5 @@
-# Voice models (roadmap 5.7; voices.c): a MODEL field on the kick (SINE, FM THUMP, BOOM), rim (CROSS-STICK, SNARE,
-# SYNDRUM), hats (METAL, NOISE) and bass (ROUND, PLUCK, HOLLOW, STEPPERS); 0 is the model built first. Each renders
+# Voice models (roadmap 5.7; voices.c): a MODEL field on the kick (SINE, FM THUMP, BOOM, 808), rim (CROSS-STICK, SNARE,
+# SYNDRUM, 808), hats (METAL, NOISE, 808; the 808s 7.6) and bass (ROUND, PLUCK, HOLLOW, STEPPERS); 0 is the model built first. Each renders
 # clean and as its own sound, and costs no more than its channel did (the gate: perf_chN, tenths of a % of a device
 # block; bounds at about twice the roadmap's figures, so host jitter doesn't fail them: kick 3.8, hats 1.9, bass 2.5 %).
 wait 600
@@ -110,6 +110,39 @@ midi 80 21 00
 wait 400
 wavstop
 #wav bass-steppers.wav peak<-1 dc<-40 fund55>-8
+# 7.6: the 808 models, after Mutable Instruments Plaits (MIT): the kick a pulse into a resonant band-pass with an FM
+# pulse on its attack; the rim the 808 snare's shell modes and snappy noise; the hats six squares, a swing VCA
+param v1.model 3
+param v2.model 3
+param v3.model 2
+wait 30
+wav kick-808.wav
+midi 99 24 7F
+wait 1200
+wavstop
+wav rim-808.wav
+midi 99 25 7F
+wait 700
+wavstop
+wav hat-808.wav
+midi 99 2A 7F
+wait 250
+midi 99 2E 7F
+wait 900
+wavstop
+#wav kick-808.wav peak<-1 dc<-60 click<-50
+#wav rim-808.wav peak<-1 dc<-60
+#wav hat-808.wav peak<-1 dc<-60
+tap PLAY
+wait 6000
+expect perf_ch1 <76
+expect perf_ch2 <38
+expect perf_ch3 <38
+tap PLAY
+wait 600
+param v1.model 0
+param v2.model 0
+param v3.model 0
 # the cost, the riddim playing with the busiest models
 param v1.model 1
 param v2.model 1

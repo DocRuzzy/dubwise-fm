@@ -91,3 +91,53 @@ expect echo_gr <99
 param dev.tones 0
 #wav echo-burst.wav peak<-1 dc<-60 repeat_ms>590 repeat_ms<615 click<-40
 #wav echo-push.wav peak<-1 dc<-40 tail2<-3 tail2>-45
+# 7.1: the 3T head (the RE-201's 1 : 2 : 3). At 1/4T (T = 5,879 line samples, 533 ms) 3T is 1.6 s and fits the tape:
+# with the loop's feedback at its least, a burst comes back at 3T only with the head up
+param dev.tones 0
+param echo.fb 0
+param echo.time 4
+param echo.ret 100
+wait 3000
+param echo.head3 127
+midi 90 3C 64
+wait 60
+midi 80 3C 00
+wait 1570
+expect echo_ret_db >-30
+wait 1500
+param echo.head3 0
+midi 90 3C 64
+wait 60
+midi 80 3C 00
+wait 1570
+expect echo_ret_db <-80
+# 7.9: ECHO TYPE BBD: a bucket brigade's filters at a quarter of its clock (4,096 stages): at 1/4 (800 ms) ~2.6 kHz,
+# in the loop and on the return; each repeat darker than the tape's. The same rim shot (bright), TAPE then BBD, the
+# returns alone (drop to wet), from the second repeat on
+param echo.head3 0
+param echo.fb 60
+param echo.ret 100
+param echo.time 4
+wait 2500
+param ch2.echo 127
+param echo.time 6
+param wet 1
+wait 2000
+midi 99 25 7F
+wait 1400
+wav echo-tape.wav
+wait 1700
+wavstop
+wait 3000
+param echo.type 1
+wait 50
+midi 99 25 7F
+wait 1400
+wav echo-bbd.wav
+wait 1700
+wavstop
+param echo.type 0
+param ch2.echo 0
+param wet 0
+#wav echo-tape.wav peak<-1 hf2>-15.5
+#wav echo-bbd.wav peak<-1 hf2<-15.5
