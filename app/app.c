@@ -61,6 +61,8 @@ static int32_t gm_drum(uint32_t note)    /* GM drum note -> our channel, -1 none
     }
 }
 static void ml_cc_in(uint32_t ch, uint32_t cc, uint32_t v);
+static volatile uint8_t smc_active;      /* (smc.c: an SMC-Mixer on the USB host, 6.5) */
+static void smc_push(uint32_t pkt);
 static void midi_in(void)                /* audio interrupt: the packets that came in */
 {
     uint32_t pkt;
@@ -70,6 +72,10 @@ static void midi_in(void)                /* audio interrupt: the packets that ca
         int on = (st & 0xF0u) == 0x90u && d2, off = (st & 0xF0u) == 0x80u || ((st & 0xF0u) == 0x90u && !d2);
         if (st != 0xF8u && st != 0xFEu)
             midi_count++;
+        if (smc_active && port == PORT_USB && st < 0xF0u) {   /* the SMC-Mixer: the desk's, not notes (smc.c) */
+            smc_push(pkt);
+            continue;
+        }
         if (st >= 0xF8u) {                   /* real time: the clock, Start, Continue, Stop (SETUP: MIDI CLOCK IN) */
 #ifdef PLAT_HOST
             eng_clock_in(st, eng_clock_now());   /* (the host: the script's time, not the computer's) */

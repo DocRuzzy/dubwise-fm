@@ -854,11 +854,14 @@ static void encoder(uint32_t k, int32_t e)
     }
 }
 
+#include "smc.c"                         /* the SMC-Mixer as the desk (GPL-3.0-only; roadmap 6.5) */
+
 static void dub_input_hands(void);
 void dub_input(void)                     /* (what the hands change goes into the undo history) */
 {
     undo_live_set(1);
     dub_input_hands();
+    smc_tick();                          /* (the SMC-Mixer's: as the hands', 6.5) */
     undo_live_set(0);
 }
 

@@ -425,6 +425,23 @@ They play at once, and they stay through a reboot, a firmware update and NEW PRO
 makes a `.dwshots` file without the FM-1. A backup (`fm1_backup.py`) doesn't carry them: keep `shots get`'s file beside
 it. SETUP → ONE SHOTS also brings the factory ones back.
 
+**M-VAVE's SMC-Mixer as the desk.** Set SETUP → USB PORT to KEYBOARD and plug the SMC-Mixer (in its DAW mode) into
+the FM-1's USB port; the FM-1 gives the port no power, so the mixer needs its own (its battery, or a powered hub). The
+screen says SMC-MIXER: THE DESK, and its eight strips are Dubwise's:
+
+| On the mixer | Does |
+|---|---|
+| Faders | The strips' levels. A fader takes over once you bring it to where the level is (its LED blinks until then), so nothing jumps |
+| MUTE | Mutes, on the next quantise line, like a tap of the mute key |
+| SOLO | Solo |
+| REC | A throw, while you hold it: to the strip's destination, in full |
+| SELECT | The focus (ALGORITHM's) |
+| Knobs 1–8 | BIG KNOB, ECHO TIME, ECHO FB, ECHO RETURN, SPRING RETURN, the focused strip's echo and spring sends, TEMPO |
+| PLAY / STOP / REC | The transport, and the song's capture |
+
+Its LEDs follow the FM-1 (what's muted, soloed, thrown, focused, playing). Everything it does is undone with HOME + REC
+and captured into the song like the panel's own moves. While it's connected there's no computer on the port.
+
 **The sound editor in your browser.** On the project's site, the Sound editor page shows every setting of all eight
 voices as sliders. Connect the FM-1 over USB, press Connect (Chrome or Edge: they let a page talk MIDI; allow SysEx when
 asked), pick a channel's tab and move the sliders: the FM-1 changes as if you'd turned its knobs, so a song that's
