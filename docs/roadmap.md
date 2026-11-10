@@ -272,9 +272,10 @@ else. Vocal fragments are left out: they wait on the live input's upstream chang
   - the owner's Native Instruments Black Arc one-shots (licensed: measurements only, never the audio): the reggae
     session's own congas, bongos, cowbells, woodblocks, tambourines, shakers, afuche, guiro and triangle.
   - Neither has a nyabinghi set, so the three drums are matched by role (`samples/perc/README.md`):
-    - the funde (slack head) is a low, dull conga (221 Hz, short);
-    - the repeater (tight head) is a bongo that rings (652 Hz);
-    - the bass drum is a floor tom or kick from Black Arc (the owner will send them).
+    - the bass drum is a big open tom that rings (`Tom KingdomRise`: 109 Hz, 1.8 s);
+    - the funde (slack head) is a tom whose pitch bends down (`Tom KungFuDub`: 256 to 166 Hz), with a conga's hand
+      attack (`Conga BlackSpark`);
+    - the repeater (tight head) is a bongo that rings (652 Hz).
 
     Real takes replace them if any turn up.
 - **Channel 8 shared:** the percussion, the sirens, the one-shots and the deejay on one strip.

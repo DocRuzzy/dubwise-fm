@@ -20,8 +20,8 @@ There's no nyabinghi set in it, so the three drums are matched to the hits that 
 
 | Role | The nyabinghi drum | Stand-in | Measured |
 |---|---|---|---|
-| Bass ("thunder") | big, low, open, a padded beater | `Kick VaporIzer 1` (also `2`) for now: the only kicks that ring; a floor tom if the owner's Tom folder comes through (the first zip was empty) | modes 47 and 129 Hz, rings to -40 dB in 0.75 s (0.81) |
-| Funde | slack head: low, dull, short | `Conga BlackSpark` (also `Conga LickShot`) | 221 Hz (226), -20 dB in 0.10 s (0.17) |
+| Bass ("thunder") | big, low, open, a padded beater | `Tom KingdomRise` | modes 109 and 183 Hz (1 : 1.68, a membrane's), rings to -40 dB in 1.79 s |
+| Funde | slack head: low, dull, bends down | the body from `Tom KungFuDub`, the hand's attack from `Conga BlackSpark` | the tom glides 256 to 166 Hz (a slack head), rings 1.34 s; the conga 221 Hz, -20 dB in 0.10 s |
 | Repeater (kete) | tight head: higher, rings | `Bongo SteppersRock` (also `Conga SkaBuster`) | 652 Hz (483), rings to -40 dB in 0.63 s (0.55) |
 
 The rest of the kit is fitted to Black Arc's reggae-session hits first, with VSCO 2 as a cross-check:
@@ -29,7 +29,7 @@ The rest of the kit is fitted to Black Arc's reggae-session hits first, with VSC
 - `Cowbell *`, `Woodblock *`, `Tamb *`, `Shaker *`;
 - `Afuche *` (cabasa), `Guiro *`, `Triangle *`.
 
-Also from Black Arc (2026-11-10): `Hihat/` (91), `Snare/` (61), `Cymbal/` (19), `Kick/` (23). Besides the
+Also from Black Arc (2026-11-10): `Hihat/` (91), `Snare/` (61), `Cymbal/` (19), `Kick/` (23), `Tom/` (7), `Clap/` (9). Besides the
 nyabinghi bass drum, these are the reggae session's own drums: a reference for checking the kick, rim and hats models
 against (the studies, 8.6). The kicks are tight: 40-80 Hz, most under -40 dB within 0.1-0.4 s.
 
