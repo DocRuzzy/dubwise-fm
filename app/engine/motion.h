@@ -18,7 +18,8 @@
 #include "song.h"
 
 #define MOT_CHUNK 8u                             /* moves a chunk */
-#define MOT_CHUNKS 1024u                         /* 8,192 moves in all, shared by the bars */
+#define MOT_CHUNKS 512u                          /* 4,096 moves in all, shared by the bars (8,192 until 2026-11-10: a
+                                                  * slot holds 2,920 at most; the pool's 24 KB went back) */
 #define MOT_BAR_MAX 128u                         /* a bar's most */
 #define MOT_NONE 0xFFFFu
 #define MOT_TPB 480u                             /* ticks a beat (a bar: 1,920) */
@@ -55,7 +56,11 @@ int mot_fb_pop(uint32_t *id, int32_t *v);        /* main loop: 1 one taken */
 
 /* the main loop: the flash copy (PLAT data area) */
 #define MOT_FLASH 0xB0000u                       /* apart from the store objects (0xC8000 up) */
-#define MOT_FLASH_SECTORS 13u                    /* 0xB0000 .. 0xBCFFF: 12 + 512 + 8,192 x 6 B fit */
+#define MOT_FLASH_SECTORS 13u                    /* 0xB0000 .. 0xBCFFF: 12 + 512 + 8,192 x 6 B fit (an older save's
+                                                  * area; 4,096 now held) */
+#ifdef PLAT_HOST
+void mot_oldsave(void);
+#endif
 int mot_save(void);                              /* 1 written (or nothing to write) */
 void mot_load(void);
 uint32_t mot_total(void);

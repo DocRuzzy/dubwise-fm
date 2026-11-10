@@ -112,7 +112,7 @@ void d808_kick_trig(const d808_kick_cfg_t *c, float accent, float tmul, float di
     kk.on = 1;
 }
 
-int d808_kick_render(float *o, uint32_t n)
+int d808_kick_render(float *o, uint32_t n, float gain, int add)
 {
     uint32_t i;
     float pk = 0.0f;
@@ -149,7 +149,7 @@ int d808_kick_render(float *o, uint32_t n)
         }
         bp = svf_run(&kk.res, (pulse - kk.retrig * 0.2f) * kk.scale, &kk.lp_out);
         kk.tone_lp += (pulse * kk.leak + bp - kk.tone_lp) * kk.tone_f;
-        o[i] = kk.tone_lp;
+        o[i] = add ? o[i] + gain * kk.tone_lp : gain * kk.tone_lp;
         pk = fm_maxf(pk, fm_fabsf(kk.tone_lp));
     }
     kk.res.s1 = undenorm(kk.res.s1);
@@ -214,7 +214,7 @@ void d808_snare_trig(const d808_snare_cfg_t *c, float accent, float tmul, float 
     sn.on = 1;
 }
 
-int d808_snare_render(float *o, uint32_t n)
+int d808_snare_render(float *o, uint32_t n, float gain, int add)
 {
     uint32_t i, k;
     float pk = 0.0f;
@@ -242,8 +242,11 @@ int d808_snare_render(float *o, uint32_t n)
             noise = 0.0f;
         sn.nenv = undenorm(sn.nenv * sn.ndecay);
         noise = svf_run(&sn.nf, noise * sn.nenv * sn.snappy * 2.0f, 0);
-        o[i] = noise + shell * (1.0f - sn.snappy);
-        pk = fm_maxf(pk, fm_fabsf(o[i]));
+        {
+            float y = noise + shell * (1.0f - sn.snappy);
+            o[i] = add ? o[i] + gain * y : gain * y;
+            pk = fm_maxf(pk, fm_fabsf(y));
+        }
     }
     for (k = 0; k < NMODES; k++) {
         sn.res[k].s1 = undenorm(sn.res[k].s1);
@@ -290,7 +293,7 @@ void d808_hat_trig(const d808_hat_cfg_t *c, float accent)
     hh.on = 1;
 }
 
-int d808_hat_render(float *o, uint32_t n)
+int d808_hat_render(float *o, uint32_t n, float gain, int add)
 {
     uint32_t i, k;
     if (!hh.on)
@@ -313,7 +316,8 @@ int d808_hat_render(float *o, uint32_t n)
         s *= s > 0.0f ? 4.0f : 0.1f;             /* the swing VCA */
         s = s / (1.0f + fm_fabsf(s));
         s = (s + 0.1f) * hh.env;
-        o[i] = svf_hp(&hh.hpf, s);
+        s = svf_hp(&hh.hpf, s);
+        o[i] = add ? o[i] + gain * s : gain * s;
     }
     hh.col.s1 = undenorm(hh.col.s1);
     hh.col.s2 = undenorm(hh.col.s2);

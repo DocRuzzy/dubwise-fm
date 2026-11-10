@@ -2,6 +2,7 @@
  * Copyright (C) 2026 Dubwise FM contributors */
 /* motion.h. Compiled on its own (fm1.toml o2). */
 #include "motion.h"
+#include <string.h>
 #include "plat.h"
 
 /* the moves: a pool of chunks of MOT_CHUNK, each bar a chain of them (most bars have none); a bar's moves in order,
@@ -376,6 +377,33 @@ int mot_save(void)
     return 1;
 }
 
+#ifdef PLAT_HOST
+void mot_oldsave(void)                           /* (tests) a save from before 4,096 moves: 5,000, 125 a bar in bars 1-40,
+                                                  * each move's value its bar x 1,000 + its index */
+{
+    static uint8_t buf[SONG_BARS + 5000u * sizeof(mot_ev_t)];
+    mot_head_t h;
+    uint32_t b, i, o = SONG_BARS, sc;
+    for (b = 0; b < SONG_BARS; b++)
+        buf[b] = b < 40u ? 125u : 0u;
+    for (b = 0; b < 40u; b++)
+        for (i = 0; i < 125u; i++, o += sizeof(mot_ev_t)) {
+            mot_ev_t m;
+            m.tick = (uint16_t)(i * 3u);
+            m.id = (uint16_t)P_ECHO_FB;
+            m.v = (int16_t)(b * 1000u + i);
+            memcpy(buf + o, &m, sizeof m);
+        }
+    h.magic = MOT_MAGIC;
+    h.len = o;
+    h.sum = sum_bytes(2166136261u, buf, o);
+    for (sc = 0; sc < MOT_FLASH_SECTORS; sc++)
+        plat_data_erase(MOT_FLASH + sc * 4096u);
+    plat_data_write(MOT_FLASH + (uint32_t)sizeof h, buf, o);
+    plat_data_write(MOT_FLASH, &h, sizeof h);
+}
+#endif
+
 void mot_load(void)                              /* (at boot, before the engine runs) */
 {
     const uint8_t *p = plat_data(MOT_FLASH);
@@ -391,7 +419,8 @@ void mot_load(void)                              /* (at boot, before the engine 
     p += sizeof h;
     for (b = 0; b < SONG_BARS; b++)
         t += p[b] <= MOT_BAR_MAX ? p[b] : 100000u;
-    if (t > MOT_CHUNKS * MOT_CHUNK || SONG_BARS + t * (uint32_t)sizeof(mot_ev_t) != h.len)
+    if (SONG_BARS + t * (uint32_t)sizeof(mot_ev_t) != h.len)   /* (more than the pool holds, from before 4,096: as
+                                                                * many as fit, the song's first bars first) */
         return;
     reset_all();
     {
@@ -402,8 +431,9 @@ void mot_load(void)                              /* (at boot, before the engine 
                 uint32_t k;
                 for (k = 0; k < sizeof m; k++)
                     ((uint8_t *)&m)[k] = e[k];
-                if (insert(b, m.tick, m.id, m.v) < 0)
-                    break;
+                (void)insert(b, m.tick, m.id, m.v);   /* (full: dropped and counted; the reading goes on, so the
+                                                     * bars after stay in step: it used to stop the bar's reading
+                                                     * and misread the rest) */
             }
     }
     mot_dirty = 0;

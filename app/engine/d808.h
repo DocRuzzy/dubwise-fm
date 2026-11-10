@@ -17,8 +17,8 @@ typedef struct {
 
 void d808_init(void);
 void d808_kick_trig(const d808_kick_cfg_t *c, float accent, float tmul, float dinv);
-int d808_kick_render(float *o, uint32_t n);      /* written; 1: it sounded */
+int d808_kick_render(float *o, uint32_t n, float gain, int add);   /* x gain, added or written; 1: it sounded */
 void d808_snare_trig(const d808_snare_cfg_t *c, float accent, float tmul, float dinv);
-int d808_snare_render(float *o, uint32_t n);
+int d808_snare_render(float *o, uint32_t n, float gain, int add);
 void d808_hat_trig(const d808_hat_cfg_t *c, float accent);
-int d808_hat_render(float *o, uint32_t n);
+int d808_hat_render(float *o, uint32_t n, float gain, int add);

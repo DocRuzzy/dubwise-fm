@@ -268,7 +268,7 @@ you hear and its replay are the same.) Bars that hold motion have a white mark o
 - **Stop** lets go of any throw, freeze, push or dive that motion was holding.
 - **SAVE + REC** (hold SAVE, press REC) clears all motion. HOME + REC (undo) takes back the bars' mutes and scenes,
   not the motion.
-- A knob keeps one value per sixteenth (the latest), a bar holds up to 128 moves, and the whole song 8,192. Press SAVE to keep the motion
+- A knob keeps one value per sixteenth (the latest), a bar holds up to 128 moves, and the whole song 4,096. Press SAVE to keep the motion
   over a restart.
 
 ## 3d. KEY & CHORDS (ARP): the lock

@@ -346,7 +346,10 @@ static int arr_expect(const char *what, int *got)
         *got = (int)mot_total();
     else if (!strncmp(what, "mot_bar", 7))     /* mot_barN: bar N's moves */
         *got = mot_n[(atoi(what + 7) - 1) % SONG_BARS];
-    else if (!strcmp(what, "mot_drops"))
+    else if (!strncmp(what, "motv", 4) && strchr(what, '_')) {   /* motvB_I: bar B's move I's value (from 1; 7.x) */
+        mot_ev_t e;
+        *got = mot_get((uint32_t)atoi(what + 4) - 1u, (uint32_t)atoi(strchr(what, '_') + 1) - 1u, &e) ? e.v : -1;
+    } else if (!strcmp(what, "mot_drops"))
         *got = (int)mot_drops;
     else
         return 0;

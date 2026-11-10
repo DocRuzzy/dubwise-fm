@@ -670,24 +670,11 @@ static int render_lead(float *o, uint32_t n)
 #define KICK_808_GAIN 2.3f                       /* (7.6: levels matched to the other models: SINE's peak, CROSS's, METAL's RMS) */
 #define RIM_808_GAIN 0.8f
 #define HAT_808_GAIN 0.42f
-static float d808_tmp[256];
-static int d808_mix(int (*m)(float *, uint32_t), int (*ours)(float *, uint32_t), float gain, float *o, uint32_t n)
+static int d808_mix(int (*m)(float *, uint32_t, float, int), int (*ours)(float *, uint32_t), float gain, float *o,
+                    uint32_t n)                  /* (the 808 added into the channel's own buffer: no scratch of its own) */
 {
-    int a, b;
-    uint32_t i;
-    if (n > 256u)
-        n = 256u;
-    a = ours(o, n);
-    b = m(d808_tmp, n);
-    if (!b)
-        return a;
-    if (!a)
-        for (i = 0; i < n; i++)
-            o[i] = gain * d808_tmp[i];
-    else
-        for (i = 0; i < n; i++)
-            o[i] += gain * d808_tmp[i];
-    return 1;
+    int a = ours(o, n);
+    return m(o, n, gain, a) | a;
 }
 
 int voice_render(uint32_t ch, float *o, uint32_t n)

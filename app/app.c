@@ -597,6 +597,10 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         pst_oldsteps();
         return 1;
     }
+    if (!strcmp(cmd, "oldmotion")) {     /* the motion as saved before 4,096 moves: 5,000 (motion.c) */
+        mot_oldsave();
+        return 1;
+    }
     if (!strcmp(cmd, "oldsteps2")) {     /* the steps as saved before 6.7 (PST2), stray top bits on the kick's */
         pst_oldsteps2();
         return 1;
