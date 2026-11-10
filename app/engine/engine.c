@@ -1730,7 +1730,8 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             bigknob_run(&bk, dry, n);
             bigknob_run(&bkr, dryr, n);
         }
-        if (ev[P_SPEAKER] == OUT_SPEAKER)       /* 6.2: BASS+ for the FM-1's own speaker */
+        if (ev[P_SPEAKER] == OUT_SPEAKER || (ev[P_SPEAKER] == OUT_AUTO && ev[P_JACK]))   /* 6.2: BASS+ for the FM-1's
+                                                  * own speaker; 9.8: AUTO, when nothing is in the headphone jack */
             speaker_run(dry, dryr, n);
         for (i = 0; i < n; i++) {
             float y = dry[i], yr = dryr[i];

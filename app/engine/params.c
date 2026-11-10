@@ -237,7 +237,13 @@ static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
 static const pdesc_t DICE_LINE = {"dice.line", 0, 1, 0};
 static const pdesc_t ECHO_WOW = {"echo.wow", 0, 127, 40};   /* 6.3: a little, from a new project */
-static const pdesc_t SPEAKER = {"speaker", 0, OUT_N - 1, OUT_LINE};
+#if defined(PLAT_HOST) || defined(__EMSCRIPTEN__)
+static const pdesc_t SPEAKER = {"speaker", 0, OUT_N - 1, OUT_LINE};   /* (the simulator's jack reads empty from boot, the
+                                                  * browser plays through a computer: LINE there) */
+#else
+static const pdesc_t SPEAKER = {"speaker", 0, OUT_N - 1, OUT_AUTO};   /* (9.8: AUTO for a new FM-1; a save keeps its own) */
+#endif
+static const pdesc_t JACK = {"spk", 0, 1, 0};   /* (9.8: 1 the jack known empty) */
 static const pdesc_t DICE_SEED = {"dice.seed", 0, 30000, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
 const char *tier_name(int32_t t)
@@ -350,6 +356,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &HPF[id - P_HPF_STEP];
     if (id == P_BK_RES)
         return &BKRES;
+    if (id == P_JACK)
+        return &JACK;
     if (id >= P_WET && id < P_DESK_END)
         return &DESK[id - P_WET];
     if (id == P_TAILS)

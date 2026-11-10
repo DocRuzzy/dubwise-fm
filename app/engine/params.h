@@ -52,7 +52,7 @@ enum { PERC_OFF, PERC_2ND, PERC_3RD, PERC_N };
 enum { VIB_OFF, VIB_V1, VIB_V2, VIB_V3, VIB_C1, VIB_C2, VIB_C3, VIB_N };
 enum { ROT_OFF, ROT_SLOW, ROT_FAST, ROT_BRAKE, ROT_N };
 enum { LES_LIGHT, LES_FULL, LES_N };
-enum { OUT_LINE, OUT_SPEAKER, OUT_N };          /* 6.2 */
+enum { OUT_LINE, OUT_SPEAKER, OUT_AUTO, OUT_N };   /* 6.2; 9.8: AUTO, SPEAKER with nothing in the headphone jack */
 enum { SUB_SINE, SUB_CLASSIC, SUB_N };          /* 6.1: the bass's sub: a sine, or sine + 1/3 3rd + 1/5 5th */            /* the rotary: ours, or setBfree's whirl (Studio only; v0.3) */
 #define VM_BASE (VOICE_STRIDE - 4u)
 #define VM_N 4u
@@ -179,6 +179,8 @@ enum {
     P_SPRING_END,
     P_BK_RES = 0x0D8,         /* 8.10: the Big Knob's resonance, BKRES_OFF (the Altec's, Q 1), BKRES_LOW, BKRES_HIGH (as the
                                * AudioThing Dub Filter's "impedance": each step rings as it clicks). A SETUP preference */
+    P_JACK,                   /* 9.8: 1 the headphone jack known empty, so the speaker plays (the main loop's
+                               * plat_headphones; not read yet: 0, as a line); not saved, not recorded */
     P_BK_END,
     P_HPF_STEP = 0x0E0,       /* the Big Knob (P1.1): 0 off, 1..40 = HPF_HZ (the Altec's on 4, 8 .. 40) */
     P_HPF_ON,                 /* where it sits: HPF_ON_MIX (the master), HPF_ON_ECHO (the echo's return) */

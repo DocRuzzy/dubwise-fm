@@ -36,7 +36,8 @@ static void su_value(uint32_t i, char *t)        /* (t: 24 bytes) */
     } else if (i == SU_SLOT_SAVE || i == SU_SLOT_LOAD) {
         slot_value(t, i == SU_SLOT_LOAD);
     } else if (i == SU_OUTPUT) {                 /* 6.2: BASS+ for the FM-1's own speaker */
-        text_cat(t, v == OUT_SPEAKER ? "SPEAKER (BASS+)" : "LINE");
+        text_cat(t, v == OUT_SPEAKER ? "SPEAKER (BASS+)" : v == OUT_AUTO ? (ctl_get(P_JACK) ? "AUTO: SPEAKER NOW"
+                                                                                     : "AUTO: LINE NOW") : "LINE");
     } else if (i == SU_BKRES) {                  /* 8.10: OFF (the Altec's), LOW, HIGH */
         static const char *const R[BKRES_N] = {"OFF", "LOW", "HIGH"};
         text_cat(t, R[v < BKRES_N ? v : 0]);

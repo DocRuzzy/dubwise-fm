@@ -1759,6 +1759,11 @@ void dub_draw(void)
     int drew = 0;
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     desk_tick();                         /* (8.1: a desk move since the save lights SAVE) */
+    {                                    /* 9.8: the headphone jack to the engine (OUTPUT AUTO), when it changes */
+        int spk = plat_headphones() == 0;   /* (known empty only: not read yet is a line) */
+        if (spk != ctl_get(P_JACK))
+            ctl_set(P_JACK, spk);
+    }
     slot_tick();                         /* (a loaded slot's, the same way) */
     slot_sx_tick();                      /* (a slot going to a computer) */
     sh_sx_tick();                        /* (the one-shots going to one: 5.14) */

@@ -7,6 +7,7 @@ o2 = ["engine/engine.c", "engine/echo.c", "engine/voices.c", "engine/riddim.c", 
 words = "words.tsv"
 ble = false                    # no radio (roadmap P0.0): its RAM goes to the dub bus
 ble_central = false
+headphones = true             # 9.8: the headphone jack read (plat_headphones): OUTPUT AUTO's BASS+ with nothing in it
 backup = true                  # backup and restore over USB (base/tools/fm1_backup.py): the saved project and settings
 backup_ext = "dwb"
 mirror = true                  # the screen and panel on a computer over USB (base/web/mirror/, tools/fm1_mirror.py; QoL review 5)
