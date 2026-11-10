@@ -162,6 +162,8 @@ static void organ_tick(void)                     /* every frame: the B-3's regis
     for (k = 0; k < 9u; k++) {
         int32_t v = REG[k] + ctl_get(P_VOICE(CH_ORGAN, VO_DB0 + k));
         b[k] = (int8_t)(v < 0 ? 0 : v > 8 ? 8 : v);
+        if (k == 8u && ctl_get(P_VOICE(CH_ORGAN, VO_PERC)))
+            b[k] = 0;                            /* (percussion takes the 1' drawbar's place, as on the organ: v0.3) */
         moved |= b[k] != last[k];
     }
     if (!moved)
@@ -212,6 +214,10 @@ static const char *model_name(uint32_t id, int32_t v)   /* a MODEL field's value
     }
     if (id == P_VOICE(CH_ORGAN, VO_PFAST))
         return v ? "FAST" : "SLOW";
+    if (id == P_VOICE(CH_ORGAN, VO_LESLIE))      /* (v0.3: FULL is setBfree's, Studio only) */
+        return v ? "FULL" : "LIGHT";
+    if (id == P_VOICE(CH_ORGAN, VO_ODRIVE) && v == 0)
+        return "OFF";
     return 0;
 }
 

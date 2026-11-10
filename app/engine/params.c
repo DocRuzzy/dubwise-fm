@@ -89,7 +89,8 @@ static const pdesc_t ORGAN_F[VO_N] = {
     [VO_PFAST] = {"perc fast", 0, 1, 0},
     [VO_VIBCH] = {"vib/chorus", 0, VIB_N - 1, VIB_OFF},   /* off, V1-3, C1-3 */
     [VO_ROTARY] = {"rotary", 0, ROT_N - 1, ROT_OFF},      /* off, slow, fast, brake */
-    [VO_ODRIVE] = {"drive", 0, 127, 0},
+    [VO_ODRIVE] = {"drive", 0, 127, 0},              /* 0 off; else setBfree's preamp, its character (v0.3) */
+    [VO_LESLIE] = {"leslie", 0, LES_N - 1, LES_LIGHT},   /* LIGHT, FULL (setBfree's whirl; Studio only) */
 };
 static const pdesc_t VOX_F[VX_N] = {
     [VX_PITCH] = {"pitch", 0, 127, 70},             /* the sirens: 200 Hz .. 1.2 kHz */
