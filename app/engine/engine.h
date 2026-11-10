@@ -96,4 +96,5 @@ typedef struct {
 eng_prof_t eng_prof(uint32_t part);
 const char *eng_part_name(uint32_t part);
 void eng_prof_reset(void);
+uint32_t eng_block_peak_take(void);          /* 9.11: the costliest block's ticks since the last call (then 0) */
 #define ENG_BLOCK_TICKS 139320u

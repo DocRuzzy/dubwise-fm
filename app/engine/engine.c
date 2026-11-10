@@ -247,20 +247,30 @@ static inline void prof_mark(uint32_t part)      /* the time since the last mark
     prof_t = t;
 }
 static void tier_track(uint32_t total16);
+static volatile uint32_t blk_peak;               /* 9.11: the costliest block's ticks since eng_block_peak_take */
 static void prof_block(void)                     /* the block done: averages and maxima */
 {
-    uint32_t i, total = 0;
+    uint32_t i, total = 0, blk = 0;
     for (i = 0; i < NPARTS; i++) {
         uint32_t a = prof_acc[i];
+        blk += a;                                /* (9.11: this block's whole cost, for its peak) */
         prof[i].avg = prof[i].avg - (prof[i].avg >> 4) + a;   /* (x16: 1/16-tick resolution) */
         if (a > prof[i].max)
             prof[i].max = a;
         prof_acc[i] = 0;
         total += prof[i].avg;
     }
+    if (blk > blk_peak)
+        blk_peak = blk;
     tier_track(total);
 }
 eng_prof_t eng_prof(uint32_t part) { return part < NPARTS ? prof[part] : prof[0]; }
+uint32_t eng_block_peak_take(void)               /* 9.11: the costliest block since the last call, ticks; then from 0 */
+{
+    uint32_t p = blk_peak;
+    blk_peak = 0;
+    return p;
+}
 void eng_prof_reset(void)
 {
     uint32_t i;

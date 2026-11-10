@@ -6,6 +6,7 @@
  * unity build: dub.c includes it. */
 
 static uint32_t perf_t;
+static uint32_t perf_pk[8], perf_pki;               /* 9.11: the costliest block in each of the last eight draws (2 s) */
 
 #ifdef PLAT_HOST
 #define PERF_SCALE 80u                           /* the host runs ~80x faster than the device */
@@ -46,8 +47,33 @@ static void perf_draw(int all)
             text_cat(t, n);
             cv_text(212, y - 2, &FONT_T, t, C_AMB);
         }
+        {                                            /* 9.11: the peak block over 2 s, the dropouts, the clock */
+            uint32_t k, pk = 0, khz = plat_cpu_khz();
+            perf_pk[perf_pki++ & 7u] = eng_block_peak_take() * PERF_SCALE * 1000u / ENG_BLOCK_TICKS;
+            for (k = 0; k < 8u; k++)
+                pk = perf_pk[k] > pk ? perf_pk[k] : pk;
+            t[0] = 0;
+            text_cat(t, "PEAK ");
+            int_text((int32_t)(pk / 10u), n);
+            text_cat(t, n);
+            text_cat(t, "%");
+            cv_text(6, 134, &FONT_T, t, pk > 1000u ? C_RED : pk > 750u ? C_AMB : C_GRAY);
+            t[0] = 0;
+            text_cat(t, "DROPOUTS ");
+            int_text((int32_t)plat_xruns(), n);
+            text_cat(t, n);
+            cv_text(80, 134, &FONT_T, t, plat_xruns() ? C_RED : C_GRAY);
+            t[0] = 0;
+            if (khz) {
+                int_text((int32_t)(khz / 1000u), n);
+                text_cat(t, n);
+                text_cat(t, " MHZ");
+            } else
+                text_cat(t, "CLOCK ?");
+            cv_text(170, 134, &FONT_T, t, khz && khz != 360000u ? C_AMB : C_GRAY);
+        }
         {                                            /* the total, the guard's lines, the tier */
-            int32_t y = 124, w = (int32_t)(tot * 220u / 1000u);
+            int32_t y = 119, w = (int32_t)(tot * 220u / 1000u);
             cv_rect(6, y, 220, 10, C_LINE);
             cv_rect(6, y, w > 220 ? 220 : w, 10, tot > 750u ? C_RED : tot > 450u ? C_AMB : C_HI);
             cv_rect(6 + 220 * 45 / 100, y - 2, 1, 14, C_GRAY);
