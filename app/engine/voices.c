@@ -122,6 +122,7 @@ static void bq_peak(bq_t *q, float hz, float qf, float db);
 static void reed_tables(void);
 static void horn_tables(void);
 static void horn_config(void);
+static void horn_bright(int32_t b);
 static void bq_lpf(bq_t *q, float hz, float qf);
 static float reed_air;                           /* the breath's noise, low-passed */
 static uint32_t reed_rng = 0x2545F491u;
@@ -266,6 +267,7 @@ void voices_config(const int16_t *ev, int tier)
     lead.horn = ev[P_VOICE(CH_LEAD, VL_HORN)] == HORN_SAX ? HORN_SAX : HORN_TRUMPET;
     lead.blend = 0.5f + 0.5f * (float)ev[P_VOICE(CH_LEAD, VL_BLEND)] * (1.0f / 127.0f);
     horn_config();
+    horn_bright(ev[P_VOICE(CH_LEAD, VL_BRIGHT)]);   /* (7.7: BRIGHT is the brass's brightness) */
     lead.bright = lin(ev[P_VOICE(CH_LEAD, VL_BRIGHT)], 0.3f, 3.0f);
     lead.att = 1.0f / (lin(ev[P_VOICE(CH_LEAD, VL_ATTACK)], 10.0f, 150.0f) * 0.001f * SR);
     lead.rel = t60k(lin(ev[P_VOICE(CH_LEAD, VL_RELEASE)], 30.0f, 600.0f));
@@ -719,10 +721,26 @@ static struct {
     bq_t hp, pk, lp, nbp;                        /* the bell; the breath's band */
     int set;
     float tongue;                                /* the tongue's burst, this sample (render_lead) */
-} horn = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0x7F4A7C15u, {0}, {0}, {0}, {0}, 0, 0.0f};
-#define HORN_ATT (1.0f / (0.012f * SR))         /* the horn speaks within 12 ms, whatever ATTACK says */
+    bq_t blare;                                  /* the brass's blare: a broad lift at 2.5 kHz from BRIGHT (7.7) */
+    int32_t blare_b;                             /* the BRIGHT it was set for (-1: none yet) */
+} horn = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0x7F4A7C15u, {0}, {0}, {0}, {0}, 0, 0.0f, {0}, -1};
+#define HORN_TILT_DB(b) (((float)(b) - 64.0f) * (6.0f / 64.0f) + HORN_TILT0)   /* BRIGHT 0..127: -6 .. +6 dB about
+                                                  * the default's */
+#define HORN_ATT (1.0f / (0.012f * SR))
+#define HORN_TILT0 12.0f                         /* the default BRIGHT's blare, dB: the reggae sections' brightness (Blazing
+                                                  * Horns, Black Wa-Da-Da: ~1.85 kHz in tools/studies/hornstat.py) */
+#define HORN_BLARE_HZ 4000.0f
+#define HORN_BLARE_Q 0.5f
+#define HORN_TILT_LEVEL 0.68f                    /* (its loudness put back: HORN as loud as before) */
 static void bq_hpf(bq_t *q, float hz, float qf);
 static void bq_bpf(bq_t *q, float hz, float qf);
+static void horn_bright(int32_t b)               /* BRIGHT: the blare's lift (set when it changes) */
+{
+    if (b == horn.blare_b)
+        return;
+    bq_peak(&horn.blare, HORN_BLARE_HZ, HORN_BLARE_Q, HORN_TILT_DB(b));
+    horn.blare_b = b;
+}
 static void horn_config(void)                    /* (7.7: the bell's, fixed; the breath's band) */
 {
     if (horn.set)
@@ -774,7 +792,7 @@ static float horn_tick(float f, float hard, uint32_t type)   /* one sample of th
         s = ((1.0f - hard) * sa + hard * sb) * (1.0f / 27000.0f);
     }
     t = 0.5f + 0.5f * fm_sin_turns(horn.ph + 0.25f >= 1.0f ? horn.ph - 0.75f : horn.ph + 0.25f);
-    horn.nz = horn_rnd() * (t * t + 4.0f * horn.tongue);   /* the breath, pulsed as the lips (the reed) open each
+    horn.nz = horn_rnd() * (t * t + 2.0f * horn.tongue);   /* the breath, pulsed as the lips (the reed) open each
                                                   * cycle; and the tongue's burst at the start */
     s += bq_run(&horn.nbp, horn.nz) * horn_rms[type][1][o] * fm_exp2f(HORN_NOISE_DB[type] * 0.16609640f) * 2.5f;
     s = bq_run(&horn.lp, bq_run(&horn.pk, bq_run(&horn.hp, s)));
@@ -839,14 +857,19 @@ static int render_lead(float *o, uint32_t n)
                     lead.amp = fm_minf(1.0f, lead.amp + HORN_ATT);   /* (on top of ATTACK's: it speaks at once) */
                 horn.tongue = tongue * lead.vel;
                 h = horn_tick(f, hard, (uint32_t)lead.horn) * HORN_GAIN * (1.0f + 0.6f * bite);
+                h = bq_run(&horn.blare, h) * HORN_TILT_LEVEL;   /* the brass's blare (the reggae sections, measured:
+                                                  * tools/studies/hornstat.py) */
                 s = lead.inst == INST_HORN ? h : 1.4f * ((1.0f - lead.blend) * s + lead.blend * h);   /* (the layer's
                                                   * two only partly alike: 1.4 back to one's loudness) */
             }
-            {                                    /* the doubling: a second player, 12 ms behind */
+            {                                    /* the doubling: a second player, 12 ms behind, with the note's own
+                                                  * envelope (it carried the sound before it, and so came in at full
+                                                  * level 12 ms in: a click, heard once HORN's attack was hard) */
                 float d = dbl[dbl_pos];
-                dbl[dbl_pos] = s;
+                dbl[dbl_pos] = s * env;
                 dbl_pos = dbl_pos + 1u == DOUBLE_N ? 0u : dbl_pos + 1u;
-                s = 0.7f * s + 0.45f * d;
+                s = 0.7f * s * env + 0.45f * d;
+                env = 1.0f;                      /* (applied: the delayed half has its own, 12 ms old) */
             }
         } else {                                 /* melodica: a self-fed modulator, two carriers beating */
             float m;

@@ -330,6 +330,18 @@ FREQ, HI). The song's motion records every move, and a scene keeps the whole des
 The whole mix still has the Big Knob itself (turned with no key held). Channel filters and the Big Knob stack: a
 channel thinned on its own, then the whole mix evaporating behind it.
 
+### A horn dub, the classic chain
+
+The Kingston horns were recorded dry and close, then thrown, filtered and fed back at the desk. On the FM-1, with
+HORN (or FM+HORN) on the lead, channel 7:
+
+| Step | On the FM-1 |
+| --- | --- |
+| **Dry and driven** | SETUP's DESK: MCI, the console's drive on every strip. The lead's BRIGHT is HORN's blare: the default is the reggae sections' brightness, up for a harder edge, down for a softer one. |
+| **The dub throw** | Keep the horns muted (white 7) and catch a stab at a phrase's end with its throw (white 15): it goes to the echo at full level, muted or not, harder for more. The FX page's TAPE bank: WOW for the repeats' wobble; hold black 3 (push) to break them up. |
+| **Filter the tail** | SETUP's BIG KNOB ON: ECHO puts the Big Knob on the echo's return: turn it up as the repeats ring, and they float up and away. Send the echo into the spring (FX: CROSS) for the splash. |
+| **The wall** | FX's ECHO TYPE: BBD, darker as it repeats. Hold black 5 (drop to wet): the band goes, the horns' echo carries on; hold black 3 with it for the edge of self-oscillation. |
+
 ## 4. Saving
 
 With AUTOSAVE on (SETUP, the default), this happens by itself a few seconds after you stop and leave the FM-1

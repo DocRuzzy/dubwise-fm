@@ -64,6 +64,29 @@ studies come next, built in each record's manner from original parts, and compar
 5. **Level:** ours is quieter (-22.5 dBFS RMS against -8 to -22), which is the test's master setting, not the sound.
    The denser records are also the louder ones.
 
+## The horns (2026-11-10): Blazing Horns and Black Wa-Da-Da against HORN
+
+The owner's two horn records (Tommy McCook's "Blazing Horns", "Black Wa-Da-Da (Invasion)"). `tools/studies/hornstat.py`
+keeps the mix's pitched part (a median-filter split of the spectrogram), follows the horns' range (500 Hz - 3 kHz)
+and measures each clear start. The split smears attacks, so rises are only compared like with like.
+
+| | Starts | Rise (median) | Energy 150-350 ms on | Brightness while the horns play |
+|---|---|---|---|---|
+| Blazing Horns | 64 | 52-58 ms | 4.5-9.8 dB down | ~1,770 Hz |
+| Black Wa-Da-Da | 247 | 46-52 ms | 12.6-17.5 dB down: **stabs** | ~1,890 Hz |
+| HORN before | | 41 ms | | **~1,520 Hz: dark** |
+| HORN now | | 41 ms | | ~1,860 Hz (BRIGHT 0..127: ~1,700 .. 2,040) |
+
+- **The attack** was already as quick as the records'.
+- **Brightness** was the gap: HORN had been fitted to soft orchestral notes. It gained a broad blare at 4 kHz, +12 dB
+  at BRIGHT's default, its loudness put back. While the horns play, the records' pitched part sits at 1,770-1,890 Hz;
+  between notes it reads brighter, which is the hi-hats leaking into the split.
+- **Short notes:** reggae horns mostly play short stabs, not held lines. A horn part for a dub should be written that
+  way.
+- **A bug found on the way:** the brass's doubling (a second player 12 ms behind) carried the sound before its
+  envelope and came in at full level 12 ms into every note, which clicked. It now has its own envelope (BRASS's click
+  -42.6 to -60 dB).
+
 ## Next
 
 - The per-record studies (`app/tests/study-*.txt`): each record's sections (drum and bass, the melodica's entries,
