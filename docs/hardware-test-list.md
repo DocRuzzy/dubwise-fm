@@ -37,15 +37,16 @@ Do these first: they make sure nobody gets stuck with a firmware they can't leav
 
 Every CPU figure in the roadmap is a simulator estimate (host time × 80). These readings replace them. Open SETUP →
 PERFORMANCE (the PERF page): it shows each part's cost, the TOTAL, the PEAK block over 2 s, DROPOUTS, the CLOCK in MHz
-and the TIER. Let each case run a minute, then note its row.
+and the TIER; bottom right, STACK M and I (bytes of the main and interrupt stacks never used since switch-on). Let
+each case run a minute, then note its row.
 
-| Case | TOTAL | PEAK | DROPOUTS | TIER | CLOCK | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| A new project, playing | | | | | | |
-| The demo song, start to end | | | | | | |
-| UK STEPPERS, every effect up (phaser on MIX, drive on MIX, cross-sends, spring gate, BBD) | | | | | | |
-| The heavy scene: all 8 channels EQ'd and panned, DESK MCI, sirens and a one-shot on top | | | | | | |
-| A scene recall, a slot load and a Dice roll while playing (watch PEAK) | | | | | | |
+| Case | TOTAL | PEAK | DROPOUTS | TIER | CLOCK | STACK M · I | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A new project, playing | | | | | | | |
+| The demo song, start to end | | | | | | | |
+| UK STEPPERS, every effect up (phaser on MIX, drive on MIX, cross-sends, spring gate, BBD) | | | | | | | |
+| The heavy scene: all 8 channels EQ'd and panned, DESK MCI, sirens and a one-shot on top | | | | | | | |
+| A scene recall, a slot load and a Dice roll while playing (watch PEAK) | | | | | | | |
 
 - [ ] No clicks or dropouts in a 30-minute session, playing and stopped.
 - [ ] The guard: does the TIER ever drop by itself? If it does, note what was playing and whether you heard it change.
@@ -158,5 +159,3 @@ someone who has never seen Dubwise.
 | The large value readout; one rule for buttons with several pages | Playing it | 9.H7 |
 | A versioned settings object for the next settings | Before any new setting is added | 9.H4 |
 
-One gap to close before the device session: the release checklist asks for the deepest stack use
-(`plat_stack_least_ever`), but no page shows it yet.

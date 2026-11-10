@@ -90,5 +90,26 @@ static void perf_draw(int all)
     cv_text(6, 18, &FONT_B, t, C_HI);
     cv_text(80, 4, &FONT_XS, ctl_get(P_TIER_LOCK) ? "TIER (LOCKED)" : "TIER (AUTO)", C_GRAY);
     cv_text(80, 18, &FONT_B, tier_name(eng_tier()), eng_tier() ? C_AMB : C_HI);
+    {                                            /* 9.17: the stacks' least room (bytes never used), M the main loop's,
+                                                  * I the interrupts' (the audio's): since this start (fm1.toml
+                                                  * crash_history), or the least ever where debug_stats keeps it; "?" not
+                                                  * measured (the simulator). Amber under 512 B, red under 256 */
+        static const char *const SK[] = {"M ", "I "};
+        int k;
+        cv_text(180, 4, &FONT_XS, "STACK", C_GRAY);
+        for (k = 0; k < 2; k++) {
+            int32_t v = plat_stack_least_ever(k == 0 ? PLAT_STK_MAIN : PLAT_STK_IRQ);
+            if (v < 0)
+                v = plat_stack_left(k == 0 ? PLAT_STK_MAIN : PLAT_STK_IRQ);
+            t[0] = 0;
+            text_cat(t, SK[k]);
+            if (v >= 0) {
+                int_text(v, n);
+                text_cat(t, n);
+            } else
+                text_cat(t, "?");
+            cv_text(180, 18 + 9 * k, &FONT_T, t, v < 0 ? C_DIM : v < 256 ? C_RED : v < 512 ? C_AMB : C_GRAY);
+        }
+    }
     cv_blit(0, FOOT_Y);
 }

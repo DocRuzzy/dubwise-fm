@@ -23,6 +23,6 @@ labels: beta
 
 **Every time?** (yes / sometimes / once):
 
-**The PERF page** (if the sound dropped out or clicked: TOTAL, PEAK, DROPOUTS, TIER):
+**The PERF page** (if the sound dropped out or clicked: TOTAL, PEAK, DROPOUTS, TIER, STACK M and I):
 
 **A recording or photo** (drag it in here):

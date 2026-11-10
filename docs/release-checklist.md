@@ -22,7 +22,7 @@
 6. The recovery path, in the README: if an install fails, plug the FM-1 straight into the computer (no hub), restore stock with the web installer (or M-VAVE's FM1 Open), then install again.
 7. **Beta testers:** the README's call and [`hardware-test-list.md`](hardware-test-list.md); reports come in as "Beta test report" issues.
 8. **Every device session, not just the release:** the PERF page with the UK STEPPERS desk and every effect up, and
-   then with the demo song. Note the average, the peak, the tier the guard settles on, and `plat_stack_least_ever`,
+   then with the demo song. Note the average, the peak, the tier the guard settles on, and the STACK readings (bottom right: M and I, bytes never used since switch-on),
    in the project's Practice log ("Device measurements"). The roadmap's CPU figures are host estimates (×80) until
    these readings replace them.
 
