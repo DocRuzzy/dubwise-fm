@@ -14,8 +14,19 @@ evaporated. Dubwise FM puts that desk under your fingers: an eight-channel band 
 or horn lead, and sirens and shouts), each channel with a mute and a throw, feeding a tape echo and a spring you can
 kick. A countdown "runway" lands every move on the one.
 
-Nothing plays by itself. Every drop, throw and sweep is yours. You can record those moves into a song, recall them as
-scenes, or save them as versions.
+**You play every bar. Nothing plays itself.** Every drop, throw and sweep is yours. You can record those moves into a
+song, recall them as scenes, or save them as versions.
+
+**Plain facts before you install it:**
+- **Not yet tested on a real FM-1.** Everything here runs in the simulator and the browser version; the first device
+  readings are the next step.
+- **No Bluetooth MIDI.** The radio is switched off on purpose: its memory went to the echo and the spring. MIDI works
+  over USB and the TRS jack.
+- **No live audio input yet.** Dubbing a computer's audio through the desk waits on a change to fm1-base
+  ([`docs/upstream/`](docs/upstream/)). Today: your own one-shots on channel 8, the eight stems out over USB, and the
+  band itself.
+- **Not DUB-1.** DUB-1 is a fine dub-techno firmware for the FM-1 that composes as it plays. Dubwise is Kingston
+  roots dub, and it plays nothing until you do ([`docs/dub1-comparison-2026-11.md`](docs/dub1-comparison-2026-11.md)).
 
 ## What it can do
 
@@ -120,7 +131,7 @@ Dubwise stands on other people's open code and published research. Every source 
 
 **Beta, not yet tested on a real FM-1.** The roadmap is built (P0 desk and sequencer, P1 signature tone, P2 colour,
 leads and live input, P3 wishlist, then the session, sound design, the FM-1 survey's borrowings and the voices from
-outside it, blocks 4 to 7) and checked by 72 host-simulator scenarios with audio analysis. The device package
+outside it, blocks 4 to 7) and checked by 84 host-simulator scenarios with audio analysis. The device package
 builds and passes fm1-base's install simulation. The live USB-audio input waits on a proposed fm1-base change
 ([`docs/upstream/`](docs/upstream/)). See [`docs/roadmap.md`](docs/roadmap.md), the manual in
 [`app/docs/MANUAL.md`](app/docs/MANUAL.md), and the release checklist in

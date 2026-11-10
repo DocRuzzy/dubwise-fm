@@ -1,32 +1,16 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Dubwise FM contributors */
-/* The DUB page, the home of the live desk (docs/interface-spec.md 4.1, 5.1): first version, P0.1 (quantised mutes
- * and solo). Part of the unity build: app.c includes it, after its settings, messages and helpers.
+/* The DUB page, the home of the live desk (docs/interface-spec.md 4.1, 5.1), and the input that every page shares
+ * (the buttons, the keys, the knobs). Part of the unity build: app.c includes it, after its settings, messages and
+ * helpers; it includes the other pages.
  *
- *   White 1-8      mute channel 1-8: a tap toggles, a hold flips it until released, a double tap solos (additive)
- *   HOME + white   solo, as an alternative
- *   OCT- / OCT+    launch quantise: BEAT, 1, 2, 4, 8, 16, 32 bars
- *   PLAY           start / stop (on release). Held with a white key: that key acts now, not on the line
- *   HOME + SELECT  tempo, 1 BPM a detent
- *   ALGORITHM      the focused channel (its strip underlined; the knobs follow it later)
- *   EDIT           the SOUND view: KNOB 1-4 edit the focused channel's voice, four parameters a bank; EDIT again
- *                  for the next bank, then back to the echo's knobs (P0.5)
- *   SAVE           tempo, quantise, the echo's knobs and the sounds
- *   GLO            the SETUP page (setup.c): cycle, runway, cue tick, reduced motion, cue lead, test tones
- *   ARP            the KEY & CHORDS page (keys.c); HOME + ARP: the key lock on / off from any page
- *   FX             the FX page (fx.c): the echo's and the spring's settings, a bank at a time
- *   HOME again     the ARRANGE page (arrange.c): scenes; PRESET on the DUB page cues the next stored scene
- *   black 1        the spring crash (the tank struck); held with a throw key, that throw goes to the spring too
- *   black 4        the tape dive, while held: the echo's time glides longer (FX page, TAPE: depth, glide)
- *   K1-K4          echo TIME (a division of the beat), FB (feedback as T60), ECHO return, SPRING return
- *   white 1-8 held + K1-K4   that channel's level, echo send, spring send, filter (hold-to-focus, spec 2.3); turning
- *                  a knob keeps the key from flipping the mute
- *   black 2 / 3    echo freeze / dub push, while held
- *   White 9-16     throw channel 1-8 to its destination (P0.2): while held, in full, pre-fader and pre-mute (a muted
- *                  channel can be thrown); the echo's loop lifted. A double tap latches it; a tap unlatches
- *   white 9-16 held + K1   the destination: E (echo), S (spring), ES (both); the throw is cancelled
- * Quantised actions blink their key until they land, and the centre says when. Not here yet: the other black
- * keys' effects (P1.x, P2.x), the channel filter, the runway (P0.6), velocity-scaled throws (P2.9). */
+ * The controls, as built, are in app/docs/MANUAL.md section 3 (and 3f for the channel EQ and pan), and their history in
+ * docs/interface-spec.md 4.1.x. In short: white 1-8 mute (tap), flip (hold), solo (double tap); white 9-16 throw;
+ * the black keys the gestures (crash, freeze, push, dive, wet, sirens, shots, drum and bass); OCT-/OCT+ quantise and
+ * FILL; KNOB 1-4 the echo's TIME, FB and return and the spring's return, or with a white key 1-8 held that channel's
+ * level, filter, echo send and spring send (8.8); the Big Knob the stepped filter (with keys held: theirs); ALGORITHM
+ * the focus (with keys held: their pan). (Before 2026-11-10 this header listed the P0.1 page and went stale; the
+ * manual is the one place to keep current.) */
 
 /* four regions, each drawn only when it changes (spec 5.3): header 0-23, strips 26-121, centre 124-199, footer
  * 202-239 */
