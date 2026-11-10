@@ -62,8 +62,8 @@ uint32_t eng_fire_at(void);                  /* the sample (since the start) the
 uint32_t eng_fires(void);                    /* cues fired since boot */
 uint32_t eng_cues(void);                     /* cues waiting */
 uint32_t eng_cue_overflows(void);
-uint32_t eng_seq_hits(void);
-uint32_t eng_ticks(void);
+uint32_t eng_seq_hits(void);                 /* steps the sequencer has played since boot */
+uint32_t eng_ticks(void);                    /* runway tick blips since boot */
 int eng_tier(void);                          /* the guard tier now (TIER_*) */
 uint32_t eng_load_pct(void);                 /* the load, % of the device's block (ticks; the host's are its own) */
 uint32_t eng_tier_changes(void);
@@ -73,8 +73,8 @@ float eng_spring_ret_peak(void);            /* the spring's return, after its le
 uint32_t eng_crashes(void);                  /* the tank struck, times since boot */
 float eng_out_peak(void);                   /* the mix's peak over the last block, before MASTER */
 int eng_midi_allowed(int32_t note);           /* the key lock on MIDI in (audio interrupt) */
-uint32_t eng_frac16(void);                   /* how far into the sixteenth, 0..255 */                    /* runway tick blips since boot */
-int32_t eng_tick(void);                      /* the sixteenth playing since the start, -1 stopped */                 /* steps the sequencer has played since boot */
+uint32_t eng_frac16(void);                   /* how far into the sixteenth, 0..255 */
+int32_t eng_tick(void);                      /* the sixteenth playing since the start, -1 stopped */
 uint32_t eng_seq_hit_at(uint32_t ch);        /* channel ch's last hit, samples since the start */
 step_t eng_step(uint32_t ch, uint32_t i);    /* the engine's copy of a step of the pattern playing (tests) */
 step_t eng_step_at(uint32_t ch, uint32_t p, uint32_t i);

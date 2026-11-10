@@ -13,6 +13,8 @@ for t in app/tests/*.txt; do
         python3 -I tests/wavstat.py "$OUT/$f" $checks
     done
 done
+echo "== tests/warnings.sh (the engine with warnings on: 9.2)"
+sh tests/warnings.sh || exit 1
 echo "== tests/slot_transfer_test.py"
 python3 tests/slot_transfer_test.py >/dev/null || { echo "FAIL slot transfer (run tests/slot_transfer_test.py)"; exit 1; }
 echo "== tools/site/editor/fields.js (the web editor's table, from the firmware)"

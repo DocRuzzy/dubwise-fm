@@ -67,11 +67,11 @@ static float buf[ENG_BLOCK], dry[ENG_BLOCK], ebus[ENG_BLOCK], sbus[ENG_BLOCK], e
 static float dryr[ENG_BLOCK], eretr[ENG_BLOCK], sretr[ENG_BLOCK];   /* the right side (returns are stereo: P1.5) */
 static volatile float echo_peak, spring_peak, echo_ret_peak, spring_ret_peak;
 static ramp_t echo_ret, spring_ret;              /* the returns' levels */
-static int16_t kick_last;
-static float bus_echo_g;
-static int dive_back;
-static int ph_on, ph_mode;
-static int drive_on;
+static int16_t kick_last;                        /* P_SPRING_KICK as it was: a strike on 0 -> 1 */
+static float bus_echo_g;                         /* the echo's loop gain this block (the cross-sends' cap) */
+static int dive_back;                            /* the dive let go: gliding back at its own pace */
+static int ph_on, ph_mode;                       /* where the phaser is this block (PH_OFF when the tier says) */
+static int drive_on;                             /* where the tape drive is */
 /* the snare-keyed spring gate (P2.5; C13): a snare opens it for HOLD, then it closes over RELEASE */
 static float sg_env;                             /* 0 closed .. 1 open */
 static uint32_t sg_hold, sg_hold_n;              /* samples left open; HOLD in samples */
@@ -123,17 +123,17 @@ static void trig(uint32_t ch, int32_t note, uint32_t vel)   /* a voice struck: a
     voice_trig(ch, note, vel);
     if (ch == CH_SNARE)
         sgate_key();
-}                             /* where the tape drive is                                /* where the phaser is this block (PH_OFF when the tier says)                            /* the dive let go: gliding back at its own pace                         /* the echo's loop gain this block (the cross-sends' cap) */
+}
 static float sret_last[ENG_BLOCK];               /* the spring's return a block ago: into the echo (cross-send) */
 static uint32_t sret_last_n;
 static ramp_t xs_e2s, xs_s2e;                    /* the cross-sends' levels (P1.3) */
-#define XS_LOOP_CAP 0.5f                         /* echo -> spring -> echo: their product at most this */                        /* P_SPRING_KICK as it was: a strike on 0 -> 1 */
+#define XS_LOOP_CAP 0.5f                         /* echo -> spring -> echo: their product at most this */
 static volatile uint32_t crashes;
-static volatile int32_t echo_div_now;
-static volatile uint32_t lock_now = 0xFFFu;
+static volatile int32_t echo_div_now;            /* the division in use (the longest that fits, at this tempo) */
+static volatile uint32_t lock_now = 0xFFFu;      /* the key lock's allowed pitch classes (P0.8), this block's */
 static bigknob_t bk, bkr;                        /* the Big Knob (P1.1), left and right */
 static int32_t bk_step = -1, bk_lp, bk_res;      /* its step set; 7.5: a low-pass; 8.10: its resonance */
-static volatile float out_peak;                  /* the output's, before MASTER (tests, meters)      /* the key lock's allowed pitch classes (P0.8), this block's            /* the division in use (the longest that fits, at this tempo) */
+static volatile float out_peak;                  /* the output's, before MASTER (tests, meters) */
 static volatile uint32_t cmds;
 static float gain_now;                           /* MASTER, glided: no step at a block's edge */
 
@@ -199,7 +199,7 @@ static volatile uint32_t seq_hits;               /* steps played since boot (tes
 static volatile uint32_t seq_hit_at[NCH];        /* each channel's last hit, samples since the start (tests) */
 static volatile int32_t chord_last[NCH];         /* the chord a chord channel last played (tests) */
 static int32_t scene_fired = -1;                 /* the scene recalled at this line (the song's capture) */
-static volatile uint32_t song_bar_now;           /* the song's bar playing
+static volatile uint32_t song_bar_now;           /* the song's bar playing */
 
 /* the runway's audible tick (P_TICK, P0.6): a short sine blip on each of its beats, higher on a bar's first */
 static float tick_ph, tick_inc, tick_amp;
