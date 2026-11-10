@@ -620,7 +620,8 @@ static void strips_update(void)                  /* the targets from the applied
         if (thr && ev[P_THROW_SPR] && (uint32_t)(ev[P_THROW_SPR] >> 7) == ch + 1u)   /* 9.15: black 1's pressure: */
             ts = fm_maxf(ts, a * (float)(ev[P_THROW_SPR] & 127) * (1.0f / 127.0f));   /* this much to the spring too,
                                                   * on top of the throw's own destination */
-        ramp_to(&s->dry, ev[P_WET] ? 0.0f : g); /* drop to wet: the dry out, its sends kept */
+        ramp_to(&s->dry, ev[P_WET] ? (ev[P_LEAN_WET] ? g * (1.0f - (float)ev[P_LEAN_WET] * (1.0f / 127.0f)) : 0.0f)
+                                   : g); /* drop to wet: the dry out, its sends kept; 9.16: as much as black 5 is leaned on */
         ramp_to(&s->echo, g * send(ev[P_CH(ch, CHF_ECHO_SEND)]) + te);
         ramp_to(&s->spring, g * send(ev[P_CH(ch, CHF_SPRING_SEND)]) + ts);
     }
@@ -704,7 +705,8 @@ static void bus_update(void)                     /* the echo's and the voices' s
         float secs = 0.1f + 2.9f * (float)ev[P_DIVE_TIME] * (1.0f / 127.0f);
         c.slew = 1.0f - fm_expf(-1.0f / (secs * 0.33f * ECHO_RATE));   /* ~95 % of the way in secs */
         if (ev[P_ECHO_DIVE])
-            c.t = fm_minf(t * (1.0f + (float)ev[P_DIVE_DEPTH] * (1.0f / 127.0f)), ECHO_T_MAX);
+            c.t = fm_minf(t * (1.0f + (float)ev[P_DIVE_DEPTH] * (1.0f / 127.0f)   /* 9.16: as much of DEPTH as black 4 */
+                                   * (ev[P_LEAN_DIVE] ? (float)ev[P_LEAN_DIVE] * (1.0f / 127.0f) : 1.0f)), ECHO_T_MAX);   /* is leaned on */
         dive_back = ev[P_ECHO_DIVE] || fm_fabsf(echo_t_now() - t) > 2.0f;
     }
     t60 = echo_t60(ev[P_ECHO_FB]);
@@ -717,8 +719,9 @@ static void bus_update(void)                     /* the echo's and the voices' s
     c.freeze = ev[P_ECHO_FREEZE] != 0;
     if (c.freeze)
         c.g = 1.0f;
-    if (ev[P_ECHO_PUSH])
-        c.g = 1.15f;                             /* past unity (the loop's filters lose ~5 % at best), capped */
+    if (ev[P_ECHO_PUSH])                         /* past unity (the loop's filters lose ~5 % at best), capped; 9.16: as far
+                                                  * as black 3 is leaned on (0: as before, all the way) */
+        c.g = ev[P_LEAN_PUSH] ? 1.0f + 0.15f * (float)ev[P_LEAN_PUSH] * (1.0f / 127.0f) : 1.15f;
     tone_hz = 800.0f * fm_exp2f((float)ev[P_ECHO_TONE] * (2.64f / 127.0f));
     c.tone = 1.0f - fm_expf(-6.2831853f * tone_hz / ECHO_RATE);
     c.head2 = send(ev[P_ECHO_HEAD2]);
@@ -1925,7 +1928,7 @@ float eng_echo_g(void)
 {
     float t = echo_line_t(echo_div_now) - 1.0f;
     if (ev[P_ECHO_PUSH])
-        return 1.15f;
+        return ev[P_LEAN_PUSH] ? 1.0f + 0.15f * (float)ev[P_LEAN_PUSH] * (1.0f / 127.0f) : 1.15f;
     if (ev[P_ECHO_FREEZE])
         return 1.0f;
     {

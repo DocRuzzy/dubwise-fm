@@ -31,6 +31,8 @@ static struct {
     float ph, lfo, amp, vel;
     float f, rate, ratio, tri;
     int njd;                                     /* 7.1: the NJD siren's shape */
+    float bend, bend_t;                          /* 9.16: black 6/7 leaned on, the pitch up to an octave (a ratio;
+                                                  * it glides, ~10 ms, so the pressure's steps don't show) */
     float x, lp1, lp2, dcx, dcy;                 /* (its RC: the pitch's capacitor, the two output low-passes, the
                                                   * output's coupling capacitor) */
 } sr;
@@ -161,6 +163,9 @@ void fxv_config(const int16_t *ev)
     sr.ratio = fm_exp2f(lin(ev[P_VOICE(CH_VOX, VX_DEPTH)], 1.0f, 24.0f) * (1.0f / 12.0f));
     sr.tri = ev[P_VOICE(CH_VOX, VX_WAVE)] ? 1.0f : 0.0f;
     sr.njd = ev[P_VOICE(CH_VOX, VX_SHAPE)] != 0;
+    sr.bend_t = fm_exp2f((float)ev[P_LEAN_SIREN] * (1.0f / 127.0f));
+    if (sr.bend <= 0.0f)
+        sr.bend = sr.bend_t;
     say_k = ev[P_VOICE(CH_VOX, VX_SAY)];
     say_semis = ev[P_VOICE(CH_VOX, VX_SAYPITCH)];
     say_stutter = ev[P_VOICE(CH_VOX, VX_STUTTER)];
@@ -231,7 +236,8 @@ int fxv_render(float *o, uint32_t n)
             m = fm_exp2f(sr.x * lr);
         } else                                   /* A: two tones, the square's halves; B: a ramp up through DEPTH */
             m = sr.which == SIREN_A ? (sr.lfo < 0.5f ? 1.0f : sr.ratio) : fm_exp2f(sr.lfo * fm_log2f(sr.ratio));
-        f = sr.f * m;
+        sr.bend += (sr.bend_t - sr.bend) * 0.0023f;
+        f = sr.f * m * sr.bend;
         sr.ph += f * INV_SR;
         if (sr.ph >= 1.0f)
             sr.ph -= 1.0f;

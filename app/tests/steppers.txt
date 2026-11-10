@@ -44,7 +44,7 @@ wait 30
 key w0 up
 wait 3400
 # a dub push for a bar, then the riddim plays out
-key b2 down
+key b2 down 127 100
 wait 1700
 key b2 up
 wait 6800

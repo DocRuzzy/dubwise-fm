@@ -245,6 +245,8 @@ static const pdesc_t SPEAKER = {"speaker", 0, OUT_N - 1, OUT_AUTO};   /* (9.8: A
 #endif
 static const pdesc_t JACK = {"spk", 0, 1, 0};   /* (9.8: 1 the jack known empty) */
 static const pdesc_t THROW_SPR = {"thrspr", 0, (NCH << 7) | 127, 0};   /* 9.15 */
+static const pdesc_t LEAN[4] = {{"lean.push", 0, 127, 0}, {"lean.dive", 0, 127, 0}, {"lean.wet", 0, 127, 0},
+                                {"lean.siren", 0, 127, 0}};   /* 9.16 */
 static const pdesc_t DICE_SEED = {"dice.seed", 0, 30000, 0};
 static const pdesc_t DEV_LOAD = {"dev.load", 0, 100, 0};
 static const pdesc_t DEV_ECHO_AA = {"dev.echoaa", 0, 1, 0};   /* 9.7 */
@@ -364,6 +366,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &JACK;
     if (id == P_THROW_SPR)
         return &THROW_SPR;
+    if (id >= P_LEAN_PUSH && id <= P_LEAN_SIREN)
+        return &LEAN[id - P_LEAN_PUSH];
     if (id >= P_WET && id < P_DESK_END)
         return &DESK[id - P_WET];
     if (id == P_TAILS)

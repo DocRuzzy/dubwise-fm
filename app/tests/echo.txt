@@ -56,7 +56,8 @@ wav echo-push.wav
 midi 90 3C 64
 wait 200
 midi 80 3C 00
-key b2 down
+key b2 down 127 100
+# (9.16: leaned on all the way, the whole push, 1.15)
 wait 20000
 said DUB PUSH
 key b2 up

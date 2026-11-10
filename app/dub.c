@@ -140,6 +140,8 @@ static struct {
     int tier_seen;                       /* the guard tier last shown */
     int32_t spring_add;                  /* the throw black 1 added the spring to, -1 none */
     uint8_t spr_vel, spr_amt;            /* 9.15: black 1's velocity; the spring's share last sent (255: none yet) */
+    int8_t lean_k[4];                    /* 9.16: the black key leaned on for the push, dive, wet, siren (-1 none) */
+    uint8_t lean_vel[4], lean_amt[4];    /* (its velocity; the amount last sent, 255 none yet) */
     int32_t turns[NE];                   /* detents since boot, per encoder */
     uint8_t dirty_hdr, dirty_strips, dirty_centre, dirty_foot;
     uint32_t foot_sig, centre_t;         /* what the footer shows (redrawn when it changes); the centre's last draw */
@@ -782,6 +784,46 @@ static void spring_add_tick(void)
     ctl_set(P_THROW_SPR, ((dub.spring_add + 1) << 7) | a);
 }
 
+/* 9.16: the same lean on blacks 3-7. The push, the dive and drop to wet start at half the velocity and leaning adds the
+ * rest (a light touch: a little past the edge, a slight sag, a partial drop; a firm press: all of it). The sirens
+ * strike at their pitch and bend up as you lean, an octave at the most. Sent as black 1's (by 8, the ends always) */
+static void lean_send(uint32_t i)
+{
+    int32_t k = dub.lean_k[i], a;
+    if (k < 0)
+        return;
+    a = (i == 3u ? 0 : dub.lean_vel[i] / 2) + (int32_t)touch_pressure(BK[k]);
+    a = a > 127 ? 127 : a < (i == 3u ? 0 : 1) ? (i == 3u ? 0 : 1) : a;   /* (0 would be "all of it": 1 at least) */
+    if (dub.lean_amt[i] != 255 && (a == dub.lean_amt[i] || (a - dub.lean_amt[i] < 8 && dub.lean_amt[i] - a < 8
+                                                             && a != 127 && a != (i == 3u ? 0 : 1))))
+        return;
+    dub.lean_amt[i] = (uint8_t)a;
+    ctl_set(P_LEAN_PUSH + i, a);
+}
+
+static void lean_start(uint32_t i, uint32_t k)
+{
+    dub.lean_k[i] = (int8_t)k;
+    dub.lean_vel[i] = (uint8_t)(touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u);
+    dub.lean_amt[i] = 255;
+    lean_send(i);
+}
+
+static void lean_stop(uint32_t i, uint32_t k)
+{
+    if (dub.lean_k[i] != (int8_t)k)
+        return;                          /* (the other siren took over: its bend plays on) */
+    dub.lean_k[i] = -1;
+    ctl_set(P_LEAN_PUSH + i, 0);
+}
+
+static void lean_tick(void)
+{
+    uint32_t i;
+    for (i = 0; i < 4u; i++)
+        lean_send(i);
+}
+
 static int32_t held_throw(void)         /* the throw key held (the lowest), -1 none */
 {
     uint32_t ch;
@@ -1227,6 +1269,8 @@ static void dub_input_hands(void)
                 app_say(rev ? "REVERSE" : "ONE SHOT", fxv_shot_name(k - 7u));
                 continue;
             }
+            if (k >= 2u && k <= 6u)      /* 9.16: the lean first, so the engine has it with the move */
+                lean_start(k >= 5u ? 3u : k - 2u, k);
             if (k == 5u || k == 6u)      /* the sirens A, B, while held (P2.1): a parameter, captured (5.1) */
                 ctl_set(P_SIREN, (k == 5u ? SIREN_A : SIREN_B) + 1
                                      + (int32_t)(((touch_vel(BK[k]) ? touch_vel(BK[k]) : 100u) & 127u) << 4));
@@ -1258,13 +1302,19 @@ static void dub_input_hands(void)
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 5u || k == 6u)) {
             if ((ctl_get(P_SIREN) & 15) == (k == 5u ? SIREN_A : SIREN_B) + 1)
                 ctl_set(P_SIREN, 0);             /* (the other siren, if it took over, plays on) */
+            lean_stop(3u, k);
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 4u || k == 10u)) {
             ctl_set(k == 4u ? P_WET : P_DNB, 0);
+            if (k == 4u)
+                lean_stop(2u, k);
             dub.dirty_centre = 1;
         } else if (!(keys & bit) && (dub.keys & bit) && k == 3u) {
             ctl_set(P_ECHO_DIVE, 0);
+            lean_stop(1u, k);
         } else if (!(keys & bit) && (dub.keys & bit) && (k == 1u || k == 2u)) {
             ctl_set(k == 1u ? P_ECHO_FREEZE : P_ECHO_PUSH, 0);
+            if (k == 2u)
+                lean_stop(0u, k);
             dub.dirty_foot = dub.dirty_centre = 1;
         } else if (!(keys & bit) && (dub.keys & bit) && k == 0u) {
             if (dub.spring_add >= 0) {   /* 9.15: the spring's share let go */
@@ -1762,6 +1812,7 @@ void dub_draw(void)
     demo_tick();                         /* (a demo's moves, once the engine has handed motion over) */
     desk_tick();                         /* (8.1: a desk move since the save lights SAVE) */
     spring_add_tick();                   /* (9.15: black 1's pressure, while it adds the spring to a throw) */
+    lean_tick();                         /* (9.16: blacks 3-7's) */
     {                                    /* 9.8: the headphone jack to the engine (OUTPUT AUTO), when it changes */
         int spk = plat_headphones() == 0;   /* (known empty only: not read yet is a line) */
         if (spk != ctl_get(P_JACK))
@@ -1916,6 +1967,7 @@ void dub_init(void)
     dub.dirty_hdr = dub.dirty_strips = dub.dirty_centre = dub.dirty_foot = 1;
     dub.last_lands = -1;
     dub.spring_add = -1;
+    dub.lean_k[0] = dub.lean_k[1] = dub.lean_k[2] = dub.lean_k[3] = -1;
 }
 
 /* a screen reader that has just started listening (or asks) hears the whole page */

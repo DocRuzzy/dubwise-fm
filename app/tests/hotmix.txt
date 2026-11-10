@@ -19,7 +19,7 @@ param dev.tones 1
 wav hotmix.wav
 tap PLAY
 wait 1500
-key b3 down 127
+key b3 down 127 100
 key b1 down 127
 wait 100
 key b1 up

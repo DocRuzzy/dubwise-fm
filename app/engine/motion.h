@@ -35,7 +35,7 @@ extern volatile uint32_t mot_dirty;              /* set by a capture or a clear;
 void mot_init(void);                             /* empty (at boot, before the engine runs) */
 int mot_recordable(uint32_t id);
 int mot_momentary(uint32_t id);                  /* 0..MOT_NMOM-1, or -1 */
-#define MOT_NMOM (NCH + 9u)                      /* (9.15: + the throw's spring by pressure) */
+#define MOT_NMOM (NCH + 13u)                     /* (9.15: + the throw's spring by pressure; 9.16: + four leans) */
 uint32_t mot_mom_id(uint32_t k);                 /* the momentary's parameter */
 
 /* engine (render) side */
