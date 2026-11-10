@@ -145,6 +145,17 @@ typedef struct {
 } sev_t;
 static sev_t sev[NSEV];                          /* this sixteenth's steps, in time order */
 static uint32_t nsev;
+/* 7.4: DESK MCI, after Airwindows' ConsoleMC (Chris Johnson, MIT): each strip after its fader (MCI's fader came
+ * before its drive: "overdrives easily") through sin(), clamped to +-pi/2, a little hot and its level put back: a loud
+ * channel thickens, a quiet one passes as it is. Console's asin decode of the sum, and its Sinew, were built first and
+ * measured: -72 dB from CLEAN on the demo at the headroom they need (inaudible) for +9.5 % of a block, so left out.
+ * The returns pass clean. Studio only */
+#define DESK_DRIVE 1.6f
+static int desk_mci;
+static inline float desk_enc(float x)
+{
+    return fm_sin_pi(fm_clampf(DESK_DRIVE * x, -1.5707963f, 1.5707963f)) * (1.0f / DESK_DRIVE);
+}
 static int32_t held_note[NCH], off_at[NCH];      /* the note the sequencer holds (bass, lead, the B-3), its end */
 static int32_t last_tick = -1;                   /* the sixteenth last gathered since the start */
 static void seq_start(void);
@@ -654,6 +665,7 @@ static void bus_update(void)                     /* the echo's and the voices' s
         c.head2 = 0.35f * thr_env;
     c.wow = (float)ev[P_ECHO_WOW] * (1.0f / 127.0f);   /* 6.3 */
     c.head3 = send(ev[P_ECHO_HEAD3]);           /* 7.1 */
+    desk_mci = ev[P_DESK] == DESK_MCI && tier_now == TIER_STUDIO;   /* 7.4 (Studio only) */
     echo_config(&c);
     ramp_to(&echo_ret, send(ev[P_ECHO_RET]));
     voices_config(ev, tier_now);
@@ -1495,7 +1507,7 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
         if (s->dry.left | s->echo.left | s->spring.left) {   /* a gain moving: per sample */
             for (i = 0; i < n; i++) {
                 float x = buf[i], d = ramp_next(&s->dry) * x;
-                dry[i] += d;
+                dry[i] += desk_mci ? desk_enc(d) : d;
                 ebus[i] += ramp_next(&s->echo) * x;
                 sbus[i] += ramp_next(&s->spring) * x;
                 pk = fm_maxf(pk, fm_fabsf(d));
@@ -1506,11 +1518,18 @@ static void render_seg(int32_t *lr, uint32_t n, float gain)   /* n samples, the 
             float gd = s->dry.g, ge = s->echo.g, gs = s->spring.g;
             if (gd != 0.0f) {
                 uint32_t k = stem_col(ch);
-                for (i = 0; i < n; i++) {
-                    float d = gd * buf[i];
-                    dry[i] += d;
-                    pk = fm_maxf(pk, fm_fabsf(d));
-                }
+                if (desk_mci)
+                    for (i = 0; i < n; i++) {
+                        float d = gd * buf[i];
+                        dry[i] += desk_enc(d);
+                        pk = fm_maxf(pk, fm_fabsf(d));
+                    }
+                else
+                    for (i = 0; i < n; i++) {
+                        float d = gd * buf[i];
+                        dry[i] += d;
+                        pk = fm_maxf(pk, fm_fabsf(d));
+                    }
                 if (stem_mode != STEMS_OFF)
                     for (i = 0; i < n; i++)
                         stem_add(i, k, gd * buf[i]);

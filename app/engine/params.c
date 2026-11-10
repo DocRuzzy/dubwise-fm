@@ -220,6 +220,7 @@ static const pdesc_t VOX[P_VOX_END - P_SIREN] = {
 };
 static const pdesc_t TAILS = {"tails", 0, 1, 0};
 static const pdesc_t FILL = {"fill", 0, 1, 0};
+static const pdesc_t DESK_COL = {"desk", 0, DESK_N - 1, DESK_CLEAN};
 static const pdesc_t DEV_TONES = {"dev.tones", 0, 1, 0};
 static const pdesc_t CLICK = {"click", 0, 1, 0};
 static const pdesc_t DICE_LINE = {"dice.line", 0, 1, 0};
@@ -318,6 +319,8 @@ const pdesc_t *param_desc(uint32_t id)
         return &ECHO_WOW;
     if (id == P_SPEAKER)
         return &SPEAKER;
+    if (id == P_DESK)
+        return &DESK_COL;
     if (id == P_DEV_LOAD)
         return &DEV_LOAD;
     if (id >= P_ECHO_TIME && id < P_ECHO_END)

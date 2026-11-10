@@ -117,6 +117,8 @@ enum {
     P_DICE_SEED = 0x032,      /* Dice's generator seeded with this (tests; 0: from the clock; never saved) */
     P_ECHO_WOW = 0x033,       /* 6.3: the tape's wow and flutter on the echo's repeats, 0..127 (0 none; saved in the
                                * settings' FX bytes, an older save's 0: none) */
+    P_DESK = 0x035,           /* 7.4: DESK_CLEAN, DESK_MCI (Airwindows' Console: sin() a strip, asin on the sum; Studio
+                               * only; saved in the settings' spare bytes) */
     P_SPEAKER = 0x034,        /* 6.2: OUT_LINE, OUT_SPEAKER (BASS+: the lows heard through their harmonics on the
                                * FM-1's own speaker; saved as the FX bytes, an older save's 0: LINE) */
     P_DEV_LOAD = 0x03E,       /* development: this much % added to the measured load (the guard's host tests) */
@@ -132,6 +134,7 @@ enum { LOCK_OFF, LOCK_SCALE, LOCK_CHORD, LOCK_N };
 enum { TIER_STUDIO, TIER_FOUR, TIER_SEVEN, TIER_N };
 enum { SAVER_OFF, SAVER_1, SAVER_5, SAVER_15, SAVER_N };
 enum { HPF_RES_10, HPF_RES_20, HPF_RES_40, HPF_RES_N };
+enum { DESK_CLEAN, DESK_MCI, DESK_N };
 enum { REC_FEEL, REC_HALF, REC_GRID, REC_QUANT_N };
 enum { STEMS_CHANNELS, STEMS_BUSES, STEMS_OFF, STEMS_N };
 enum { USBPORT_COMPUTER, USBPORT_KEYBOARD, USBPORT_N };

@@ -1,0 +1,37 @@
+# DESK (roadmap 7.4; SETUP): CLEAN, or MCI after Airwindows' ConsoleMC: each strip after its fader through sin(), a
+# little hot, its level put back (MCI's fader came before its drive). A hot test tone gains harmonics on MCI, none on
+# CLEAN (measured: the third harmonic -69.5 dB clean, -51.6 on MCI, at the tone's -20 dBFS with the fader up); Studio
+# only; saved with SAVE (the settings' spare bytes).
+wait 600
+listen
+param dev.tones 1
+param ch1.level 127
+param ch2.mute 1
+param ch3.mute 1
+param ch4.mute 1
+param ch5.mute 1
+param ch6.mute 1
+param ch7.mute 1
+param ch8.mute 1
+wait 300
+wav desk-clean.wav
+wait 1000
+wavstop
+param desk 1
+wait 50
+wav desk-mci.wav
+wait 1000
+wavstop
+# the SETUP row, and a reboot keeps it
+tap GLO
+wait 30
+expect ui.desk 1
+tap SAVE
+wait 300
+reboot
+wait 600
+expect ui.desk 1
+param desk 0
+param dev.tones 0
+#wav desk-clean.wav peak<-1 hf<-57
+#wav desk-mci.wav peak<-1 hf>-57
