@@ -1,12 +1,17 @@
 # The site on GitHub Pages, rebuilt from main on every merge: https://docruzzy.github.io/dubwise-fm/ — a front page,
 # the browser version (emu/: the same firmware code, compiled to WebAssembly; the hub card's "play" link), the manual
-# (manual/), the one-page cheat sheet (cheat/: the card's "cheat" link) and how to install (install/).
+# (manual/), the one-page cheat sheet (cheat/: the card's "cheat" link), how to install (install/), and the newest
+# release's package (firmware/dubwise-latest.fwsc and firmware/dubwise-X.Y.fwsc: github.io sends CORS headers, so
+# browser emulators such as fm1-emu can fetch it; GitHub's release downloads don't). Rebuilt after each release too.
 # One-time setup: the repository's Settings -> Pages -> Source: "GitHub Actions".
 name: browser version (Pages)
 
 on:
   push:
     branches: [main]
+  workflow_run:                                  # a release's packages, once the release workflow has attached them
+    workflows: ["Build and attest firmware"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -53,6 +58,23 @@ jobs:
             --repo https://github.com/DocRuzzy/dubwise-fm --tagline "a reggae and dub desk for the FM-1"
           cp -r app/docs/img site/manual/
           cp app/docs/cheatsheet.html site/cheat/index.html
+      - name: The newest release's package (firmware/)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p site/firmware
+          # the newest published release carrying a .fwsc (pre-releases included; none yet: the site goes without)
+          tag=$(gh api "repos/$GH_REPO/releases?per_page=30" --jq \
+            '[.[] | select(.draft | not) | select(any(.assets[]; .name | endswith(".fwsc")))][0].tag_name // empty')
+          if [ -z "$tag" ]; then echo "No release with a package yet"; exit 0; fi
+          gh release download "$tag" --pattern '*.fwsc' --pattern SHA256SUMS --dir site/firmware
+          (cd site/firmware && grep ' [^ ]*\.fwsc$' SHA256SUMS | sed 's# [^ ]*/# #' | sha256sum --check -)
+          pkg=$(ls site/firmware/*.fwsc | head -1)
+          cp "$pkg" site/firmware/dubwise-latest.fwsc
+          echo "$tag" > site/firmware/LATEST
+          ls -l site/firmware
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

@@ -39,6 +39,8 @@
   release, about 15 minutes later. If it fails, the release keeps only GitHub's source zip and tar.gz: read the run's
   log. A release that already carries its `.fwsc` is never rebuilt (make a new tag instead). Pushing a tag
   (`git tag v0.4.2 && git push origin v0.4.2`) works too: the workflow then makes the release itself.
+  After the release, the Pages workflow copies its `.fwsc` to the site as `firmware/dubwise-latest.fwsc` (and
+  `firmware/dubwise-X.Y.fwsc`): the URL fm1-emu's entry points at.
   (Before 2026-11-11 the workflow refused releases published from the web page: v0.2, v0.3, v0.4 and v0.4.1 have no
   packages.)
 - Tag a release (`v0.3`: blocks 6 and 7, the demo tour and the 8.x plan) once the PR is merged, on `main`; the workflow publishes it. (`v0.1-beta` was the first; `v0.2` the 5.x block, PR 10.)
