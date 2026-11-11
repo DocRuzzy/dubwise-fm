@@ -33,6 +33,14 @@
   the panel's labels (the DUB page's). Keep it in step if a button's job or the knobs' DUB-page names change. Its
   warnings appear in RemoteFM1FW's `catalog/catalog.json` under `author_meta.warnings`.
 - Make this release's save fixture (roadmap 9.13; `app/tests/fixtures/README.md`): its simulator, from the tag, saves a project and a slot; the flash gzipped in `app/tests/fixtures/`, and a `fixture_vX.Y.txt` that loads it.
+- **Release from the web page:** Releases → Draft a new release → choose a tag, type a new one (`v0.4.2`), target
+  `main` → **Publish release**. The workflow (Actions → "Build and attest firmware") then builds and tests the
+  firmware and attaches `dubwise-X.Y.fwsc`, the app `.bin`, the `.rfm1`, `firmware.json` and `SHA256SUMS` to that
+  release, about 15 minutes later. If it fails, the release keeps only GitHub's source zip and tar.gz: read the run's
+  log. A release that already carries its `.fwsc` is never rebuilt (make a new tag instead). Pushing a tag
+  (`git tag v0.4.2 && git push origin v0.4.2`) works too: the workflow then makes the release itself.
+  (Before 2026-11-11 the workflow refused releases published from the web page: v0.2, v0.3, v0.4 and v0.4.1 have no
+  packages.)
 - Tag a release (`v0.3`: blocks 6 and 7, the demo tour and the 8.x plan) once the PR is merged, on `main`; the workflow publishes it. (`v0.1-beta` was the first; `v0.2` the 5.x block, PR 10.)
 - Email zven@thefirmwarehub.com:
   - the name (Dubwise FM) and the author (DocRuzzy, SpIllt Beats)

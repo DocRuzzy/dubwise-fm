@@ -47,7 +47,13 @@ jobs:
           flags=(--prerelease=false)
           if [[ "$version" == *-* ]]; then flags=(--prerelease --latest=false); fi
           if draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft); then
-            [[ "$draft" == true ]] || { echo 'Refusing to rebuild a public release'; exit 1; }
+            # a release published from the web page (Releases > Draft a new release > Publish) is public before the
+            # build: fill it if it has no package yet; never replace a package a public release already carries
+            if [[ "$draft" != true ]]; then
+              fwsc=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '[.assets[].name | select(endswith(".fwsc"))] | length')
+              [[ "$fwsc" == 0 ]] || { echo 'Refusing to rebuild a public release that has its package'; exit 1; }
+              echo "Public release without a package (published from the web page): building it"
+            fi
           else
             gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
               --title "$TITLE $version" --generate-notes "${flags[@]}"
