@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Quixotic7/RemoteFM1FW/main/docs/RemoteFM1Metadata.schema.json",
+  "schema": 1,
+  "card": {
+    "tag": "A dub mixing desk you play live",
+    "what": "In dub, the mixing desk is the instrument. Dubwise FM is an eight-channel reggae band (FM drums, bass, skank, organ, melodica or horns, sirens and shouts), each channel with a mute and a throw, feeding a tape echo you can push into feedback and a spring reverb you can kick. Quantised mutes land on the one with a countdown, the stepped Big Knob filter clicks like King Tubby's, and every drop, throw and sweep is yours: nothing plays itself. Record your moves into a song, recall them as scenes, or take the eight stems out over USB.",
+    "category": "Groovebox",
+    "site": "https://docruzzy.github.io/dubwise-fm/",
+    "port": "DUBWISE FM-1",
+    "image": "app/docs/img/remotefm1-card.png"
+  },
+  "skin": {
+    "theme": { "body": "#1A1714", "key": "#2A2622", "knob": "#EDE3CC", "led": "#F27848", "bezel": "#0F0D0B" }
+  },
+  "labels": {
+    "buttons": { "SEQ": "STEPS", "ARP": "KEY", "GLO": "SETUP", "EDIT": "SOUND", "OCT-": "Q-", "OCT+": "Q+" },
+    "knobs": { "SELECT": "BIG", "ALGO": "CHAN", "PRESETS": "PATCH", "K1": "TIME", "K2": "FB", "K3": "ECHO", "K4": "SPRG" }
+  }
+}
